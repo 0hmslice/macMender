@@ -1,0 +1,67 @@
+import SwiftUI
+
+struct AdvancedView: View {
+    @ObservedObject var appModel: AppModel
+    @State private var showingResetConfirmation = false
+
+    var body: some View {
+        PreferencesScrollView {
+            SectionCard(title: "Diagnostics", subtitle: "Local messages only. macMender does not upload diagnostics.", symbolName: "stethoscope") {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(appModel.diagnostics.latestMessages, id: \.self) { message in
+                        Label(message, systemImage: "info.circle")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            SectionCard(title: "Recovery", subtitle: "Fast exits and reversible changes matter for always-on utilities.", symbolName: "arrow.counterclockwise") {
+                HStack {
+                    Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
+                        appModel.toggleSafeMode()
+                    }
+                    Button("Read Dock Defaults") {
+                        appModel.dock.refresh()
+                    }
+                    Button("Save Configuration") {
+                        appModel.store.save()
+                    }
+                    Button("Reset to Onboarding", role: .destructive) {
+                        showingResetConfirmation = true
+                    }
+                }
+            }
+
+            SectionCard(title: "Implementation Notes", subtitle: "System integrations stay local, reversible, and explicit.", symbolName: "lock.trianglebadge.exclamationmark") {
+                VStack(alignment: .leading, spacing: 8) {
+                    BoundaryRow(title: "Menu bar organization", detail: "Uses reversible status-item dividers and Command-drag behavior instead of modifying other apps.")
+                    BoundaryRow(title: "Dock icon hover previews", detail: "Reads the Dock accessibility tree and disables itself when Accessibility is unavailable.")
+                    BoundaryRow(title: "Three-finger global gestures", detail: "Uses local multitouch callbacks where available and falls back to mouse-button triggers otherwise.")
+                    BoundaryRow(title: "Spaces movement", detail: "Only actions with a reliable local runtime path are exposed in the UI.")
+                }
+            }
+        }
+        .confirmationDialog("Reset macMender?", isPresented: $showingResetConfirmation) {
+            Button("Reset to Onboarding", role: .destructive) {
+                appModel.resetToOnboarding()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This clears local settings and shows onboarding again.")
+        }
+    }
+}
+
+private struct BoundaryRow: View {
+    var title: String
+    var detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+}

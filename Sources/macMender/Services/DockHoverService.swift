@@ -1,0 +1,333 @@
+import AppKit
+import ApplicationServices
+import Foundation
+
+@MainActor
+final class DockHoverService: ObservableObject {
+    @Published private(set) var isRunning = false
+    @Published private(set) var lastHoveredApp: String?
+
+    var hoverDelay: TimeInterval = 0.35
+    var onHoverApp: ((String, CGRect) -> Void)?
+    var onExitDock: (() -> Void)?
+
+    private var globalMouseMonitor: Any?
+    private var localMouseMonitor: Any?
+    private var fallbackTimer: Timer?
+    private var hoverTask: Task<Void, Never>?
+    private var hoverStart: Date?
+    private var pendingApp: String?
+    private var displayedApp: String?
+    private var lastInsideDockAt: Date?
+    private var cachedDockItems: [DockItem] = []
+    private var lastDockItemRefresh: Date?
+    private let exitGrace: TimeInterval = 0.22
+    private let dockItemCacheDuration: TimeInterval = 30
+    private let fallbackPollInterval: TimeInterval = 1.25
+
+    func start() {
+        guard globalMouseMonitor == nil, localMouseMonitor == nil else { return }
+
+        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.poll()
+            }
+        }
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+            Task { @MainActor [weak self] in
+                self?.poll()
+            }
+            return event
+        }
+        fallbackTimer = Timer.scheduledTimer(withTimeInterval: fallbackPollInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.poll(allowNewHover: false)
+            }
+        }
+
+        setRunning(true)
+        refreshDockItems(force: true)
+    }
+
+    func stop() {
+        if let globalMouseMonitor {
+            NSEvent.removeMonitor(globalMouseMonitor)
+        }
+        if let localMouseMonitor {
+            NSEvent.removeMonitor(localMouseMonitor)
+        }
+        fallbackTimer?.invalidate()
+        globalMouseMonitor = nil
+        localMouseMonitor = nil
+        fallbackTimer = nil
+        setRunning(false)
+        setLastHoveredApp(nil)
+        hoverStart = nil
+        pendingApp = nil
+        displayedApp = nil
+        hoverTask?.cancel()
+        hoverTask = nil
+        cachedDockItems = []
+        lastDockItemRefresh = nil
+        onExitDock?()
+    }
+
+    private func poll(allowNewHover: Bool = true) {
+        guard let item = dockItemUnderMouse() else {
+            clearPendingHover()
+            if let lastInsideDockAt, Date().timeIntervalSince(lastInsideDockAt) < exitGrace {
+                return
+            }
+            if displayedApp != nil {
+                displayedApp = nil
+                onExitDock?()
+            }
+            return
+        }
+
+        lastInsideDockAt = Date()
+        setLastHoveredApp(item.title)
+        guard allowNewHover || pendingApp != nil || displayedApp != nil else {
+            return
+        }
+        if pendingApp != item.title {
+            pendingApp = item.title
+            hoverStart = Date()
+            schedulePreview(for: item)
+            return
+        }
+
+        guard displayedApp != item.title,
+              let hoverStart,
+              Date().timeIntervalSince(hoverStart) >= hoverDelay else {
+            return
+        }
+
+        displayedApp = item.title
+        onHoverApp?(item.title, item.anchorFrame)
+    }
+
+    private func schedulePreview(for item: DockItem) {
+        hoverTask?.cancel()
+        hoverTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .milliseconds(Int(self.hoverDelay * 1000)))
+            guard !Task.isCancelled,
+                  self.pendingApp == item.title,
+                  self.displayedApp != item.title,
+                  let current = self.dockItemUnderMouse(),
+                  current.title == item.title else {
+                return
+            }
+
+            self.displayedApp = item.title
+            self.onHoverApp?(item.title, current.anchorFrame)
+        }
+    }
+
+    private func dockItemUnderMouse() -> DockItem? {
+        guard let mouse = CGEvent(source: nil)?.location else { return nil }
+        guard isDockCurrentlyVisible() else {
+            cachedDockItems = []
+            lastDockItemRefresh = nil
+            return nil
+        }
+        refreshDockItemsIfNeeded(near: mouse)
+        return cachedDockItems.first { $0.hitFrame.insetBy(dx: -4, dy: -8).contains(mouse) && !$0.title.isEmpty }
+    }
+
+    private func refreshDockItems(force: Bool) {
+        guard force || shouldRefreshDockItems(near: nil) else {
+            return
+        }
+        cachedDockItems = loadDockItems()
+        lastDockItemRefresh = Date()
+    }
+
+    private func refreshDockItemsIfNeeded(near mouse: CGPoint) {
+        if cachedDockItems.isEmpty {
+            refreshDockItems(force: true)
+            return
+        }
+        guard shouldRefreshDockItems(near: mouse) else { return }
+        refreshDockItems(force: true)
+    }
+
+    private func shouldRefreshDockItems(near mouse: CGPoint?) -> Bool {
+        guard let lastDockItemRefresh else { return true }
+        guard Date().timeIntervalSince(lastDockItemRefresh) >= dockItemCacheDuration else { return false }
+        guard let mouse else { return true }
+        return cachedDockItems
+            .map(\.hitFrame)
+            .reduce(CGRect.null) { $0.union($1) }
+            .insetBy(dx: -180, dy: -140)
+            .contains(mouse)
+    }
+
+    private func clearPendingHover() {
+        setLastHoveredApp(nil)
+        if pendingApp != nil {
+            pendingApp = nil
+        }
+        if hoverStart != nil {
+            hoverStart = nil
+        }
+        if hoverTask != nil {
+            hoverTask?.cancel()
+            hoverTask = nil
+        }
+    }
+
+    private func setRunning(_ value: Bool) {
+        if isRunning != value {
+            isRunning = value
+        }
+    }
+
+    private func setLastHoveredApp(_ value: String?) {
+        if lastHoveredApp != value {
+            lastHoveredApp = value
+        }
+    }
+
+    private func loadDockItems() -> [DockItem] {
+        guard let list = visibleDockList() else {
+            return []
+        }
+
+        var itemValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(list, kAXChildrenAttribute as CFString, &itemValue) == .success,
+              let elements = itemValue as? [AXUIElement] else {
+            return []
+        }
+
+        return elements.compactMap { element in
+            var roleValue: CFTypeRef?
+            AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
+            guard (roleValue as? String) == "AXDockItem" else { return nil }
+
+            var titleValue: CFTypeRef?
+            var positionValue: CFTypeRef?
+            var sizeValue: CFTypeRef?
+            AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue)
+            AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue)
+            AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
+
+            guard let title = titleValue as? String,
+                  let positionValue,
+                  let sizeValue else {
+                return nil
+            }
+
+            var position = CGPoint.zero
+            var size = CGSize.zero
+            AXValueGetValue(positionValue as! AXValue, .cgPoint, &position)
+            AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+            let hitFrame = quartzFrame(fromAccessibilityPosition: position, size: size)
+            return DockItem(
+                title: title,
+                hitFrame: hitFrame,
+                anchorFrame: appKitFrame(fromQuartzFrame: hitFrame)
+            )
+        }
+    }
+
+    private func isDockCurrentlyVisible() -> Bool {
+        visibleDockList() != nil
+    }
+
+    private func visibleDockList() -> AXUIElement? {
+        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
+            return nil
+        }
+
+        let dockElement = AXUIElementCreateApplication(dock.processIdentifier)
+        var childrenValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(dockElement, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+              let children = childrenValue as? [AXUIElement],
+              let list = children.first else {
+            return nil
+        }
+
+        return isDockListVisible(list) ? list : nil
+    }
+
+    private func isDockListVisible(_ list: AXUIElement) -> Bool {
+        let frame = rawFrame(for: list)
+        guard frame.width > 0, frame.height > 0 else { return false }
+
+        return NSScreen.screens.contains { screen in
+            let intersection = frame.intersection(screen.frame)
+            let visibleArea = intersection.width * intersection.height
+            let totalArea = frame.width * frame.height
+            return visibleArea >= totalArea * 0.55
+        }
+    }
+
+    private func rawFrame(for element: AXUIElement) -> CGRect {
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,
+              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success,
+              let positionValue,
+              let sizeValue else {
+            return .zero
+        }
+
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        AXValueGetValue(positionValue as! AXValue, .cgPoint, &position)
+        AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+        return CGRect(origin: position, size: size)
+    }
+
+    private func quartzFrame(fromAccessibilityPosition position: CGPoint, size: CGSize) -> CGRect {
+        let screen = NSScreen.screens.first { screen in
+            position.x >= screen.frame.minX &&
+                position.x <= screen.frame.maxX &&
+                position.y >= screen.frame.minY &&
+                position.y <= screen.frame.maxY
+        } ?? NSScreen.main
+
+        guard let screen else {
+            return CGRect(origin: position, size: size)
+        }
+
+        var origin = position
+        if position.y >= screen.frame.maxY - 1 {
+            origin.y = screen.frame.maxY - size.height
+        }
+        if position.x >= screen.frame.maxX - 1 {
+            origin.x = screen.frame.maxX - size.width
+        }
+
+        return CGRect(origin: origin, size: size)
+    }
+
+    private func appKitFrame(fromQuartzFrame frame: CGRect) -> CGRect {
+        let screen = NSScreen.screens.first { screen in
+            frame.midX >= screen.frame.minX &&
+                frame.midX <= screen.frame.maxX &&
+                frame.midY >= screen.frame.minY &&
+                frame.midY <= screen.frame.maxY
+        } ?? NSScreen.main
+
+        guard let screen else {
+            return frame
+        }
+
+        return CGRect(
+            x: frame.minX,
+            y: screen.frame.maxY - frame.maxY,
+            width: frame.width,
+            height: frame.height
+        )
+    }
+}
+
+private struct DockItem {
+    var title: String
+    var hitFrame: CGRect
+    var anchorFrame: CGRect
+}

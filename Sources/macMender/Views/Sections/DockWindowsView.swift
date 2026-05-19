@@ -1,0 +1,258 @@
+import AppKit
+import SwiftUI
+
+struct DockWindowsView: View {
+    @ObservedObject var appModel: AppModel
+    @State private var tab = DockTab.switcher
+    @State private var showingApplyConfirmation = false
+    @State private var showingDockResetConfirmation = false
+
+    enum DockTab: String, CaseIterable, Identifiable {
+        case switcher = "Switcher"
+        case previews = "Dock Previews"
+        case settings = "Dock Settings"
+        case profiles = "Dock Profiles"
+        var id: String { rawValue }
+    }
+
+    var body: some View {
+        PreferencesScrollView {
+            Picker("Dock Area", selection: $tab) {
+                ForEach(DockTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            switch tab {
+            case .switcher:
+                switcherView
+            case .previews:
+                previewsView
+            case .settings:
+                settingsView
+            case .profiles:
+                profilesView
+            }
+        }
+        .confirmationDialog("Apply Dock settings?", isPresented: $showingApplyConfirmation) {
+            Button("Apply and Restart Dock") {
+                appModel.dock.apply(appModel.activeProfile.dock)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Dock changes are written to your user Dock preferences. macMender will restart Dock so macOS reloads them.")
+        }
+        .confirmationDialog("Reset Dock to macOS defaults?", isPresented: $showingDockResetConfirmation) {
+            Button("Reset and Restart Dock", role: .destructive) {
+                appModel.dock.resetToMacOSDefaults()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes macMender-managed Dock defaults and restarts Dock.")
+        }
+    }
+
+    private var switcherView: some View {
+        SectionCard(title: "Enhanced Window Switcher", subtitle: "Option+Tab style switching with thumbnail fallback states.", symbolName: "rectangle.3.group") {
+            VStack(alignment: .leading, spacing: 14) {
+                Toggle("Enable Window Switcher", isOn: binding(\.windowSwitcher.enabled))
+                Picker("Shortcut", selection: binding(\.windowSwitcher.shortcut)) {
+                    Text("Option+Tab").tag("Option+Tab")
+                    Text("Control+Tab").tag("Control+Tab")
+                    Text("Option+Space").tag("Option+Space")
+                    Text("Control+Space").tag("Control+Space")
+                }
+                Picker("Layout", selection: binding(\.windowSwitcher.layout)) {
+                    ForEach(SwitcherLayout.allCases) { layout in
+                        Text(layout.title).tag(layout)
+                    }
+                }
+                LabeledSlider(
+                    title: "Thumbnail Size",
+                    value: binding(\.windowSwitcher.thumbnailSize),
+                    range: 96...280,
+                    step: 4,
+                    valueLabel: appModel.activeProfile.windowSwitcher.thumbnailSize.wholeNumberLabel
+                )
+                Toggle("Include minimized windows", isOn: binding(\.windowSwitcher.includeMinimizedWindows))
+                Toggle("Include hidden apps", isOn: binding(\.windowSwitcher.includeHiddenApps))
+                HStack {
+                    CapabilityBadge(title: appModel.permissions.screenRecording == .granted ? "Thumbnails Available" : "Icon Fallback", systemImage: "rectangle.on.rectangle", tone: appModel.permissions.screenRecording == .granted ? .active : .warning)
+                    CapabilityBadge(title: appModel.windowSwitcher.presentationStatus, systemImage: appModel.windowSwitcher.isShowing ? "rectangle.stack.fill" : "info.circle", tone: appModel.windowSwitcher.isShowing ? .active : .neutral)
+                    Spacer()
+                    Button("Test Switcher") {
+                        appModel.windowSwitcher.show(settings: appModel.activeProfile.windowSwitcher)
+                    }
+                }
+            }
+        }
+    }
+
+    private var previewsView: some View {
+        SectionCard(title: "Dock Previews", subtitle: "Hover a running Dock icon to show a macMender preview panel for that app's windows.", symbolName: "dock.arrow.up.rectangle") {
+            VStack(alignment: .leading, spacing: 14) {
+                Toggle("Enable Dock Previews", isOn: binding(\.dockPreviews.enabled))
+                LabeledSlider(
+                    title: "Hover Delay",
+                    value: binding(\.dockPreviews.hoverDelay),
+                    range: 0.1...1.2,
+                    step: 0.05,
+                    valueLabel: "\(appModel.activeProfile.dockPreviews.hoverDelay.sliderValueLabel)s"
+                )
+                Picker("Preview Layout", selection: binding(\.dockPreviews.layout)) {
+                    ForEach(SwitcherLayout.allCases) { layout in
+                        Text(layout.title).tag(layout)
+                    }
+                }
+                LabeledSlider(
+                    title: "Preview Size",
+                    value: binding(\.dockPreviews.thumbnailSize),
+                    range: 96...280,
+                    step: 4,
+                    valueLabel: appModel.activeProfile.dockPreviews.thumbnailSize.wholeNumberLabel
+                )
+
+                HStack {
+                    CapabilityBadge(
+                        title: appModel.dockHover.isRunning ? "Hover Monitor Running" : "Hover Monitor Paused",
+                        systemImage: appModel.dockHover.isRunning ? "checkmark.circle.fill" : "pause.circle",
+                        tone: appModel.dockHover.isRunning ? .active : .warning
+                    )
+                    if let app = appModel.dockHover.lastHoveredApp {
+                        CapabilityBadge(title: "Hovering \(app)", systemImage: "cursorarrow.motionlines", tone: .neutral)
+                    }
+                    Spacer()
+                }
+
+                Text("macMender reads the Dock's accessibility tree, waits for the configured hover delay, then opens the same preview panel used by the keyboard switcher. It does not modify the Dock process.")
+                    .foregroundStyle(.secondary)
+
+                Button("Refresh Runtime") {
+                    appModel.refreshSystemState(force: true)
+                }
+                Button("Test Dock Preview") {
+                    let screenFrame = NSApp.keyWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+                    let anchor = CGRect(x: screenFrame.midX - 30, y: screenFrame.minY + 8, width: 60, height: 60)
+                    appModel.windowSwitcher.showDockPreviewForMostRecentApp(
+                        settings: appModel.activeProfile.dockPreviews.overlaySettings(using: appModel.activeProfile.windowSwitcher),
+                        anchorFrame: anchor
+                    )
+                }
+            }
+        }
+    }
+
+    private var settingsView: some View {
+        SectionCard(title: "Dock Settings", subtitle: "Preview first, apply explicitly, and keep a recoverable path.", symbolName: "dock.rectangle") {
+            VStack(alignment: .leading, spacing: 14) {
+                DockPreview(settings: appModel.activeProfile.dock)
+
+                LabeledSlider(title: "Size", value: binding(\.dock.size), range: 24...96, step: 1, valueLabel: appModel.activeProfile.dock.size.wholeNumberLabel)
+                Toggle("Magnification", isOn: binding(\.dock.magnificationEnabled))
+                LabeledSlider(title: "Magnification Size", value: binding(\.dock.magnificationSize), range: 32...128, step: 1, valueLabel: appModel.activeProfile.dock.magnificationSize.wholeNumberLabel)
+                Picker("Position", selection: binding(\.dock.position)) {
+                    ForEach(DockPosition.allCases) { position in
+                        Text(position.title).tag(position)
+                    }
+                }
+                Toggle("Auto-hide", isOn: binding(\.dock.autoHide))
+                LabeledSlider(title: "Auto-hide Delay", value: binding(\.dock.autoHideDelay), range: 0...2, step: 0.05, valueLabel: "\(appModel.activeProfile.dock.autoHideDelay.sliderValueLabel)s")
+                LabeledSlider(title: "Animation Speed", value: binding(\.dock.autoHideAnimationSpeed), range: 0...1, step: 0.05, valueLabel: "\(appModel.activeProfile.dock.autoHideAnimationSpeed.sliderValueLabel)s")
+                Toggle("Show recent apps", isOn: binding(\.dock.showRecentApps))
+                Toggle("Show indicators for open apps", isOn: binding(\.dock.showIndicators))
+
+                let changes = appModel.dock.diff(from: appModel.dock.currentSettings, to: appModel.activeProfile.dock)
+                if changes.isEmpty {
+                    HStack(spacing: 12) {
+                        MendyAvatarView(mood: .success, size: 48)
+                        Text("Current Dock settings already match this profile.")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    HStack(alignment: .top, spacing: 12) {
+                        MendyAvatarView(mood: .fixing, size: 48)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Pending Changes")
+                                .font(.subheadline)
+                            ForEach(changes, id: \.self) { change in
+                                Text(change)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+
+                HStack {
+                    Button("Read Current Dock") {
+                        appModel.dock.refresh()
+                    }
+                    Button("Apply Profile to Dock") {
+                        showingApplyConfirmation = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button("Reset Dock Defaults", role: .destructive) {
+                        showingDockResetConfirmation = true
+                    }
+                }
+            }
+        }
+    }
+
+    private var profilesView: some View {
+        SectionCard(title: "Dock Profiles", subtitle: "Dock settings are bundled inside each macMender profile.", symbolName: "square.stack.3d.up") {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(appModel.store.config.profiles) { profile in
+                    HStack {
+                        Label(profile.name, systemImage: profile.symbolName)
+                        Spacer()
+                        Text("\(profile.dock.position.title), \(Int(profile.dock.size)) px")
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<MacMenderProfile, Value>) -> Binding<Value> {
+        Binding {
+            appModel.activeProfile[keyPath: keyPath]
+        } set: { newValue in
+            var profile = appModel.activeProfile
+            profile[keyPath: keyPath] = newValue
+            appModel.updateActiveProfile(profile)
+        }
+    }
+}
+
+private struct DockPreview: View {
+    var settings: DockSettings
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(0..<8, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(index == 2 ? .blue.opacity(0.65) : .secondary.opacity(0.22))
+                    .frame(width: dockItemSize(index), height: dockItemSize(index))
+                    .overlay(alignment: .bottom) {
+                        if settings.showIndicators && [1, 2, 4].contains(index) {
+                            Circle()
+                                .fill(.primary.opacity(0.55))
+                                .frame(width: 4, height: 4)
+                                .offset(y: 8)
+                        }
+                    }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func dockItemSize(_ index: Int) -> Double {
+        guard settings.magnificationEnabled, index == 2 else { return settings.size * 0.7 }
+        return settings.magnificationSize * 0.7
+    }
+}
