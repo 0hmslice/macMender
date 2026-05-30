@@ -63,7 +63,7 @@ Ice still uses synthetic movement for arrangement, but it does it carefully:
 - verifies frame changes
 - retries failed moves
 
-macMender routes explicit arrangement through Ice-style taps, verifies frame changes, and only offers items backed by real WindowServer menu-bar windows. Unlike Ice/Thaw, macMender does not call cursor-warp or cursor-hide APIs during normal menu-bar management; movement uses targeted events only, so the pointer should not visibly jump. The scanner no longer creates hideable rows from generic app windows or AX-only guesses, which prevents false positives like Finder, Messages, or browser app windows. Apple modules follow Ice-style controllability rules where possible, while fixed items such as Clock and unresolved generic Control Center hosts remain read-only.
+macMender routes explicit arrangement through Ice-style taps, verifies frame changes, and only offers items backed by real WindowServer menu-bar windows. Cursor warp/hide APIs are isolated to `MenuBarItemMover` as a scoped Thaw-style guard around physical status-item movement; normal reveal, activation, Dock/window, and UI paths must not use those APIs. The pointer should not visibly jump because the mover restores the original pointer position after the targeted movement attempt. The scanner no longer creates hideable rows from generic app windows or AX-only guesses, which prevents false positives like Finder, Messages, or browser app windows. Apple modules follow Ice-style controllability rules where possible, while fixed items such as Clock and unresolved generic Control Center hosts remain read-only.
 
 ## Thaw Source-PID Layer
 

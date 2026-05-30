@@ -40,4 +40,4 @@ Thaw uses a bundled XPC service at `Thaw.app/Contents/XPCServices/MenuBarItemSer
 - Keep Ice/Thaw attribution in `docs/THIRD_PARTY_NOTICES.md`.
 - The layout UI must never show an item as Hidden or Always Hidden when live window state says it is physically visible.
 - Direct real-menu-bar reordering changes order only. It must not silently change section membership except to resolve a visible/hidden conflict in favor of visible reality.
-- Cursor warp/hide APIs remain forbidden. Any event-routing code must target status-item windows/processes and must not move the visible pointer.
+- Cursor warp/hide APIs are forbidden outside the scoped Thaw-style movement guard in `MenuBarItemMover`. That one path may hide the cursor and restore the original pointer position while physically moving a status item; reveal, activation, Dock/window, and app-facing UI paths must not use cursor warp/hide APIs.

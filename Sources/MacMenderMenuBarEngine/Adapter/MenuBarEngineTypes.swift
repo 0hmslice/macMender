@@ -38,6 +38,13 @@ public struct MenuBarEngineSnapshot: Equatable, Sendable {
         self.readOnly = readOnly
     }
 
+    public init(items: [MenuBarEngineItem]) {
+        self.visible = items.filter { !$0.isReadOnly && $0.section == .visible }
+        self.hidden = items.filter { !$0.isReadOnly && $0.section == .hidden }
+        self.alwaysHidden = items.filter { !$0.isReadOnly && $0.section == .alwaysHidden }
+        self.readOnly = items.filter(\.isReadOnly)
+    }
+
     public var allManagedItems: [MenuBarEngineItem] {
         visible + hidden + alwaysHidden
     }
@@ -77,6 +84,10 @@ public struct MenuBarEngineItem: Identifiable, Equatable, Sendable {
         self.canHide = canHide
         self.canMove = canMove
         self.imageData = imageData
+    }
+
+    public var isReadOnly: Bool {
+        !canHide && !canMove
     }
 }
 
@@ -134,6 +145,14 @@ public enum MenuBarEngineSection: String, Codable, CaseIterable, Identifiable, S
     case alwaysHidden
 
     public var id: String { rawValue }
+}
+
+public enum MenuBarEngineMovementPolicy {
+    /// macMender currently keeps Ice/Thaw's scoped cursor guard only inside the
+    /// menu-bar item mover. No other app activation, reveal, or pointer path may
+    /// use cursor warp/hide APIs.
+    public static let allowsScopedCursorGuard = true
+    public static let description = "Scoped Thaw-style menu-bar movement guard"
 }
 
 public enum MenuBarRevealTrigger: String, Codable, Sendable {

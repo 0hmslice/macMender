@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 @preconcurrency import CoreGraphics
 import Foundation
+import MacMenderMenuBarEngine
 
 // Portions of this file are adapted from Ice for macOS (GPL-3.0).
 // Source: https://github.com/jordanbaird/Ice
@@ -50,6 +51,7 @@ final class MenuBarItemMover {
         case invalidEventSource
         case invalidItem
         case cursorCouldNotBeHidden
+        case cursorGuardDisabled
         case eventCreation
         case eventOperationTimeout
         case frameDidNotChange
@@ -100,6 +102,9 @@ final class MenuBarItemMover {
 
         guard let source = CGEventSource(stateID: .hidSystemState) else {
             throw MoveError.invalidEventSource
+        }
+        guard MenuBarEngineMovementPolicy.allowsScopedCursorGuard else {
+            throw MoveError.cursorGuardDisabled
         }
 
         source.setLocalEventsFilterDuringSuppressionState(.macMenderPermitAllEvents, state: .eventSuppressionStateRemoteMouseDrag)

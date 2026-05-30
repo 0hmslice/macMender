@@ -680,14 +680,9 @@ extension MenuBarScannerService: MenuBarSecondaryBarControllerDelegate {
 
 extension MenuBarScannerService: MenuBarEngineProtocol {
     var snapshot: MenuBarEngineSnapshot {
-        var visible = [MenuBarEngineItem]()
-        var hidden = [MenuBarEngineItem]()
-        var alwaysHidden = [MenuBarEngineItem]()
-        var readOnly = [MenuBarEngineItem]()
-
-        for item in detectedItems {
+        let engineItems = detectedItems.map { item in
             let section = engineSection(for: item)
-            let engineItem = MenuBarEngineItem(
+            return MenuBarEngineItem(
                 id: item.sectionKey,
                 displayName: item.displayTitle,
                 sourceBundleIdentifier: item.sourceBundleIdentifier,
@@ -698,34 +693,16 @@ extension MenuBarScannerService: MenuBarEngineProtocol {
                 canHide: item.canBeHiddenBySystem && item.isHideCandidate,
                 canMove: item.isMovableBySystem && item.isHideCandidate
             )
-
-            if !item.isHideCandidate {
-                readOnly.append(engineItem)
-            } else {
-                switch section {
-                case .visible:
-                    visible.append(engineItem)
-                case .hidden:
-                    hidden.append(engineItem)
-                case .alwaysHidden:
-                    alwaysHidden.append(engineItem)
-                }
-            }
         }
 
-        return MenuBarEngineSnapshot(
-            visible: visible,
-            hidden: hidden,
-            alwaysHidden: alwaysHidden,
-            readOnly: readOnly
-        )
+        return MenuBarEngineSnapshot(items: engineItems)
     }
 
     var status: MenuBarEngineStatus {
         MenuBarEngineStatus(
             isRunning: shelfEnabled,
             isRevealed: overflowVisible,
-            description: "\(overflowStatusDescription) (Thaw Port)"
+            description: "\(overflowStatusDescription) (Thaw Port, \(MenuBarEngineMovementPolicy.description))"
         )
     }
 

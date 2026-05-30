@@ -35,6 +35,27 @@ struct MenuBarEnginePortTests {
         #expect(cache[.alwaysHidden].first?.tag == codex.tag)
     }
 
+    @Test("engine snapshot centralizes managed and read-only sections")
+    func engineSnapshotCentralizesSections() {
+        let visible = engineItem(id: "visible", section: .visible, canHide: true, canMove: true)
+        let hidden = engineItem(id: "hidden", section: .hidden, canHide: true, canMove: true)
+        let alwaysHidden = engineItem(id: "always", section: .alwaysHidden, canHide: true, canMove: true)
+        let readOnly = engineItem(id: "clock", section: .visible, canHide: false, canMove: false)
+
+        let snapshot = MenuBarEngineSnapshot(items: [visible, hidden, alwaysHidden, readOnly])
+
+        #expect(snapshot.visible.map(\.id) == ["visible"])
+        #expect(snapshot.hidden.map(\.id) == ["hidden"])
+        #expect(snapshot.alwaysHidden.map(\.id) == ["always"])
+        #expect(snapshot.readOnly.map(\.id) == ["clock"])
+    }
+
+    @Test("engine movement policy documents the scoped cursor guard")
+    func engineMovementPolicyDocumentsScopedCursorGuard() {
+        #expect(MenuBarEngineMovementPolicy.allowsScopedCursorGuard)
+        #expect(MenuBarEngineMovementPolicy.description.localizedCaseInsensitiveContains("Thaw"))
+    }
+
     @Test("source tree forbids cursor warp and hide APIs")
     func sourceTreeForbidsCursorWarpAndHideAPIs() throws {
         let root = URL(fileURLWithPath: #filePath)
@@ -63,6 +84,25 @@ struct MenuBarEnginePortTests {
                 Issue.record("Forbidden cursor API \(symbol) found in \(file.path)")
             }
         }
+    }
+
+    private func engineItem(
+        id: String,
+        section: MenuBarEngineSection,
+        canHide: Bool,
+        canMove: Bool
+    ) -> MenuBarEngineItem {
+        MenuBarEngineItem(
+            id: id,
+            displayName: id,
+            sourceBundleIdentifier: nil,
+            sourceProcessIdentifier: nil,
+            windowID: 0,
+            frame: .zero,
+            section: section,
+            canHide: canHide,
+            canMove: canMove
+        )
     }
 
     @Test("app activation paths do not synthesize mouse input")
