@@ -105,7 +105,7 @@ private struct PermissionCard: View {
     var body: some View {
         SectionCard(title: title, subtitle: subtitle, symbolName: symbolName) {
             HStack(spacing: 12) {
-                MendyAvatarView(mood: state == .granted ? .success : .error, size: 46)
+                MendyAvatarView(mood: state == .granted ? .success : .error, size: MendyAvatarSize.compact)
                 CapabilityBadge(
                     title: state.title,
                     systemImage: state == .granted ? "checkmark.circle.fill" : "exclamationmark.circle",

@@ -104,6 +104,14 @@ enum MendyAssets {
     }
 }
 
+enum MendyAvatarSize {
+    static let hero: CGFloat = 180
+    static let prominent: CGFloat = 128
+    static let panel: CGFloat = 108
+    static let compact: CGFloat = 84
+    static let sidebar: CGFloat = 76
+}
+
 struct MendyAvatarView: View {
     let mood: MendyMood
     let size: CGFloat
@@ -120,11 +128,12 @@ struct MendyAvatarView: View {
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .padding(size * 0.07)
+                .padding(size * 0.025)
+                .scaleEffect(imageFillScale)
                 .scaleEffect(activityScale)
                 .offset(x: activityOffset.width, y: activityOffset.height)
                 .rotationEffect(activityRotation)
-                .shadow(color: mood.accentColor.opacity(activityGlow), radius: size * 0.13, y: size * 0.04)
+                .shadow(color: mood.accentColor.opacity(activityGlow), radius: size * 0.16, y: size * 0.04)
                 .id(mood.assetName)
                 .transition(.opacity.combined(with: .scale(scale: reduceMotion ? 1 : 0.985)))
                 .animation(activityAnimation, value: isAnimating)
@@ -164,7 +173,7 @@ struct MendyAvatarView: View {
                     RoundedRectangle(cornerRadius: max(8, size * 0.22), style: .continuous)
                         .stroke(.white.opacity(0.18), lineWidth: 1)
                 }
-                .shadow(color: mood.accentColor.opacity(glowOpacity), radius: size * 0.18, y: size * 0.05)
+                .shadow(color: mood.accentColor.opacity(glowOpacity), radius: size * 0.2, y: size * 0.05)
                 .overlay {
                     if mood.isLively {
                         RoundedRectangle(cornerRadius: max(8, size * 0.22), style: .continuous)
@@ -180,15 +189,26 @@ struct MendyAvatarView: View {
         guard mood.isLively, !reduceMotion else { return 1 }
         switch mood {
         case .success:
-            return isAnimating ? 1.075 : 0.96
+            return isAnimating ? 1.1 : 0.955
         case .error:
             return 1
         case .scanning:
-            return isAnimating ? 1.025 : 0.985
+            return isAnimating ? 1.045 : 0.975
         case .thinking, .idle, .greeting, .happy:
-            return isAnimating ? 1.018 : 0.992
+            return isAnimating ? 1.032 : 0.988
         case .sleeping:
             return isAnimating ? 1.006 : 0.994
+        }
+    }
+
+    private var imageFillScale: CGFloat {
+        switch mood {
+        case .greeting, .happy, .success:
+            1.08
+        case .thinking, .scanning:
+            1.06
+        case .idle, .sleeping, .error:
+            1.04
         }
     }
 
@@ -196,19 +216,19 @@ struct MendyAvatarView: View {
         guard mood.isLively, !reduceMotion else { return .zero }
         switch mood {
         case .idle, .greeting, .happy, .sleeping:
-            return CGSize(width: 0, height: isAnimating ? -size * 0.025 : size * 0.012)
+            return CGSize(width: 0, height: isAnimating ? -size * 0.035 : size * 0.014)
         case .thinking:
-            return CGSize(width: 0, height: isAnimating ? -size * 0.018 : 0)
+            return CGSize(width: 0, height: isAnimating ? -size * 0.026 : 0)
         case .scanning, .success:
             return .zero
         case .error:
-            return CGSize(width: isAnimating ? size * 0.025 : -size * 0.025, height: 0)
+            return CGSize(width: isAnimating ? size * 0.032 : -size * 0.032, height: 0)
         }
     }
 
     private var activityRotation: Angle {
         guard mood == .error, !reduceMotion else { return .zero }
-        return isAnimating ? .degrees(1.8) : .degrees(-1.8)
+        return isAnimating ? .degrees(2.4) : .degrees(-2.4)
     }
 
     private var activityGlow: Double {

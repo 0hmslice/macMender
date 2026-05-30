@@ -47,7 +47,7 @@ private struct MendySidebarHeader: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            MendyAvatarView(mood: appModel.mendyMood, size: 54)
+            MendyAvatarView(mood: appModel.mendyMood, size: MendyAvatarSize.sidebar)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Mendy")

@@ -72,7 +72,7 @@ struct OnboardingView: View {
                         HStack(spacing: 14) {
                             MendyAvatarView(
                                 mood: appModel.permissions.accessibility == .granted ? .success : .greeting,
-                                size: 58
+                                size: MendyAvatarSize.panel
                             )
 
                             VStack(alignment: .leading, spacing: 6) {
@@ -123,7 +123,7 @@ struct OnboardingView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            MendyAvatarView(mood: appModel.permissions.needsAttention ? .error : .happy, size: 72)
+            MendyAvatarView(mood: appModel.permissions.needsAttention ? .error : .happy, size: MendyAvatarSize.prominent)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Set up macMender")
@@ -186,7 +186,7 @@ private struct MendyIntroCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            MendyAvatarView(mood: mood, size: 62)
+            MendyAvatarView(mood: mood, size: MendyAvatarSize.panel)
             Text(title)
                 .font(.headline)
             Text(detail)
@@ -195,7 +195,7 @@ private struct MendyIntroCard: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 194, alignment: .topLeading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
@@ -247,7 +247,7 @@ private struct DraggableAppTile: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            MendyAvatarView(mood: .idle, size: 76)
+            MendyAvatarView(mood: .idle, size: MendyAvatarSize.panel)
 
             Text("macMender.app")
                 .font(.headline)
@@ -255,7 +255,7 @@ private struct DraggableAppTile: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 190, height: 150)
+        .frame(width: 210, height: 180)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)

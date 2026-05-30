@@ -70,8 +70,8 @@ final class MenuBarSecondaryBarController {
     private func frame(forItemCount itemCount: Int, on screen: NSScreen?) -> CGRect {
         let screenFrame = screen?.frame ?? NSScreen.main?.frame ?? .zero
         let visibleFrame = screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? screenFrame
-        let width = min(max(CGFloat(itemCount) * 118 + 128, 360), min(visibleFrame.width - 32, 900))
-        let height: CGFloat = 74
+        let width = min(max(CGFloat(itemCount) * 118 + 168, 420), min(visibleFrame.width - 32, 940))
+        let height: CGFloat = 96
         let x = visibleFrame.midX - width / 2
         let menuBarHeight = max(24, screenFrame.height - visibleFrame.height)
         let y = screenFrame.maxY - menuBarHeight - height - 8
@@ -86,7 +86,7 @@ private struct MenuBarSecondaryBarView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            MendyAvatarView(mood: .thinking, size: 34)
+            MendyAvatarView(mood: .thinking, size: MendyAvatarSize.compact)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {

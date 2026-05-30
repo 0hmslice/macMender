@@ -11,7 +11,7 @@ struct MenuBarPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 12) {
-                MendyAvatarView(mood: appModel.menuBarMendyMood, size: 54)
+                MendyAvatarView(mood: appModel.menuBarMendyMood, size: MendyAvatarSize.compact)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(appModel.runningStatusTitle)
@@ -56,7 +56,7 @@ struct MenuBarPopover: View {
             .buttonStyle(LiquidGlassButtonStyle())
         }
         .padding()
-        .frame(width: 300)
+        .frame(width: 330)
         .liquidGlass(.panel)
     }
 

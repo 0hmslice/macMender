@@ -11,7 +11,7 @@ struct OverviewView: View {
                 symbolName: appModel.activeProfile.symbolName
             ) {
                 HStack(spacing: 16) {
-                    MendyAvatarView(mood: appModel.mendyMood, size: 72)
+                    MendyAvatarView(mood: appModel.mendyMood, size: MendyAvatarSize.panel)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(appModel.activeProfile.name)

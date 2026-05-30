@@ -165,13 +165,13 @@ struct DockWindowsView: View {
                 let changes = appModel.dock.diff(from: appModel.dock.currentSettings, to: appModel.activeProfile.dock)
                 if changes.isEmpty {
                     HStack(spacing: 12) {
-                        MendyAvatarView(mood: .success, size: 48)
+                        MendyAvatarView(mood: .success, size: MendyAvatarSize.compact)
                         Text("Current Dock settings already match this profile.")
                             .foregroundStyle(.secondary)
                     }
                 } else {
                     HStack(alignment: .top, spacing: 12) {
-                        MendyAvatarView(mood: .scanning, size: 48)
+                        MendyAvatarView(mood: .scanning, size: MendyAvatarSize.compact)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Pending Changes")
                                 .font(.subheadline)
