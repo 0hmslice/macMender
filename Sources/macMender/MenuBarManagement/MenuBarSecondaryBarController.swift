@@ -86,7 +86,7 @@ private struct MenuBarSecondaryBarView: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            MendyAvatarView(mood: .profileChange, size: 34)
+            MendyAvatarView(mood: .thinking, size: 34)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {

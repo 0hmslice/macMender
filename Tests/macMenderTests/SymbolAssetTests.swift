@@ -82,11 +82,26 @@ struct SymbolAssetTests {
 
     @Test("Mendy resources are bundled")
     func mendyResourcesResolve() {
-        for asset in [MendyAssets.avatar, MendyAssets.menuBarColor, MendyAssets.menuBarTemplate, MendyAssets.appIcon] {
+        for asset in [MendyAssets.avatar, MendyAssets.menuBarColor, MendyAssets.menuBarTemplate, MendyAssets.appIcon] + MendyAssets.stateAssetNames {
             #expect(
                 MendyAssets.image(named: asset) != nil,
                 "Missing Mendy resource: \(asset)"
             )
         }
+    }
+
+    @Test("Mendy moods map to canonical state assets")
+    func mendyMoodsMapToCanonicalStateAssets() {
+        #expect(MendyMood.allCases.map(\.rawValue) == [
+            "greeting",
+            "happy",
+            "thinking",
+            "scanning",
+            "idle",
+            "sleeping",
+            "success",
+            "error"
+        ])
+        #expect(Set(MendyMood.allCases.map(\.assetName)) == Set(MendyAssets.stateAssetNames))
     }
 }

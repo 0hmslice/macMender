@@ -71,7 +71,7 @@ struct OnboardingView: View {
                     ) {
                         HStack(spacing: 14) {
                             MendyAvatarView(
-                                mood: appModel.permissions.accessibility == .granted ? .success : .alert,
+                                mood: appModel.permissions.accessibility == .granted ? .success : .greeting,
                                 size: 58
                             )
 
@@ -123,7 +123,7 @@ struct OnboardingView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            MendyAvatarView(mood: appModel.permissions.needsAttention ? .alert : .idle, size: 72)
+            MendyAvatarView(mood: appModel.permissions.needsAttention ? .error : .happy, size: 72)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Set up macMender")
@@ -171,8 +171,8 @@ private struct OnboardingMendyIntro: View {
             symbolName: "sparkles"
         ) {
             HStack(alignment: .top, spacing: 12) {
-                MendyIntroCard(mood: .fixing, title: "Input", detail: "Smooth scroll and mouse fixes")
-                MendyIntroCard(mood: .profileChange, title: "Menu Bar", detail: "Hide clutter until you hover Mendy")
+                MendyIntroCard(mood: .scanning, title: "Input", detail: "Smooth scroll and mouse fixes")
+                MendyIntroCard(mood: .thinking, title: "Menu Bar", detail: "Hide clutter until you hover Mendy")
                 MendyIntroCard(mood: .success, title: "Dock", detail: "Window previews and safer defaults")
             }
         }

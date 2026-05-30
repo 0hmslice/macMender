@@ -2,43 +2,51 @@ import AppKit
 import SwiftUI
 
 enum MendyMood: String, CaseIterable {
+    case greeting
+    case happy
+    case thinking
+    case scanning
     case idle
-    case fixing
-    case profileChange
-    case alert
+    case sleeping
     case success
-    case empty
+    case error
 
     var accessibilityLabel: String {
         switch self {
+        case .greeting: "Mendy says hello"
+        case .happy: "Mendy is happy"
+        case .thinking: "Mendy is thinking"
+        case .scanning: "Mendy is scanning"
         case .idle: "Mendy is ready"
-        case .fixing: "Mendy is applying changes"
-        case .profileChange: "Mendy is organizing settings"
-        case .alert: "Mendy needs attention"
+        case .sleeping: "Mendy is waiting"
         case .success: "Mendy says everything looks good"
-        case .empty: "Mendy is waiting for items"
+        case .error: "Mendy needs attention"
         }
     }
 
-    var badgeSymbol: String? {
+    var assetName: String {
         switch self {
-        case .idle: nil
-        case .fixing: "gearshape.fill"
-        case .profileChange: "rectangle.3.group.fill"
-        case .alert: "exclamationmark.triangle.fill"
-        case .success: "checkmark.circle.fill"
-        case .empty: "plus"
+        case .greeting: MendyAssets.greeting
+        case .happy: MendyAssets.happy
+        case .thinking: MendyAssets.thinking
+        case .scanning: MendyAssets.scanning
+        case .idle: MendyAssets.idleState
+        case .sleeping: MendyAssets.sleeping
+        case .success: MendyAssets.success
+        case .error: MendyAssets.error
         }
     }
 
     var accentColor: Color {
         switch self {
+        case .greeting: .teal
+        case .happy: .green
+        case .thinking: .indigo
+        case .scanning: .blue
         case .idle: .cyan
-        case .fixing: .blue
-        case .profileChange: .purple
-        case .alert: .orange
+        case .sleeping: .secondary
         case .success: .green
-        case .empty: .secondary
+        case .error: .orange
         }
     }
 }
@@ -49,6 +57,25 @@ enum MendyAssets {
     static let head = "MendyRobotHead"
     static let menuBarColor = "MendyMenuBarIcon"
     static let menuBarTemplate = "MendyStatusItem"
+    static let greeting = "MendyGreeting"
+    static let happy = "MendyHappy"
+    static let thinking = "MendyThinking"
+    static let scanning = "MendyScanning"
+    static let idleState = "MendyIdleState"
+    static let sleeping = "MendySleeping"
+    static let success = "MendySuccess"
+    static let error = "MendyError"
+
+    static let stateAssetNames = [
+        greeting,
+        happy,
+        thinking,
+        scanning,
+        idleState,
+        sleeping,
+        success,
+        error
+    ]
 
     static func image(named name: String) -> NSImage? {
         if let image = NSImage(named: name) {
@@ -86,32 +113,43 @@ struct MendyAvatarView: View {
     @State private var isAnimating = false
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
             glassBackground
 
-            Image(nsImage: MendyAssets.image(named: MendyAssets.avatar) ?? NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath))
+            Image(nsImage: currentImage)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
                 .padding(size * 0.07)
                 .scaleEffect(activityScale)
+                .offset(x: activityOffset.width, y: activityOffset.height)
+                .rotationEffect(activityRotation)
                 .shadow(color: mood.accentColor.opacity(activityGlow), radius: size * 0.13, y: size * 0.04)
+                .id(mood.assetName)
+                .transition(.opacity.combined(with: .scale(scale: reduceMotion ? 1 : 0.985)))
                 .animation(activityAnimation, value: isAnimating)
-
-            if let badgeSymbol = mood.badgeSymbol {
-                moodBadge(symbol: badgeSymbol)
-                    .offset(x: size * 0.01, y: size * 0.01)
-            }
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(mood.accessibilityLabel)
         .onAppear {
-            isAnimating = true
+            restartAnimation()
         }
         .onChange(of: mood) { _, _ in
-            isAnimating = false
-            DispatchQueue.main.async {
+            restartAnimation()
+        }
+    }
+
+    private var currentImage: NSImage {
+        MendyAssets.image(named: mood.assetName) ??
+            MendyAssets.image(named: MendyAssets.avatar) ??
+            NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
+    }
+
+    private func restartAnimation() {
+        isAnimating = false
+        DispatchQueue.main.async {
+            withAnimation(activityAnimation) {
                 isAnimating = true
             }
         }
@@ -140,7 +178,37 @@ struct MendyAvatarView: View {
 
     private var activityScale: CGFloat {
         guard mood.isLively, !reduceMotion else { return 1 }
-        return isAnimating ? 1.015 : 0.99
+        switch mood {
+        case .success:
+            return isAnimating ? 1.075 : 0.96
+        case .error:
+            return 1
+        case .scanning:
+            return isAnimating ? 1.025 : 0.985
+        case .thinking, .idle, .greeting, .happy:
+            return isAnimating ? 1.018 : 0.992
+        case .sleeping:
+            return isAnimating ? 1.006 : 0.994
+        }
+    }
+
+    private var activityOffset: CGSize {
+        guard mood.isLively, !reduceMotion else { return .zero }
+        switch mood {
+        case .idle, .greeting, .happy, .sleeping:
+            return CGSize(width: 0, height: isAnimating ? -size * 0.025 : size * 0.012)
+        case .thinking:
+            return CGSize(width: 0, height: isAnimating ? -size * 0.018 : 0)
+        case .scanning, .success:
+            return .zero
+        case .error:
+            return CGSize(width: isAnimating ? size * 0.025 : -size * 0.025, height: 0)
+        }
+    }
+
+    private var activityRotation: Angle {
+        guard mood == .error, !reduceMotion else { return .zero }
+        return isAnimating ? .degrees(1.8) : .degrees(-1.8)
     }
 
     private var activityGlow: Double {
@@ -150,63 +218,50 @@ struct MendyAvatarView: View {
 
     private var activityAnimation: Animation? {
         guard mood.isLively, !reduceMotion else { return nil }
-        return .easeInOut(duration: mood.animationDuration)
+        switch mood {
+        case .success:
+            return .spring(response: 0.32, dampingFraction: 0.52)
+        case .error:
+            return .linear(duration: 0.08).repeatCount(5, autoreverses: true)
+        case .scanning:
+            return .easeInOut(duration: mood.animationDuration).repeatForever(autoreverses: true)
+        case .thinking, .idle, .greeting, .happy, .sleeping:
+            return .easeInOut(duration: mood.animationDuration).repeatForever(autoreverses: true)
+        }
     }
 
     private var glowOpacity: Double {
         switch mood {
-        case .fixing, .profileChange:
-            isAnimating ? 0.38 : 0.18
-        case .alert:
+        case .scanning, .thinking:
+            isAnimating ? 0.32 : 0.16
+        case .error:
             0.28
-        case .success:
+        case .success, .happy:
             0.22
-        case .idle, .empty:
+        case .greeting, .idle, .sleeping:
             0.14
         }
-    }
-
-    private func moodBadge(symbol: String) -> some View {
-        ZStack {
-            Circle()
-                .fill(.regularMaterial)
-            Circle()
-                .fill(mood.accentColor.opacity(0.18))
-            Image(systemName: symbol)
-                .font(.system(size: max(9, size * 0.14), weight: .bold))
-                .foregroundStyle(mood.accentColor)
-                .rotationEffect(mood == .fixing && isAnimating ? .degrees(360) : .zero)
-                .animation(
-                    mood == .fixing && !reduceMotion
-                        ? .linear(duration: 1.6)
-                        : .snappy(duration: 0.2),
-                    value: isAnimating
-                )
-        }
-        .frame(width: size * 0.32, height: size * 0.32)
-        .overlay {
-            Circle()
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.15), radius: 5, y: 2)
     }
 }
 
 private extension MendyMood {
     var isLively: Bool {
         switch self {
-        case .fixing, .profileChange:
+        case .greeting, .happy, .thinking, .scanning, .idle, .sleeping, .success, .error:
             true
-        case .idle, .alert, .success, .empty:
-            false
         }
     }
 
     var animationDuration: Double {
         switch self {
-        case .fixing: 1.4
-        case .profileChange: 1.8
-        case .idle, .alert, .success, .empty: 2.4
+        case .greeting: 2.4
+        case .happy: 2.0
+        case .thinking: 1.7
+        case .scanning: 1.15
+        case .idle: 3.2
+        case .sleeping: 3.8
+        case .success: 0.32
+        case .error: 0.08
         }
     }
 }

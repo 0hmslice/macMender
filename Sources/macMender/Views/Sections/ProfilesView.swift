@@ -38,7 +38,7 @@ struct ProfilesView: View {
             ) {
                 HStack(spacing: 14) {
                     if appModel.store.config.profiles.count == 1 {
-                        MendyAvatarView(mood: .empty, size: 58)
+                        MendyAvatarView(mood: .sleeping, size: 58)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {

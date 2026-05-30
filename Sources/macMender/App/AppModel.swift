@@ -91,22 +91,22 @@ final class AppModel: ObservableObject {
 
     var mendyMood: MendyMood {
         if store.config.safeModeEnabled || permissions.accessibility != .granted {
-            return .alert
+            return .error
         }
 
         switch selectedSection {
         case .overview:
             return .success
         case .input:
-            return .fixing
+            return .scanning
         case .menuBar:
-            return .profileChange
+            return .thinking
         case .dockWindows:
-            return .fixing
+            return .scanning
         case .profiles:
-            return .profileChange
+            return .thinking
         case .privacy:
-            return permissions.needsAttention ? .alert : .success
+            return permissions.needsAttention ? .error : .success
         case .advanced:
             return .idle
         }
@@ -114,10 +114,10 @@ final class AppModel: ObservableObject {
 
     var menuBarMendyMood: MendyMood {
         if !store.config.hasCompletedOnboarding || store.config.safeModeEnabled || permissions.needsAttention {
-            return .alert
+            return .error
         }
         if dockHover.lastHoveredApp != nil || windowSwitcher.isShowing {
-            return .fixing
+            return .scanning
         }
         return .success
     }

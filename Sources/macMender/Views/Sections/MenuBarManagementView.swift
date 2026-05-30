@@ -72,7 +72,7 @@ struct MenuBarManagementView: View {
             ) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(spacing: 14) {
-                        MendyAvatarView(mood: .profileChange, size: 58)
+                        MendyAvatarView(mood: .thinking, size: 58)
 
                         VStack(alignment: .leading, spacing: 7) {
                             Text("Arrange your menu-bar icons into calm, predictable lanes.")
@@ -1704,7 +1704,7 @@ private struct EmptySearchView: View {
 private struct EmptyMenuBarItemsView: View {
     var body: some View {
         VStack(spacing: 10) {
-            MendyAvatarView(mood: .empty, size: 54)
+            MendyAvatarView(mood: .sleeping, size: 54)
             Text("No menu-bar icons detected")
                 .font(.callout.weight(.medium))
             Text("Grant Accessibility, then press Scan Now after the apps you want to manage are running.")

@@ -171,7 +171,7 @@ struct DockWindowsView: View {
                     }
                 } else {
                     HStack(alignment: .top, spacing: 12) {
-                        MendyAvatarView(mood: .fixing, size: 48)
+                        MendyAvatarView(mood: .scanning, size: 48)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Pending Changes")
                                 .font(.subheadline)
