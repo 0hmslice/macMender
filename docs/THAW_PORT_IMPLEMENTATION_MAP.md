@@ -1,23 +1,53 @@
-# Thaw Port Implementation Map
+# Thaw Direct-Port Implementation Map
 
-macMender treats Thaw 1.2.0 as the menu-bar behavior reference. Thaw is installed locally at `/Applications/Thaw.app` and the inspected upstream checkout lives at `/tmp/Thaw`.
+macMender treats Thaw as the menu-bar behavior reference. The inspected upstream checkout for this corrective pass lives at `/tmp/Thaw`.
+
+Inspected upstream revision:
+`644642bb880ddf71504b24bce897568398821dab`
 
 ## Current Production Boundary
 
 - `Sources/MacMenderMenuBarEngine` is the public engine boundary and holds GPL-attributed Thaw-derived tag/cache primitives.
-- `Sources/macMender/Services/MenuBarScannerService.swift` remains the app facade for now, but it must behave as an adapter over the Thaw-derived engine rather than an independent source of truth.
+- `Sources/macMender/Services/MenuBarScannerService.swift` remains the app facade, but its internals are disposable when they conflict with the direct Thaw-derived runtime.
 - `Sources/macMender/Views/Sections/MenuBarManagementView.swift` renders live physical section/order from detected status-item windows. Saved `MenuBarLayout` is persistence after explicit user action, not display truth.
 
-## Thaw Modules To Port As A Coherent Runtime
+## Direct Repair Scope
 
-Port these together rather than piecemeal:
+Replace or bypass in this pass:
+
+- `Sources/macMender/Services/MenuBarScannerService.swift`: keep the public adapter surface, but serialize refresh/reveal/hide/move operations around Thaw-derived runtime snapshots.
+- `Sources/macMender/MenuBarManagement/MenuBarControlItemController.swift`: replace the simplified hidden-item controller with Thaw-derived section boundary behavior where practical.
+- `Sources/macMender/MenuBarManagement/MenuBarItemDiscovery.swift` and `Sources/macMender/MenuBarManagement/MenuBarItemCore.swift`: refit identity and snapshots around Thaw-style window ID, owner PID, source PID, tag, and section concepts.
+- `Sources/macMender/Views/Sections/MenuBarManagementView.swift`: reduce fake pending movement animation where it disagrees with physical menu-bar state.
+
+Preserve and adapt:
+
+- `Sources/macMender/MenuBarManagement/MenuBarItemMover.swift`: preserve the event relay and cursor guard, but use it only for scoped physical movement.
+- `Sources/macMender/Services/MenuBarPrivateBridge.swift` and `Sources/macMender/Services/MacMenderIceEventTap.swift`: keep private WindowServer and event-tap bridges documented.
+- `Sources/macMender/MenuBarManagement/MenuBarApplicationMenuController.swift`, `MenuBarInteractionController.swift`, `MenuBarItemSpacingApplier.swift`, and `MenuBarSourcePIDResolver.swift`: keep behind the direct runtime unless a Thaw-derived replacement supersedes a piece.
+- `Sources/MacMenderMenuBarEngine`: extend Thaw-derived models and planning without changing package structure.
+
+Isolate or defer:
+
+- `Sources/macMender/MenuBarManagement/MenuBarSecondaryBarController.swift`: isolate if it conflicts with reliable inline reveal/hide. Full Thaw `IceBar` / `LayoutBar` behavior remains a parity gap.
+- XPC helper embedding: no package, signing, entitlement, or bundle-identifier changes in this pass.
+
+## Thaw Modules Used As Reference
+
+These upstream modules were inspected as one coherent menu-bar runtime:
 
 - `Thaw/MenuBar/MenuBarItems/MenuBarItemManager.swift`
 - `Thaw/MenuBar/MenuBarItems/MenuBarItem.swift`
 - `Thaw/MenuBar/MenuBarItems/MenuBarItemTag.swift`
 - `Thaw/MenuBar/MenuBarItems/MenuBarItemImageCache.swift`
+- `Thaw/MenuBar/MenuBarItems/LayoutSolver.swift`
+- `Thaw/MenuBar/MenuBarItems/LayoutReconciler.swift`
+- `Thaw/MenuBar/MenuBarItems/PendingLedger.swift`
+- `Thaw/MenuBar/MenuBarItems/MenuBarItemServiceConnection.swift`
 - `Thaw/MenuBar/MenuBarSection.swift`
 - `Thaw/MenuBar/ControlItem/ControlItem.swift`
+- `Thaw/MenuBar/ControlItem/ControlItemImage.swift`
+- `Thaw/MenuBar/ControlItem/ControlItemImageSet.swift`
 - `Thaw/MenuBar/LayoutBar/*`
 - `Thaw/MenuBar/IceBar/*`
 - `Thaw/Events/HIDEventManager.swift`
