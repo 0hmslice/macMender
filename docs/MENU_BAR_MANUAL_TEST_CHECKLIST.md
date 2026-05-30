@@ -9,8 +9,15 @@ Use this checklist before calling the menu-bar manager release-ready.
 - Launch several real status-item apps, including at least one Apple Control Center module and one third-party menu extra.
 - Confirm macMender has Accessibility permission.
 - Build macMender and record whether `dist/macMender.app/Contents/XPCServices/MacMenderMenuBarItemService.xpc` is present.
-- XPC service presence/connectivity: the Thaw-style XPC helper must be present, launch without Console errors, and keep source-PID resolution working after relaunch.
+- XPC service presence/connectivity: if the helper is present, it must launch without Console errors and keep source-PID resolution working after relaunch before claiming full Thaw XPC parity. If it is missing, record that as a packaging gap and continue with in-process source-PID validation only.
 - Open macMender Settings > Menu Bar and press Scan Now.
+
+## Mendy and Liquid Glass
+
+- Confirm Mendy renders the local PNG state assets for greeting, happy, thinking, scanning, idle, sleeping, success, and error.
+- Confirm Mendy state changes crossfade and use restrained motion; with Reduce Motion enabled, motion should simplify without losing state clarity.
+- Confirm onboarding, permissions, empty states, menu bar guidance, and success/error feedback use state-specific Mendy artwork rather than the old generic head plus badge-only treatment.
+- Confirm settings cards, sidebar, menu bar popover, and preview overlays use readable Liquid Glass surfaces in light and dark appearance.
 
 ## Discovery
 

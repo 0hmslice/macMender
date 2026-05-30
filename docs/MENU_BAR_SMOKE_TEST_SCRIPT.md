@@ -25,7 +25,7 @@ This script is the release gate for menu bar management. Run it with Ice closed 
    test -d dist/macMender.app/Contents/XPCServices/MacMenderMenuBarItemService.xpc && echo "xpc present" || echo "xpc missing"
    ```
 
-   `xpc present` is required and the helper must launch/connect without Console errors before continuing.
+   If `xpc present`, continue by checking helper launch/connect behavior and source-PID resolution after relaunch. If `xpc missing`, record it as a packaging gap and continue with in-process source-PID validation. Do not claim full Thaw XPC parity until helper presence, launch/connect behavior, and source-PID parity are verified.
 5. Open Settings > Menu Bar.
 6. Enable menu bar hiding.
 7. Press Scan Now.
