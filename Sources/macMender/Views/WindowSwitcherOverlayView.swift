@@ -27,6 +27,10 @@ struct WindowSwitcherOverlayView: View {
         }
         .padding(18)
         .liquidGlass(.preview)
+        .overlay {
+            RoundedRectangle(cornerRadius: LiquidGlassSurface.preview.radius, style: .continuous)
+                .stroke(Color.accentColor.opacity(service.isDockPreview ? 0.18 : 0.12), lineWidth: 1)
+        }
     }
 
     private var cards: some View {
@@ -58,7 +62,7 @@ private struct WindowSwitcherCard: View {
             VStack(alignment: .leading, spacing: 9) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.black.opacity(0.25))
+                        .fill(.black.opacity(0.12))
 
                     if let image {
                         Image(nsImage: image)
@@ -77,6 +81,7 @@ private struct WindowSwitcherCard: View {
                     }
                 }
                 .frame(width: thumbnailSize, height: thumbnailSize * 0.68)
+                .liquidGlass(.preview)
 
                 HStack(alignment: .center, spacing: 8) {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: NSRunningApplication(processIdentifier: window.processIdentifier)?.bundleURL?.path ?? ""))
@@ -96,12 +101,14 @@ private struct WindowSwitcherCard: View {
             }
             .padding(10)
             .frame(width: thumbnailSize + 22, alignment: .leading)
-            .background(isSelected ? Color.accentColor.opacity(0.18) : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .liquidGlass(.row)
+            .background(isSelected ? Color.accentColor.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(isSelected ? Color.accentColor : .white.opacity(0.12), lineWidth: isSelected ? 2 : 1)
             }
-            .scaleEffect(isSelected ? 1.025 : 1)
+            .shadow(color: Color.accentColor.opacity(isSelected ? 0.18 : 0), radius: 12, y: 5)
+            .scaleEffect(isSelected ? 1.03 : 1)
             .animation(LiquidGlassMotion.quick, value: isSelected)
         }
         .buttonStyle(.plain)
