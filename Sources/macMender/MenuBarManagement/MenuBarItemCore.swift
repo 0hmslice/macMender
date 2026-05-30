@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 @preconcurrency import CoreGraphics
 import Foundation
+import MacMenderMenuBarEngine
 
 /// Ice-style stable status item names. macOS reports these windows through
 /// Control Center, so code must match by title, not owner process.
@@ -349,6 +350,33 @@ struct DetectedMenuBarItem: Identifiable, Equatable {
         if !isMovableBySystem { return "Fixed by macOS" }
         if !canBeHiddenBySystem { return "Can move, but cannot be hidden reliably" }
         return "Can be moved into macMender sections"
+    }
+
+    var engineItem: MenuBarEngineItem {
+        MenuBarEngineItem(
+            id: sectionKey,
+            displayName: displayTitle,
+            sourceBundleIdentifier: sourceBundleIdentifier,
+            sourceProcessIdentifier: sourceProcessIdentifier,
+            windowID: windowID,
+            frame: frame,
+            section: actualSection.engineSection,
+            canHide: isHideCandidate,
+            canMove: isPrivateWindowBacked && isMovableBySystem
+        )
+    }
+}
+
+private extension MenuBarSection {
+    var engineSection: MenuBarEngineSection {
+        switch self {
+        case .pinned:
+            .visible
+        case .overflow:
+            .hidden
+        case .hidden:
+            .alwaysHidden
+        }
     }
 }
 

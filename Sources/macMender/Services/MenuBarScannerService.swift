@@ -20,6 +20,8 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     @Published private(set) var visibleControlItem: DetectedMenuBarItem?
     @Published private(set) var spacingStatusDescription = "Default spacing"
     @Published private(set) var isApplyingSpacing = false
+    @Published private(set) var engineSnapshot = MenuBarEngineSnapshot()
+    @Published private(set) var engineStatus = MenuBarEngineStatus()
 
     var onRequestSectionChange: ((DetectedMenuBarItem, MenuBarSection) -> Void)?
 
@@ -30,10 +32,10 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     private let applicationMenus = MenuBarApplicationMenuController()
     private let secondaryBar = MenuBarSecondaryBarController()
     private let spacingApplier = MenuBarItemSpacingApplier()
+    private let operationGate = MenuBarRuntimeOperationGate()
 
     private var autoRehideTask: Task<Void, Never>?
     private var lastRefresh: Date?
-    private var moveTask: Task<Void, Never>?
     private var cache = MenuBarItemCache()
     private var layout = MenuBarLayout.default
     private var mouseButtonIsDown = false
@@ -145,9 +147,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
         guard !hasScheduledStartupRestore else { return }
         hasScheduledStartupRestore = true
 
-        let previousMoveTask = moveTask
-        moveTask = Task { @MainActor [weak self] in
-            await previousMoveTask?.value
+        operationGate.enqueue { [weak self] in
             guard let self else { return }
             try? await Task.sleep(for: .milliseconds(750))
             await self.restoreStoredConcealedSections()
@@ -159,9 +159,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
 
     private func alignEmptyLayoutBoundaryIfNeeded() {
         guard !hasDesiredHiddenItems, !hasDesiredAlwaysHiddenItems else { return }
-        let previousMoveTask = moveTask
-        moveTask = Task { @MainActor [weak self] in
-            await previousMoveTask?.value
+        operationGate.enqueue { [weak self] in
             guard let self else { return }
             try? await Task.sleep(for: .milliseconds(120))
             var items = self.menuBarItemsIncludingControls(onScreenOnly: false)
@@ -205,6 +203,13 @@ final class MenuBarScannerService: NSObject, ObservableObject {
         cache = MenuBarSectionResolver.cache(from: allItems)
         let detected = MenuBarSectionResolver.detectedItems(from: allItems, cache: cache)
         detectedItems = detected
+        engineSnapshot = MenuBarEngineSnapshot(items: detected.map(\.engineItem))
+        engineStatus = MenuBarEngineStatus(
+            isRunning: shelfEnabled,
+            isRevealed: overflowVisible,
+            description: detected.isEmpty ? "No menu bar items detected" : "Tracking \(detected.count) live menu-bar items",
+            lastError: nil
+        )
         lastScanDescription = detected.isEmpty ? "No menu bar items detected" : "Detected \(detected.count) menu bar items"
 
         if layout.showHiddenItemsInSecondaryBar, overflowVisible {
@@ -232,9 +237,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
         controlItems.installIfNeeded(layout: layout)
         controlsInstalled = controlItems.controlsInstalled
 
-        let previousMoveTask = moveTask
-        moveTask = Task { @MainActor [weak self] in
-            await previousMoveTask?.value
+        operationGate.enqueue { [weak self] in
             guard let self else { return }
             await self.waitForMouseButtonRelease()
             if item.actualSection == .hidden, section != .hidden {
@@ -256,9 +259,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
         controlItems.installIfNeeded(layout: layout)
         controlsInstalled = controlItems.controlsInstalled
 
-        let previousMoveTask = moveTask
-        moveTask = Task { @MainActor [weak self] in
-            await previousMoveTask?.value
+        operationGate.enqueue { [weak self] in
             guard let self else { return }
             await self.waitForMouseButtonRelease()
             try? await Task.sleep(for: .milliseconds(120))
@@ -274,9 +275,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
         // changed host layout. Keep this method for controlled repair flows only.
         guard controlsInstalled, !isReconcilingSections else { return }
         isReconcilingSections = true
-        let previousMoveTask = moveTask
-        moveTask = Task { @MainActor [weak self] in
-            await previousMoveTask?.value
+        operationGate.enqueue { [weak self] in
             guard let self else { return }
             defer { self.isReconcilingSections = false }
 
@@ -320,6 +319,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
         overflowVisible = false
         interactions.stop()
         secondaryBar.hide()
+        operationGate.cancelAll()
         autoRehideTask?.cancel()
         autoRehideTask = nil
         applicationMenus.restoreIfNeeded()
@@ -462,9 +462,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
         }
         guard needsRestore else { return }
 
-        let previousMoveTask = moveTask
-        moveTask = Task { @MainActor [weak self] in
-            await previousMoveTask?.value
+        operationGate.enqueue { [weak self] in
             guard let self else { return }
             await self.restoreStoredConcealedSections()
             if self.hasConcealableItems {

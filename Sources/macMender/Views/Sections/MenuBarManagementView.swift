@@ -419,29 +419,11 @@ struct MenuBarManagementView: View {
     }
 
     private func displaySection(for item: DetectedMenuBarItem) -> MenuBarSection {
-        pendingDisplayMoves[item.id]?.section ?? appModel.menuBarSection(for: item)
+        appModel.menuBarSection(for: item)
     }
 
     private func orderedForDisplay(_ items: [DetectedMenuBarItem], in section: MenuBarSection) -> [DetectedMenuBarItem] {
-        var orderedItems = ordered(items)
-        let pendingMovesInSection = pendingDisplayMoves
-            .filter { $0.value.section == section }
-            .sorted { lhs, rhs in
-                lhs.value.expiresAt < rhs.value.expiresAt
-            }
-
-        for (itemID, move) in pendingMovesInSection {
-            guard let pendingItem = orderedItems.first(where: { $0.id == itemID }) else { continue }
-            orderedItems.removeAll { $0.id == itemID }
-            if let beforeItemID = move.beforeItemID,
-               let insertionIndex = orderedItems.firstIndex(where: { $0.id == beforeItemID }) {
-                orderedItems.insert(pendingItem, at: insertionIndex)
-            } else {
-                orderedItems.append(pendingItem)
-            }
-        }
-
-        return orderedItems
+        ordered(items)
     }
 
     private func deduplicated(_ items: [DetectedMenuBarItem]) -> [DetectedMenuBarItem] {
@@ -513,19 +495,8 @@ struct MenuBarManagementView: View {
 
     private func reconcilePendingDisplayMoves() {
         guard !pendingDisplayMoves.isEmpty else { return }
-        let now = Date()
-        var next = pendingDisplayMoves
-        for item in appModel.menuBarScanner.detectedItems {
-            guard let pending = next[item.id] else { continue }
-            if appModel.menuBarSection(for: item) == pending.section || pending.expiresAt < now {
-                next[item.id] = nil
-            }
-        }
-        next = next.filter { _, pending in pending.expiresAt >= now }
-        if next != pendingDisplayMoves {
-            withAnimation(MenuBarLayoutMotion.drop(reduceMotion: reduceMotion)) {
-                pendingDisplayMoves = next
-            }
+        withAnimation(MenuBarLayoutMotion.drop(reduceMotion: reduceMotion)) {
+            pendingDisplayMoves.removeAll()
         }
     }
 }
@@ -1091,11 +1062,7 @@ private struct MenuBarLaneItemChip: View {
     }
 
     private func beginPendingDisplayMove(to section: MenuBarSection, before target: DetectedMenuBarItem?) {
-        pendingDisplayMoves[item.id] = PendingMenuBarDisplayMove(
-            section: section,
-            beforeItemID: target?.id,
-            expiresAt: Date().addingTimeInterval(2.25)
-        )
+        pendingDisplayMoves[item.id] = nil
     }
 
     private func sectionAfterVerticalDrag(_ verticalTranslation: CGFloat) -> MenuBarSection? {

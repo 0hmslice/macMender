@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import MacMenderMenuBarEngine
 import Testing
 @testable import macMender
 
@@ -429,6 +430,55 @@ struct MenuBarScannerTests {
 
         #expect(model.hiddenMenuBarSelections.isEmpty)
         #expect(model.hiddenMenuBarItemCount == 0)
+    }
+
+    @Test("detected items map live sections into engine snapshot items")
+    func detectedItemsMapToEngineSnapshotItems() {
+        let visible = DetectedMenuBarItem(
+            id: "visible",
+            windowID: 41,
+            ownerName: "Stats",
+            title: "CombinedModules",
+            processIdentifier: 100,
+            sourceProcessIdentifier: 200,
+            sourceBundleIdentifier: "eu.exelban.Stats",
+            frame: CGRect(x: 800, y: 0, width: 48, height: 24),
+            isPrivateWindowBacked: true,
+            infoKey: "eu.exelban.Stats:CombinedModules",
+            actualSection: .pinned
+        )
+        let hidden = DetectedMenuBarItem(
+            id: "hidden",
+            windowID: 42,
+            ownerName: "Weather",
+            title: "Item-0",
+            processIdentifier: 100,
+            sourceProcessIdentifier: 201,
+            sourceBundleIdentifier: "com.example.weather",
+            frame: CGRect(x: 700, y: 0, width: 48, height: 24),
+            isPrivateWindowBacked: true,
+            infoKey: "com.example.weather:Item-0",
+            actualSection: .overflow
+        )
+        let readOnly = DetectedMenuBarItem(
+            id: "clock",
+            windowID: 43,
+            ownerName: "Control Center",
+            title: "Clock",
+            processIdentifier: 100,
+            sourceBundleIdentifier: "com.apple.controlcenter",
+            frame: CGRect(x: 900, y: 0, width: 48, height: 24),
+            isPrivateWindowBacked: true,
+            infoKey: "com.apple.controlcenter:Clock",
+            isMovableBySystem: false,
+            actualSection: .pinned
+        )
+
+        let snapshot = MenuBarEngineSnapshot(items: [visible.engineItem, hidden.engineItem, readOnly.engineItem])
+
+        #expect(snapshot.visible.map(\.id) == ["eu.exelban.Stats:CombinedModules"])
+        #expect(snapshot.hidden.map(\.id) == ["com.example.weather:Item-0"])
+        #expect(snapshot.readOnly.map(\.id) == ["com.apple.controlcenter:Clock"])
     }
 
     private func physicalItem(title: String, x: CGFloat) throws -> MenuBarPhysicalItem {
