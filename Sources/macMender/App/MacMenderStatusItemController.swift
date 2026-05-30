@@ -13,9 +13,9 @@ final class MacMenderStatusItemController: NSObject {
         self.openPreferences = openPreferences
 
         if statusItem == nil {
-            setPreferredStatusItemPosition(0, autosaveName: "SItem")
+            migrateLegacyHardLeftPositionIfNeeded(autosaveName: MenuBarControlIdentifier.visible)
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-            item.autosaveName = "SItem"
+            item.autosaveName = MenuBarControlIdentifier.visible
             item.button?.target = self
             item.button?.action = #selector(togglePopover)
             item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -68,8 +68,15 @@ final class MacMenderStatusItemController: NSObject {
         self.popover = popover
     }
 
-    private func setPreferredStatusItemPosition(_ position: CGFloat, autosaveName: String) {
+    private func migrateLegacyHardLeftPositionIfNeeded(autosaveName: String) {
         let key = "NSStatusItem Preferred Position \(autosaveName)"
-        UserDefaults.standard.set(position, forKey: key)
+        let migrationKey = "\(key) MigratedFromHardLeft"
+        guard !UserDefaults.standard.bool(forKey: migrationKey),
+              let position = UserDefaults.standard.object(forKey: key) as? Double,
+              position <= 1 else {
+            return
+        }
+        UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.set(true, forKey: migrationKey)
     }
 }

@@ -41,7 +41,7 @@ The product is explicitly privacy-forward:
 
 ## Platform Direction
 
-Target macOS 14+ on Apple Silicon and Intel. The app is built with Swift, SwiftUI, and AppKit interop where needed. Some replacement-grade behavior, especially three-finger middle click, uses private macOS frameworks and is intended for direct/Homebrew distribution rather than the Mac App Store.
+Target macOS 26 on Apple Silicon. The app is built with Swift, SwiftUI, and AppKit interop where needed. Some replacement-grade behavior, especially three-finger middle click, uses private macOS frameworks and is intended for direct/Homebrew distribution rather than the Mac App Store.
 
 ## Distribution Note
 

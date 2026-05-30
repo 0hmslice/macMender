@@ -57,7 +57,7 @@ struct AppConfig: Codable, Equatable {
     static var `default`: AppConfig {
         let defaultProfile = MacMenderProfile.default
         return AppConfig(
-            schemaVersion: 4,
+            schemaVersion: 5,
             hasCompletedOnboarding: false,
             activeProfileID: defaultProfile.id,
             safeModeEnabled: false,

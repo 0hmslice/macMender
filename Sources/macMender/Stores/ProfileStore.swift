@@ -50,22 +50,31 @@ final class ProfileStore: ObservableObject {
         save()
     }
 
-    func setMenuBarSection(itemKey: String, title: String, section: MenuBarSection) {
-        if let index = config.menuBarLayout.items.firstIndex(where: { $0.bundleIdentifier == itemKey }) {
-            config.menuBarLayout.items[index].title = title
-            config.menuBarLayout.items[index].section = section
-        } else {
-            config.menuBarLayout.items.append(
-                MenuBarItemModel(
-                    id: UUID(),
-                    title: title,
-                    bundleIdentifier: itemKey,
-                    section: section,
-                    controllabilityNote: "Live window-server item"
-                )
-            )
-        }
+    func setMenuBarSection(itemKey: String, title: String, section: MenuBarSection, before beforeKey: String? = nil) {
+        config.menuBarLayout.setMenuBarItemSection(itemKey: itemKey, title: title, section: section, before: beforeKey)
         save()
+    }
+
+    func rememberMenuBarItems(_ items: [DetectedMenuBarItem], resolvesVisibleConflicts: Bool) {
+        let previousLayout = config.menuBarLayout
+        let liveOrderItems = items
+            .filter(\.isHideCandidate)
+            .map { item in
+                MenuBarLiveOrderItem(
+                    key: item.sectionKey,
+                    title: item.displayTitle,
+                    section: config.menuBarLayout.resolvedSectionForLiveSync(
+                        itemKey: item.sectionKey,
+                        actualSection: item.actualSection,
+                        resolvesVisibleConflicts: resolvesVisibleConflicts
+                    )
+                )
+            }
+        config.menuBarLayout.syncLiveMenuBarItems(liveOrderItems)
+
+        if config.menuBarLayout != previousLayout {
+            save()
+        }
     }
 
     func completeOnboarding() {

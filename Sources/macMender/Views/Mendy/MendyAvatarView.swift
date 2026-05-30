@@ -48,7 +48,7 @@ enum MendyAssets {
     static let avatar = "MendyRobotHead"
     static let head = "MendyRobotHead"
     static let menuBarColor = "MendyMenuBarIcon"
-    static let menuBarTemplate = "MendyMenuBarTemplate"
+    static let menuBarTemplate = "MendyStatusItem"
 
     static func image(named name: String) -> NSImage? {
         if let image = NSImage(named: name) {
@@ -150,7 +150,7 @@ struct MendyAvatarView: View {
 
     private var activityAnimation: Animation? {
         guard mood.isLively, !reduceMotion else { return nil }
-        return .easeInOut(duration: mood.animationDuration).repeatForever(autoreverses: true)
+        return .easeInOut(duration: mood.animationDuration)
     }
 
     private var glowOpacity: Double {
@@ -178,7 +178,7 @@ struct MendyAvatarView: View {
                 .rotationEffect(mood == .fixing && isAnimating ? .degrees(360) : .zero)
                 .animation(
                     mood == .fixing && !reduceMotion
-                        ? .linear(duration: 5).repeatForever(autoreverses: false)
+                        ? .linear(duration: 1.6)
                         : .snappy(duration: 0.2),
                     value: isAnimating
                 )

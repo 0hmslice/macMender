@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import MacMenderMenuBarEngine
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -19,6 +20,7 @@ final class AppModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private var lastFullRefresh: Date?
+    private var hasStartedRuntime = false
 
     init(
         store: ProfileStore = ProfileStore(),
@@ -42,6 +44,9 @@ final class AppModel: ObservableObject {
         self.menuBarScanner = menuBarScanner
         self.dockHover = dockHover
         self.multitouchMiddleClick = multitouchMiddleClick
+        self.menuBarScanner.onRequestSectionChange = { [weak self] item, section in
+            self?.setMenuBarSection(item, section: section)
+        }
         bindChildChanges()
         wireRuntimeHandlers()
     }
@@ -121,10 +126,22 @@ final class AppModel: ObservableObject {
         !hiddenMenuBarSelections.isEmpty
     }
 
+    private var hasConfiguredMenuBarOverflowItems: Bool {
+        let visibleSystemManagedKeys = Set(menuBarScanner.detectedItems.filter(\.isSystemManaged).map(\.sectionKey))
+        return store.config.menuBarLayout.items.contains {
+            $0.section != .pinned && !visibleSystemManagedKeys.contains($0.bundleIdentifier)
+        }
+    }
+
     var hiddenMenuBarSelections: [MenuBarItemModel] {
         let visibleSystemManagedKeys = Set(menuBarScanner.detectedItems.filter(\.isSystemManaged).map(\.sectionKey))
+        let physicallyVisibleKeys = Set(menuBarScanner.detectedItems.filter { item in
+            item.isHideCandidate && item.actualSection == .pinned
+        }.map(\.sectionKey))
         return store.config.menuBarLayout.items.filter {
-            $0.section != .pinned && !visibleSystemManagedKeys.contains($0.bundleIdentifier)
+            $0.section != .pinned &&
+                !visibleSystemManagedKeys.contains($0.bundleIdentifier) &&
+                !physicallyVisibleKeys.contains($0.bundleIdentifier)
         }
     }
 
@@ -144,7 +161,25 @@ final class AppModel: ObservableObject {
         dock.refresh()
         loginItems.refresh()
         menuBarScanner.refresh(force: force)
+        rememberDetectedMenuBarItems()
         updateRuntime()
+    }
+
+    func startRuntimeIfNeeded() {
+        guard !hasStartedRuntime else {
+            refreshPassiveState()
+            return
+        }
+        hasStartedRuntime = true
+        refreshSystemState(force: true)
+    }
+
+    func refreshPassiveState() {
+        permissions.refresh()
+        dock.refresh()
+        loginItems.refresh()
+        menuBarScanner.refresh(force: false)
+        rememberDetectedMenuBarItems()
     }
 
     func toggleSafeMode() {
@@ -157,6 +192,9 @@ final class AppModel: ObservableObject {
         store.config.appBehavior.hideDockIcon = isHidden
         store.save()
         applyActivationPolicy()
+        if isHidden {
+            keepPreferencesWindowFrontIfVisible()
+        }
     }
 
     func setActiveProfile(_ profileID: UUID) {
@@ -172,6 +210,7 @@ final class AppModel: ObservableObject {
 
     func resetToOnboarding() {
         store.resetToOnboarding()
+        hasStartedRuntime = false
         selectedSection = .overview
         refreshSystemState(force: true)
     }
@@ -192,39 +231,40 @@ final class AppModel: ObservableObject {
     }
 
     func setMenuBarSection(_ item: DetectedMenuBarItem, section: MenuBarSection) {
+        moveMenuBarItem(item, to: section, before: nil)
+    }
+
+    func moveMenuBarItem(_ item: DetectedMenuBarItem, to section: MenuBarSection, before target: DetectedMenuBarItem?) {
         guard item.isHideCandidate else { return }
-        store.setMenuBarSection(itemKey: item.sectionKey, title: item.displayTitle, section: section)
+        store.setMenuBarSection(itemKey: item.sectionKey, title: item.displayTitle, section: section, before: target?.sectionKey)
+        let physicalTarget = target ?? nextDetectedMenuBarItem(after: item.sectionKey, in: section)
         let menuBarShelfEnabled = store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding
         guard menuBarShelfEnabled else { return }
         menuBarScanner.configureControls(
             enabled: menuBarShelfEnabled,
-            hasConcealableItems: hasMenuBarOverflowItems,
+            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
             layout: store.config.menuBarLayout
         )
-        menuBarScanner.showOverflow()
-        menuBarScanner.move(item, to: section)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
-            guard let self else { return }
-            if section == .pinned {
-                self.menuBarScanner.configureControls(
-                    enabled: menuBarShelfEnabled,
-                    hasConcealableItems: self.hasMenuBarOverflowItems,
-                    layout: self.store.config.menuBarLayout
-                )
-            } else {
-                self.menuBarScanner.hideOverflow()
-            }
-        }
+        menuBarScanner.move(item, to: section, before: physicalTarget)
+    }
+
+    func moveMendyStatusItem(before target: DetectedMenuBarItem?) {
+        let menuBarShelfEnabled = store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding
+        guard menuBarShelfEnabled else { return }
+        menuBarScanner.configureControls(
+            enabled: menuBarShelfEnabled,
+            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
+            layout: store.config.menuBarLayout
+        )
+        menuBarScanner.moveVisibleControl(before: target)
     }
 
     func menuBarSection(for item: DetectedMenuBarItem) -> MenuBarSection {
-        guard item.isHideCandidate else { return .pinned }
-        return store.config.menuBarLayout.section(for: item.sectionKey)
+        MenuBarLayoutSectionSource.displayedSection(for: item)
     }
 
     func isMenuBarItemHidden(_ item: DetectedMenuBarItem) -> Bool {
-        guard item.isHideCandidate else { return false }
-        return store.config.menuBarLayout.section(for: item.sectionKey) != .pinned
+        MenuBarLayoutSectionSource.isHiddenInLiveLayout(item)
     }
 
     func setMenuBarItemHidden(_ item: DetectedMenuBarItem, hidden: Bool) {
@@ -233,7 +273,7 @@ final class AppModel: ObservableObject {
     }
 
     func setStoredMenuBarItemVisible(_ item: MenuBarItemModel) {
-        store.setMenuBarSection(itemKey: item.bundleIdentifier, title: item.title, section: .pinned)
+        store.setMenuBarSection(itemKey: item.bundleIdentifier, title: item.title, section: .pinned, before: nil)
         updateRuntime()
     }
 
@@ -242,7 +282,23 @@ final class AppModel: ObservableObject {
         store.save()
         menuBarScanner.configureControls(
             enabled: store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding,
-            hasConcealableItems: hasMenuBarOverflowItems,
+            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
+            layout: store.config.menuBarLayout
+        )
+    }
+
+    func resetMenuBarLayout() {
+        let visibleCandidates = menuBarScanner.detectedItems.filter { item in
+            item.isHideCandidate && menuBarSection(for: item) != .pinned
+        }
+        for item in visibleCandidates {
+            moveMenuBarItem(item, to: .pinned, before: nil)
+        }
+        store.config.menuBarLayout.items.removeAll()
+        store.save()
+        menuBarScanner.configureControls(
+            enabled: store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding,
+            hasConcealableItems: false,
             layout: store.config.menuBarLayout
         )
     }
@@ -251,9 +307,23 @@ final class AppModel: ObservableObject {
         menuBarScanner.applySpacingOffset(store.config.menuBarLayout.itemSpacingOffset)
     }
 
+    func scanMenuBarItems() {
+        menuBarScanner.refresh(force: true)
+        rememberDetectedMenuBarItems()
+        updateRuntime()
+    }
+
+    func syncMenuBarLayoutLive() {
+        if permissions.screenRecording != .granted {
+            permissions.refresh()
+        }
+        menuBarScanner.refresh(force: true)
+        rememberDetectedMenuBarItems()
+    }
+
     func activateApp() {
         if !store.config.appBehavior.hideDockIcon {
-            NSApp.setActivationPolicy(.regular)
+            setActivationPolicyIfNeeded(.regular)
         }
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -262,6 +332,8 @@ final class AppModel: ObservableObject {
     func focusPreferencesWindow() -> Bool {
         activateApp()
         if let window = NSApp.windows.first(where: { $0.title == "macMender" || $0.identifier?.rawValue.contains("preferences") == true }) {
+            window.level = .normal
+            window.isReleasedWhenClosed = false
             window.makeKeyAndOrderFront(nil)
             return true
         }
@@ -305,13 +377,9 @@ final class AppModel: ObservableObject {
 
         menuBarScanner.configureControls(
             enabled: store.config.featureToggles.menuBarManagement && !runtimePaused,
-            hasConcealableItems: hasMenuBarOverflowItems,
+            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
             layout: store.config.menuBarLayout
         )
-        if store.config.featureToggles.menuBarManagement && !runtimePaused {
-            let desiredSections = Dictionary(uniqueKeysWithValues: store.config.menuBarLayout.items.map { ($0.bundleIdentifier, $0.section) })
-            menuBarScanner.reconcileDesiredSections(desiredSections)
-        }
 
         if permissions.accessibility == .granted,
            !runtimePaused,
@@ -325,7 +393,45 @@ final class AppModel: ObservableObject {
 
     private func applyActivationPolicy() {
         let shouldHideDockIcon = store.config.hasCompletedOnboarding && store.config.appBehavior.hideDockIcon
-        NSApp.setActivationPolicy(shouldHideDockIcon ? .accessory : .regular)
+        setActivationPolicyIfNeeded(shouldHideDockIcon ? .accessory : .regular)
+    }
+
+    private func rememberDetectedMenuBarItems() {
+        store.rememberMenuBarItems(
+            menuBarScanner.detectedItems,
+            resolvesVisibleConflicts: false
+        )
+    }
+
+    private func nextDetectedMenuBarItem(after itemKey: String, in section: MenuBarSection) -> DetectedMenuBarItem? {
+        let layoutItems = store.config.menuBarLayout.items
+        guard let currentIndex = layoutItems.firstIndex(where: { $0.bundleIdentifier == itemKey }) else {
+            return nil
+        }
+        let followingKeys = layoutItems[layoutItems.index(after: currentIndex)...]
+            .filter { $0.section == section }
+            .map(\.bundleIdentifier)
+        for key in followingKeys {
+            if let item = menuBarScanner.detectedItems.first(where: { $0.sectionKey == key }) {
+                return item
+            }
+        }
+        return nil
+    }
+
+    private func setActivationPolicyIfNeeded(_ policy: NSApplication.ActivationPolicy) {
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
+    }
+
+    private func keepPreferencesWindowFrontIfVisible() {
+        guard let window = NSApp.windows.first(where: { $0.title == "macMender" || $0.identifier?.rawValue.contains("preferences") == true }),
+              window.isVisible else {
+            return
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window.level = .normal
+        window.makeKeyAndOrderFront(nil)
     }
 
     private func bindChildChanges() {

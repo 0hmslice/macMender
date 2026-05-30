@@ -28,16 +28,18 @@ struct MenuBarPopover: View {
             Divider()
 
             Button {
-                if let openSettingsAction {
-                    openSettingsAction()
-                } else {
-                    if !appModel.focusPreferencesWindow() {
-                        openWindow(id: "preferences")
-                    }
-                    appModel.activateApp()
-                }
                 closeAction?()
                 dismiss()
+                DispatchQueue.main.async {
+                    if let openSettingsAction {
+                        openSettingsAction()
+                    } else {
+                        if !appModel.focusPreferencesWindow() {
+                            openWindow(id: "preferences")
+                        }
+                        appModel.activateApp()
+                    }
+                }
             } label: {
                 Label(
                     appModel.store.config.hasCompletedOnboarding ? "Open Settings" : "Continue Setup",

@@ -19,10 +19,7 @@ struct MacMenderApp: App {
                         }
                         appModel.activateApp()
                     }
-                    appModel.refreshSystemState()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                    appModel.refreshSystemState()
+                    appModel.startRuntimeIfNeeded()
                 }
         }
         .commands {
@@ -54,10 +51,35 @@ struct MacMenderApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
+        let launchBehavior = MacMenderLaunchBehavior.load()
+        NSApp.setActivationPolicy(launchBehavior.hideDockIcon ? .accessory : .regular)
+        guard !launchBehavior.hideDockIcon else { return }
+
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async {
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
         }
+    }
+}
+
+private enum MacMenderLaunchBehavior {
+    static func load(fileManager: FileManager = .default) -> AppBehavior {
+        guard let supportDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return .default
+        }
+
+        let configURL = supportDirectory
+            .appendingPathComponent("macMender", isDirectory: true)
+            .appendingPathComponent("config.json")
+
+        guard let data = try? Data(contentsOf: configURL),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let appBehavior = object["appBehavior"] as? [String: Any] else {
+            return .default
+        }
+
+        return AppBehavior(
+            hideDockIcon: appBehavior["hideDockIcon"] as? Bool ?? AppBehavior.default.hideDockIcon
+        )
     }
 }

@@ -34,7 +34,7 @@ struct AdvancedView: View {
 
             SectionCard(title: "Implementation Notes", subtitle: "System integrations stay local, reversible, and explicit.", symbolName: "lock.trianglebadge.exclamationmark") {
                 VStack(alignment: .leading, spacing: 8) {
-                    BoundaryRow(title: "Menu bar organization", detail: "Uses reversible status-item dividers and Command-drag behavior instead of modifying other apps.")
+                    BoundaryRow(title: "Menu bar organization", detail: "Uses the Thaw-port engine path with reversible status-item dividers and targeted item movement.")
                     BoundaryRow(title: "Dock icon hover previews", detail: "Reads the Dock accessibility tree and disables itself when Accessibility is unavailable.")
                     BoundaryRow(title: "Three-finger global gestures", detail: "Uses local multitouch callbacks where available and falls back to mouse-button triggers otherwise.")
                     BoundaryRow(title: "Spaces movement", detail: "Only actions with a reliable local runtime path are exposed in the UI.")
