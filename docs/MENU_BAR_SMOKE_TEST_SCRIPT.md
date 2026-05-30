@@ -102,7 +102,7 @@ swift -e 'import AppKit; typealias CGSConnectionID=Int32; @_silgen_name("CGSMain
 ## 4. Drag and Drop
 
 1. Drag an item from Visible to Hidden.
-2. Confirm the chip moves into the Hidden lane immediately and the real menu bar hides it.
+2. Confirm the chip does not leave behind stale optimistic row state. During drag it may show target feedback; after drop, the lane should update from live WindowServer refresh or Scan Now, and the real menu bar should hide it.
    - The live chip should exist once in exactly one lane after the drop. There must be no ghost chip, duplicate chip, stale source chip, or second live row for the same tag/title/source after live refresh or Scan Now.
 3. While dragging, confirm the target lane highlight appears with a visible tint/glow and the label matches the lane that will receive the item.
    - Target lane drop-slot reservation: when dragging over a different lane, the destination lane should visibly make room for the incoming chip instead of only changing color.

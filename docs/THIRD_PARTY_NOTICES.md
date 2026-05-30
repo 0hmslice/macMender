@@ -24,7 +24,7 @@ The project now includes GPL-3.0 licensing so these Ice-derived pieces can be sh
 Thaw was reviewed as an actively maintained Ice fork for newer-macOS structure and stability considerations.
 
 - Project: https://github.com/stonerl/Thaw
-- Upstream revision referenced during this port: `2a8301cda7fdfbabe3723442036b293b8a490504`
+- Upstream revision referenced during the direct-repair pass: `644642bb880ddf71504b24bce897568398821dab`
 
 Adapted concepts and code paths include:
 
