@@ -134,7 +134,30 @@ final class DockHoverService: ObservableObject {
             return nil
         }
         refreshDockItemsIfNeeded(near: mouse)
-        return cachedDockItems.first { $0.hitFrame.insetBy(dx: -4, dy: -8).contains(mouse) && !$0.identity.displayName.isEmpty }
+        let candidates = cachedDockItems.filter {
+            $0.identity.hasResolvedApplicationIdentity &&
+                !$0.identity.displayName.isEmpty &&
+                $0.hitFrame.insetBy(dx: -4, dy: -8).contains(mouse)
+        }
+        guard !candidates.isEmpty else { return nil }
+
+        let exactHits = candidates.filter { $0.hitFrame.contains(mouse) }
+        if let nearestExact = nearestDockItem(to: mouse, in: exactHits) {
+            return nearestExact
+        }
+        return nearestDockItem(to: mouse, in: candidates)
+    }
+
+    private func nearestDockItem(to point: CGPoint, in items: [DockItem]) -> DockItem? {
+        items.min { lhs, rhs in
+            squaredDistance(point, lhs.hitFrame.center) < squaredDistance(point, rhs.hitFrame.center)
+        }
+    }
+
+    private func squaredDistance(_ lhs: CGPoint, _ rhs: CGPoint) -> CGFloat {
+        let dx = lhs.x - rhs.x
+        let dy = lhs.y - rhs.y
+        return dx * dx + dy * dy
     }
 
     private func refreshDockItems(force: Bool) {
@@ -370,4 +393,10 @@ private struct DockItem {
     var identity: DockAppIdentity
     var hitFrame: CGRect
     var anchorFrame: CGRect
+}
+
+private extension CGRect {
+    var center: CGPoint {
+        CGPoint(x: midX, y: midY)
+    }
 }

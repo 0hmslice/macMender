@@ -61,6 +61,12 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     func showDockPreview(identity: DockAppIdentity, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
+        guard identity.hasResolvedApplicationIdentity else {
+            presentationStatus = "Dock preview skipped for unresolved Dock item \(identity.displayName)"
+            cancel()
+            return
+        }
+
         let discovered = catalog.visibleWindows()
             .filter { windowMatchesDockIdentity($0, identity: identity) }
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }

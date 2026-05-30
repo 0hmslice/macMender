@@ -8,6 +8,10 @@ struct DockAppIdentity: Equatable {
     var displayName: String {
         title.isEmpty ? (bundleIdentifier ?? "Unknown App") : title
     }
+
+    var hasResolvedApplicationIdentity: Bool {
+        bundleIdentifier != nil || processIdentifier != nil
+    }
 }
 
 enum SwitcherLayout: String, CaseIterable, Codable, Identifiable {
