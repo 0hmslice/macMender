@@ -1,5 +1,15 @@
 import Foundation
 
+struct DockAppIdentity: Equatable {
+    var title: String
+    var bundleIdentifier: String?
+    var processIdentifier: pid_t?
+
+    var displayName: String {
+        title.isEmpty ? (bundleIdentifier ?? "Unknown App") : title
+    }
+}
+
 enum SwitcherLayout: String, CaseIterable, Codable, Identifiable {
     case strip
     case grid

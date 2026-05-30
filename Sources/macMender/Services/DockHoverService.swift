@@ -8,7 +8,7 @@ final class DockHoverService: ObservableObject {
     @Published private(set) var lastHoveredApp: String?
 
     var hoverDelay: TimeInterval = 0.35
-    var onHoverApp: ((String, CGRect) -> Void)?
+    var onHoverApp: ((DockAppIdentity, CGRect) -> Void)?
     var onExitDock: (() -> Void)?
 
     private var globalMouseMonitor: Any?
@@ -16,8 +16,8 @@ final class DockHoverService: ObservableObject {
     private var fallbackTimer: Timer?
     private var hoverTask: Task<Void, Never>?
     private var hoverStart: Date?
-    private var pendingApp: String?
-    private var displayedApp: String?
+    private var pendingApp: DockAppIdentity?
+    private var displayedApp: DockAppIdentity?
     private var lastInsideDockAt: Date?
     private var cachedDockItems: [DockItem] = []
     private var lastDockItemRefresh: Date?
@@ -87,25 +87,25 @@ final class DockHoverService: ObservableObject {
         }
 
         lastInsideDockAt = Date()
-        setLastHoveredApp(item.title)
+        setLastHoveredApp(item.identity.displayName)
         guard allowNewHover || pendingApp != nil || displayedApp != nil else {
             return
         }
-        if pendingApp != item.title {
-            pendingApp = item.title
+        if pendingApp != item.identity {
+            pendingApp = item.identity
             hoverStart = Date()
             schedulePreview(for: item)
             return
         }
 
-        guard displayedApp != item.title,
+        guard displayedApp != item.identity,
               let hoverStart,
               Date().timeIntervalSince(hoverStart) >= hoverDelay else {
             return
         }
 
-        displayedApp = item.title
-        onHoverApp?(item.title, item.anchorFrame)
+        displayedApp = item.identity
+        onHoverApp?(item.identity, item.anchorFrame)
     }
 
     private func schedulePreview(for item: DockItem) {
@@ -114,15 +114,15 @@ final class DockHoverService: ObservableObject {
             guard let self else { return }
             try? await Task.sleep(for: .milliseconds(Int(self.hoverDelay * 1000)))
             guard !Task.isCancelled,
-                  self.pendingApp == item.title,
-                  self.displayedApp != item.title,
+                  self.pendingApp == item.identity,
+                  self.displayedApp != item.identity,
                   let current = self.dockItemUnderMouse(),
-                  current.title == item.title else {
+                  current.identity == item.identity else {
                 return
             }
 
-            self.displayedApp = item.title
-            self.onHoverApp?(item.title, current.anchorFrame)
+            self.displayedApp = item.identity
+            self.onHoverApp?(item.identity, current.anchorFrame)
         }
     }
 
@@ -134,7 +134,7 @@ final class DockHoverService: ObservableObject {
             return nil
         }
         refreshDockItemsIfNeeded(near: mouse)
-        return cachedDockItems.first { $0.hitFrame.insetBy(dx: -4, dy: -8).contains(mouse) && !$0.title.isEmpty }
+        return cachedDockItems.first { $0.hitFrame.insetBy(dx: -4, dy: -8).contains(mouse) && !$0.identity.displayName.isEmpty }
     }
 
     private func refreshDockItems(force: Bool) {
@@ -226,11 +226,51 @@ final class DockHoverService: ObservableObject {
             AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
             let hitFrame = quartzFrame(fromAccessibilityPosition: position, size: size)
             return DockItem(
-                title: title,
+                identity: identity(for: element, title: title),
                 hitFrame: hitFrame,
                 anchorFrame: appKitFrame(fromQuartzFrame: hitFrame)
             )
         }
+    }
+
+    private func identity(for element: AXUIElement, title: String) -> DockAppIdentity {
+        if let bundleIdentifier = bundleIdentifierFromDockURL(element) {
+            let runningApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first
+            return DockAppIdentity(
+                title: runningApp?.localizedName ?? title,
+                bundleIdentifier: bundleIdentifier,
+                processIdentifier: runningApp?.processIdentifier
+            )
+        }
+
+        let matchingApp = NSWorkspace.shared.runningApplications.first { app in
+            app.activationPolicy == .regular &&
+                (app.localizedName == title || app.bundleURL?.deletingPathExtension().lastPathComponent == title)
+        }
+        return DockAppIdentity(
+            title: matchingApp?.localizedName ?? title,
+            bundleIdentifier: matchingApp?.bundleIdentifier,
+            processIdentifier: matchingApp?.processIdentifier
+        )
+    }
+
+    private func bundleIdentifierFromDockURL(_ element: AXUIElement) -> String? {
+        var urlValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXURLAttribute as CFString, &urlValue) == .success else {
+            return nil
+        }
+        let url: URL?
+        if let value = urlValue as? URL {
+            url = value
+        } else if let value = urlValue as? String {
+            url = URL(string: value)
+        } else {
+            url = nil
+        }
+        guard let url, url.isFileURL, let bundle = Bundle(url: url) else {
+            return nil
+        }
+        return bundle.bundleIdentifier
     }
 
     private func isDockCurrentlyVisible() -> Bool {
@@ -327,7 +367,7 @@ final class DockHoverService: ObservableObject {
 }
 
 private struct DockItem {
-    var title: String
+    var identity: DockAppIdentity
     var hitFrame: CGRect
     var anchorFrame: CGRect
 }

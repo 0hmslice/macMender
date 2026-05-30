@@ -53,14 +53,21 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     func showDockPreview(appName: String, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
-        let normalized = appName.lowercased()
+        showDockPreview(
+            identity: DockAppIdentity(title: appName, bundleIdentifier: nil, processIdentifier: nil),
+            settings: settings,
+            anchorFrame: anchorFrame
+        )
+    }
+
+    func showDockPreview(identity: DockAppIdentity, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
         let discovered = catalog.visibleWindows()
-            .filter { $0.appName.lowercased() == normalized }
+            .filter { windowMatchesDockIdentity($0, identity: identity) }
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
 
         guard !discovered.isEmpty else {
-            presentationStatus = "No windows detected for \(appName)"
+            presentationStatus = "No windows detected for \(identity.displayName)"
             cancel()
             return
         }
@@ -68,9 +75,9 @@ final class WindowSwitcherService: ObservableObject {
         selectedIndex = 0
         isShowing = true
         isDockPreview = true
-        overlayTitle = appName
+        overlayTitle = identity.displayName
         overlaySubtitle = discovered.count == 1 ? "1 window" : "\(discovered.count) windows"
-        presentationStatus = "\(discovered.count) \(appName) windows available"
+        presentationStatus = "\(discovered.count) \(identity.displayName) windows available"
         dockPreviewAnchorFrame = anchorFrame
         ensurePanel(settings: settings, anchorFrame: anchorFrame)
         prefetchThumbnails()
@@ -164,6 +171,16 @@ final class WindowSwitcherService: ObservableObject {
             selectedIndex = min(selectedIndex, max(windows.count - 1, 0))
         }
         prefetchThumbnails()
+    }
+
+    private func windowMatchesDockIdentity(_ window: WindowSummary, identity: DockAppIdentity) -> Bool {
+        if let bundleIdentifier = identity.bundleIdentifier {
+            return window.bundleIdentifier == bundleIdentifier
+        }
+        if let processIdentifier = identity.processIdentifier {
+            return window.processIdentifier == processIdentifier
+        }
+        return window.appName.localizedCaseInsensitiveCompare(identity.displayName) == .orderedSame
     }
 
     private func prefetchThumbnails() {

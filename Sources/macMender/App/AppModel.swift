@@ -472,10 +472,10 @@ final class AppModel: ObservableObject {
         systemEvents.onCancelSwitcher = { [weak self] in
             self?.windowSwitcher.cancel()
         }
-        dockHover.onHoverApp = { [weak self] appName, frame in
+        dockHover.onHoverApp = { [weak self] identity, frame in
             guard let self else { return }
             self.windowSwitcher.showDockPreview(
-                appName: appName,
+                identity: identity,
                 settings: self.activeProfile.dockPreviews.overlaySettings(using: self.activeProfile.windowSwitcher),
                 anchorFrame: frame
             )

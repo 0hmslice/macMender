@@ -48,7 +48,12 @@ final class WindowCatalogService {
 
     func activate(_ window: WindowSummary) {
         if let axElement = window.axElement {
+            if window.isMinimized {
+                AXUIElementSetAttributeValue(axElement, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+            }
             AXUIElementPerformAction(axElement, kAXRaiseAction as CFString)
+            AXUIElementSetAttributeValue(axElement, kAXMainAttribute as CFString, kCFBooleanTrue)
+            AXUIElementSetAttributeValue(axElement, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         }
         NSRunningApplication(processIdentifier: window.processIdentifier)?.activate(options: [.activateAllWindows])
     }
@@ -103,22 +108,31 @@ final class WindowCatalogService {
         let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &value)
         guard result == .success, let windows = value as? [AXUIElement] else { return [] }
 
-        return windows.enumerated().compactMap { index, window in
+        var usedCGWindowIDs = Set<CGWindowID>()
+        var summaries = [WindowSummary]()
+
+        for (index, window) in windows.enumerated() {
             var titleValue: CFTypeRef?
             AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleValue)
             let title = titleValue as? String ?? "Untitled Window"
             let frame = frame(for: window)
             let minimized = boolAttribute(kAXMinimizedAttribute, from: window)
-            let matchedCGWindow = cgWindows.first {
-                $0.processIdentifier == app.processIdentifier &&
-                (titlesMatch($0.title, title) || framesOverlap($0.frame, frame))
+            let matchedCGWindow = bestCGWindow(
+                for: app.processIdentifier,
+                title: title,
+                frame: frame,
+                cgWindows: cgWindows,
+                usedWindowIDs: usedCGWindowIDs
+            )
+            if let matchedCGWindow {
+                usedCGWindowIDs.insert(matchedCGWindow.windowID)
             }
 
             guard !title.isEmpty || matchedCGWindow != nil || frame.width > 0 else {
-                return nil
+                continue
             }
 
-            return WindowSummary(
+            summaries.append(WindowSummary(
                 id: "\(app.processIdentifier)-\(matchedCGWindow?.windowID ?? CGWindowID(index))-\(title)",
                 windowID: matchedCGWindow?.windowID,
                 appName: app.localizedName ?? app.bundleIdentifier ?? "Unknown App",
@@ -129,8 +143,10 @@ final class WindowCatalogService {
                 isMinimized: minimized,
                 stackIndex: matchedCGWindow?.stackIndex ?? Int.max,
                 axElement: window
-            )
+            ))
         }
+
+        return summaries
     }
 
     private func cgWindowDescriptions() -> [CGWindowDescription] {
@@ -187,9 +203,40 @@ final class WindowCatalogService {
         return lhs == rhs || lhs.contains(rhs) || rhs.contains(lhs)
     }
 
-    private func framesOverlap(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
-        guard lhs != .zero, rhs != .zero else { return false }
-        return lhs.intersection(rhs).width > min(lhs.width, rhs.width) * 0.6
+    private func bestCGWindow(
+        for processIdentifier: pid_t,
+        title: String,
+        frame: CGRect,
+        cgWindows: [CGWindowDescription],
+        usedWindowIDs: Set<CGWindowID>
+    ) -> CGWindowDescription? {
+        cgWindows
+            .filter { $0.processIdentifier == processIdentifier && !usedWindowIDs.contains($0.windowID) }
+            .compactMap { window -> (window: CGWindowDescription, score: Double)? in
+                let titleScore = titlesMatch(window.title, title) ? 4.0 : 0
+                let overlap = frameOverlapRatio(window.frame, frame)
+                let frameScore = overlap >= 0.72 ? overlap * 3.0 : 0
+                let score = titleScore + frameScore
+                guard score >= 3 else { return nil }
+                return (window, score)
+            }
+            .max {
+                if $0.score == $1.score {
+                    return $0.window.stackIndex > $1.window.stackIndex
+                }
+                return $0.score < $1.score
+            }?
+            .window
+    }
+
+    private func frameOverlapRatio(_ lhs: CGRect, _ rhs: CGRect) -> Double {
+        guard lhs != .zero, rhs != .zero else { return 0 }
+        let intersection = lhs.intersection(rhs)
+        guard !intersection.isNull, intersection.width > 0, intersection.height > 0 else { return 0 }
+        let intersectionArea = intersection.width * intersection.height
+        let smallerArea = min(lhs.width * lhs.height, rhs.width * rhs.height)
+        guard smallerArea > 0 else { return 0 }
+        return intersectionArea / smallerArea
     }
 }
 
