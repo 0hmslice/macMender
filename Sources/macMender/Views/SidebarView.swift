@@ -8,7 +8,7 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 7) {
             ForEach(SettingsSection.allCases) { section in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.16)) {
+                    withAnimation(LiquidGlassMotion.quick) {
                         selection = section
                     }
                 } label: {
@@ -52,6 +52,6 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .liquidGlass(.sidebar)
     }
 }

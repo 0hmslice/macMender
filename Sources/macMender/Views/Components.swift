@@ -11,7 +11,7 @@ struct PreferencesScrollView<Content: View>: View {
             .padding(24)
             .frame(maxWidth: 980, alignment: .leading)
         }
-        .background(.bar.opacity(0.22))
+        .liquidGlass(.windowBackground)
     }
 }
 
@@ -44,12 +44,7 @@ struct SectionCard<Content: View>: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.primary.opacity(0.08), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+        .liquidGlass(.card)
     }
 }
 
@@ -134,6 +129,6 @@ struct EmptyStateView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .liquidGlass(.panel)
     }
 }

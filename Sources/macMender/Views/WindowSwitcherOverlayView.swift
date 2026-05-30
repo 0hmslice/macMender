@@ -26,11 +26,7 @@ struct WindowSwitcherOverlayView: View {
             .padding(2)
         }
         .padding(18)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(.white.opacity(0.18), lineWidth: 1)
-        }
+        .liquidGlass(.preview)
     }
 
     private var cards: some View {
@@ -106,7 +102,7 @@ private struct WindowSwitcherCard: View {
                     .stroke(isSelected ? Color.accentColor : .white.opacity(0.12), lineWidth: isSelected ? 2 : 1)
             }
             .scaleEffect(isSelected ? 1.025 : 1)
-            .animation(.snappy(duration: 0.16), value: isSelected)
+            .animation(LiquidGlassMotion.quick, value: isSelected)
         }
         .buttonStyle(.plain)
         .contextMenu {

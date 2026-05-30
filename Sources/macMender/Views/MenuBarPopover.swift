@@ -46,16 +46,18 @@ struct MenuBarPopover: View {
                     systemImage: "gearshape"
                 )
             }
+            .buttonStyle(LiquidGlassButtonStyle())
 
             Button {
                 NSApp.terminate(nil)
             } label: {
                 Label("Quit macMender", systemImage: "power")
             }
+            .buttonStyle(LiquidGlassButtonStyle())
         }
         .padding()
         .frame(width: 300)
-        .background(.ultraThinMaterial)
+        .liquidGlass(.panel)
     }
 
     private var statusDetail: String {
