@@ -22,6 +22,8 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     @Published private(set) var isApplyingSpacing = false
     @Published private(set) var engineSnapshot = MenuBarEngineSnapshot()
     @Published private(set) var engineStatus = MenuBarEngineStatus()
+    @Published private(set) var physicalMovementEnabled = false
+    @Published private(set) var physicalMovementStatusDescription = "Physical movement disabled until the real Thaw runtime is transplanted."
 
     var onRequestSectionChange: ((DetectedMenuBarItem, MenuBarSection) -> Void)?
 
@@ -51,24 +53,27 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     var overflowActionTitle: String {
+        guard physicalMovementEnabled else { return "Movement Disabled" }
         guard hasConcealableItems else { return "Choose an Icon to Hide" }
         return overflowVisible ? "Hide Selected Icons" : "Reveal Hidden Icons"
     }
 
     var overflowStatusDescription: String {
+        guard physicalMovementEnabled else { return physicalMovementStatusDescription }
         guard controlsInstalled else { return shelfEnabled ? "Ready to hide icons" : "Paused" }
         return overflowVisible ? "Hidden icons revealed" : "Hidden icons tucked away"
     }
 
     func configureControls(enabled: Bool, hasConcealableItems: Bool, layout: MenuBarLayout) {
-        shelfEnabled = enabled
+        shelfEnabled = enabled && physicalMovementEnabled
         self.hasConcealableItems = hasConcealableItems
         self.layout = layout
         spacingStatusDescription = layout.itemSpacingOffset == 0 ? "Default spacing" : "Spacing offset \(layout.itemSpacingOffset)"
 
-        guard enabled else {
+        guard enabled, physicalMovementEnabled else {
             self.hasConcealableItems = false
             removeRuntime()
+            refresh(force: true)
             return
         }
 
@@ -86,10 +91,12 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     func toggleOverflow() {
+        guard physicalMovementEnabled else { return }
         overflowVisible ? hideOverflow() : showOverflow()
     }
 
     func showOverflow() {
+        guard physicalMovementEnabled else { return }
         if layout.showHiddenItemsInSecondaryBar {
             showSecondaryBar()
         } else {
@@ -98,6 +105,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     func revealInMainMenuBar() {
+        guard physicalMovementEnabled else { return }
         controlItems.installIfNeeded(layout: layout)
         controlsInstalled = controlItems.controlsInstalled
         autoRehideTask?.cancel()
@@ -113,6 +121,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     func revealAlwaysHiddenInMainMenuBar() {
+        guard physicalMovementEnabled else { return }
         controlItems.installIfNeeded(layout: layout)
         controlsInstalled = controlItems.controlsInstalled
         autoRehideTask?.cancel()
@@ -125,6 +134,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     func hideOverflow() {
+        guard physicalMovementEnabled else { return }
         guard controlsInstalled else { return }
         secondaryBar.hide()
         if hasConcealableItems {
@@ -233,6 +243,10 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     func move(_ item: DetectedMenuBarItem, to section: MenuBarSection, before target: DetectedMenuBarItem?) {
+        guard physicalMovementEnabled else {
+            physicalMovementStatusDescription = "Move ignored: physical menu-bar movement is disabled pending a real Thaw runtime transplant."
+            return
+        }
         guard item.isHideCandidate else { return }
         controlItems.installIfNeeded(layout: layout)
         controlsInstalled = controlItems.controlsInstalled
@@ -256,6 +270,10 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     func moveVisibleControl(before target: DetectedMenuBarItem?) {
+        guard physicalMovementEnabled else {
+            physicalMovementStatusDescription = "Mendy menu-bar icon movement is disabled pending a real Thaw runtime transplant."
+            return
+        }
         controlItems.installIfNeeded(layout: layout)
         controlsInstalled = controlItems.controlsInstalled
 
@@ -269,6 +287,7 @@ final class MenuBarScannerService: NSObject, ObservableObject {
     }
 
     func reconcileDesiredSections(_ desiredSections: [String: MenuBarSection]) {
+        guard physicalMovementEnabled else { return }
         // Intentionally not called during normal runtime startup. Applying a
         // stored model to the physical menu bar can reorder icons without an
         // explicit user gesture, which feels random when macOS has already

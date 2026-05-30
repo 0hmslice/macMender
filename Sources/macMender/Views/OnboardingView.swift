@@ -123,7 +123,7 @@ struct OnboardingView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            MendyAvatarView(mood: appModel.permissions.needsAttention ? .error : .happy, size: MendyAvatarSize.prominent)
+            MendyAvatarView(mood: appModel.permissions.needsAttention ? .error : .happy, size: MendyAvatarSize.hero)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Set up macMender")

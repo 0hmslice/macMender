@@ -10,6 +10,16 @@ struct WindowSwitcherOverlayView: View {
     }
 
     var body: some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer {
+                content
+            }
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label(service.overlayTitle, systemImage: service.isDockPreview ? "dock.arrow.up.rectangle" : "rectangle.3.group")

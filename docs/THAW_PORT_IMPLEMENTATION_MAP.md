@@ -8,8 +8,14 @@ Inspected upstream revision:
 ## Current Production Boundary
 
 - `Sources/MacMenderMenuBarEngine` is the public engine boundary and holds GPL-attributed Thaw-derived tag/cache primitives.
-- `Sources/macMender/Services/MenuBarScannerService.swift` remains the app facade, but its internals are disposable when they conflict with the direct Thaw-derived runtime.
-- `Sources/macMender/Views/Sections/MenuBarManagementView.swift` renders live physical section/order from detected status-item windows. Saved `MenuBarLayout` is persistence after explicit user action, not display truth.
+- `Sources/macMender/Services/MenuBarScannerService.swift` remains the app facade, but physical hide/reveal/reorder operations are disabled because the current implementation is not Thaw-equivalent.
+- `Sources/macMender/Views/Sections/MenuBarManagementView.swift` is discovery-only for physical layout until the full Thaw runtime shape is transplanted.
+
+## Current Decision
+
+The current macMender menu-bar mover is architecturally different from Thaw and must not be patched further as if it were equivalent. It lacks Thaw's full `MenuBarItemManager` operation state machine, `HIDEventManager` coordination, `EventTap` pool/continuations, startup settling authority model, adaptive move/click timing, blocked-item recovery, pending relocation return destinations, and LayoutSolver/LayoutReconciler restore path.
+
+Physical movement, hide/reveal, Always Hidden, secondary-bar return-to-visible, and Mendy status-item movement stay disabled until the runtime group below is transplanted and manually verified.
 
 ## Direct Repair Scope
 
@@ -62,12 +68,12 @@ These upstream modules were inspected as one coherent menu-bar runtime:
 
 ## Packaging Requirement
 
-Thaw uses a bundled XPC service at `Thaw.app/Contents/XPCServices/MenuBarItemService.xpc` for source-PID resolution. macMender's SwiftPM package currently builds an executable app bundle but does not yet embed an XPC service. Full Thaw parity requires adding `MacMenderMenuBarItemService.xpc` to the app bundle or moving to an Xcode project/build step that can embed the service reliably.
+Thaw uses a bundled XPC service at `Thaw.app/Contents/XPCServices/MenuBarItemService.xpc` for source-PID resolution. macMender's `script/build_and_run.sh` can embed `MacMenderMenuBarItemService.xpc`, but the current boundary is a custom `NSXPCConnection` protocol plus an in-process fallback, not Thaw's exact `XPC` request/response service. Full Thaw parity requires matching the helper/service behavior and validating helper launch/connect/source-PID behavior side by side with Thaw.
 
 ## Hard Rules
 
 - Keep original GPL headers on copied Ice/Thaw files.
 - Keep Ice/Thaw attribution in `docs/THIRD_PARTY_NOTICES.md`.
 - The layout UI must never show an item as Hidden or Always Hidden when live window state says it is physically visible.
-- Direct real-menu-bar reordering changes order only. It must not silently change section membership except to resolve a visible/hidden conflict in favor of visible reality.
+- Direct real-menu-bar reordering is disabled until the real Thaw runtime is present.
 - Cursor warp/hide APIs are forbidden outside the scoped Thaw-style movement guard in `MenuBarItemMover`. That one path may hide the cursor and restore the original pointer position while physically moving a status item; reveal, activation, Dock/window, and app-facing UI paths must not use cursor warp/hide APIs.

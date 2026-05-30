@@ -2,6 +2,8 @@
 
 This script is the release gate for menu bar management. Run it with Ice closed unless the step explicitly asks for Ice comparison.
 
+Current runtime-transplant status: physical menu-bar hide/reveal/reorder is intentionally disabled in macMender until the full Thaw runtime shape is transplanted. For the current pass, the expected result for hide, reveal, Always Hidden, secondary bar movement, and drag/reorder steps is a clear disabled state with no cursor movement, no context menu activation, and no fake success. Do not claim Thaw parity from this pass.
+
 ## 0. Reset
 
 1. Quit other menu-bar managers: Ice, Thaw, Bartender, Hidden Bar, Dozer, Vanilla, Barbee.

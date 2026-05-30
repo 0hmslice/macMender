@@ -432,6 +432,16 @@ struct MenuBarScannerTests {
         #expect(model.hiddenMenuBarItemCount == 0)
     }
 
+    @MainActor
+    @Test("physical movement is disabled until full Thaw runtime transplant")
+    func physicalMovementIsDisabledUntilTransplant() {
+        let scanner = MenuBarScannerService()
+
+        #expect(!scanner.physicalMovementEnabled)
+        #expect(scanner.overflowActionTitle == "Movement Disabled")
+        #expect(scanner.overflowStatusDescription.localizedCaseInsensitiveContains("disabled"))
+    }
+
     @Test("detected items map live sections into engine snapshot items")
     func detectedItemsMapToEngineSnapshotItems() {
         let visible = DetectedMenuBarItem(

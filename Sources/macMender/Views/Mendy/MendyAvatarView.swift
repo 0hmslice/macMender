@@ -115,13 +115,14 @@ enum MendyAvatarSize {
 struct MendyAvatarView: View {
     let mood: MendyMood
     let size: CGFloat
-    var showsGlass: Bool = true
+    var showsGlass: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isAnimating = false
 
     var body: some View {
         ZStack {
+            ambientGlow
             glassBackground
 
             Image(nsImage: currentImage)
@@ -183,6 +184,26 @@ struct MendyAvatarView: View {
                     }
                 }
         }
+    }
+
+    private var ambientGlow: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        mood.accentColor.opacity(reduceMotion ? 0.14 : glowOpacity),
+                        mood.accentColor.opacity(0.08),
+                        .clear
+                    ],
+                    center: .center,
+                    startRadius: size * 0.12,
+                    endRadius: size * 0.62
+                )
+            )
+            .frame(width: size * 1.16, height: size * 1.16)
+            .scaleEffect(isAnimating && mood.isLively && !reduceMotion ? 1.04 : 0.98)
+            .blur(radius: size * 0.035)
+            .allowsHitTesting(false)
     }
 
     private var activityScale: CGFloat {

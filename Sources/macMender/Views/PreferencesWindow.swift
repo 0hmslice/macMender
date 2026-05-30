@@ -11,6 +11,7 @@ struct PreferencesWindow: View {
                     Divider()
                     SidebarView(selection: $appModel.selectedSection)
                 }
+                    .liquidGlass(.sidebar)
                     .navigationSplitViewColumnWidth(min: 230, ideal: 260)
             } detail: {
                 DetailRouter(appModel: appModel)

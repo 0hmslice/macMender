@@ -67,7 +67,7 @@ struct MenuBarManagementView: View {
         PreferencesScrollView {
             SectionCard(
                 title: "Menu Bar Layout",
-                subtitle: "Drag icons into Visible, Hidden, or Always Hidden. Mendy keeps the bar tidy until you need something.",
+                subtitle: appModel.menuBarScanner.physicalMovementEnabled ? "Drag icons into Visible, Hidden, or Always Hidden. Mendy keeps the bar tidy until you need something." : "Discovery is available. Physical hide, reveal, and reorder controls are disabled until the real Thaw runtime is transplanted.",
                 symbolName: "menubar.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -75,9 +75,9 @@ struct MenuBarManagementView: View {
                         MendyAvatarView(mood: .thinking, size: MendyAvatarSize.panel)
 
                         VStack(alignment: .leading, spacing: 7) {
-                            Text("Arrange your menu-bar icons into calm, predictable lanes.")
+                            Text(appModel.menuBarScanner.physicalMovementEnabled ? "Arrange your menu-bar icons into calm, predictable lanes." : "Review detected menu-bar icons without moving them.")
                                 .font(.title3.weight(.semibold))
-                            Text("Visible icons stay in the menu bar. Hidden icons reveal from the zone around Mendy. Always Hidden waits until you explicitly ask for it.")
+                            Text(appModel.menuBarScanner.physicalMovementEnabled ? "Visible icons stay in the menu bar. Hidden icons reveal from the zone around Mendy. Always Hidden waits until you explicitly ask for it." : appModel.menuBarScanner.physicalMovementStatusDescription)
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -133,6 +133,10 @@ struct MenuBarManagementView: View {
                     Text("Hidden icons reveal from the zone around Mendy using the triggers below. macMender keeps macOS-fixed icons read-only and only offers icons backed by real movable status items.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+
+                    if !appModel.menuBarScanner.physicalMovementEnabled {
+                        MenuBarMovementDisabledBanner()
+                    }
                 }
             }
 
@@ -164,6 +168,7 @@ struct MenuBarManagementView: View {
                                     allItems: hideCandidateItems,
                                     mendyInsertionIndex: section == .pinned ? mendyInsertionIndex(in: items(in: section)) : nil,
                                     appModel: appModel,
+                                    movementEnabled: appModel.menuBarScanner.physicalMovementEnabled,
                                     reduceMotion: reduceMotion,
                                     chipNamespace: chipNamespace,
                                     activeDraggedItemID: $activeDraggedItemID,
@@ -213,7 +218,7 @@ struct MenuBarManagementView: View {
 
             SectionCard(
                 title: "Reveal and Spacing",
-                subtitle: "Choose how Hidden icons come back when you need them.",
+                subtitle: appModel.menuBarScanner.physicalMovementEnabled ? "Choose how Hidden icons come back when you need them." : "Reveal settings are disabled because physical menu-bar hiding is disabled.",
                 symbolName: "cursorarrow.motionlines"
             ) {
                 VStack(alignment: .leading, spacing: 12) {
@@ -224,6 +229,7 @@ struct MenuBarManagementView: View {
                         }
                     ))
                     .help("Hidden icons return to their tucked-away state after a short delay.")
+                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
 
                     Toggle("Show Hidden icons when I hover near Mendy", isOn: Binding(
                         get: { appModel.store.config.menuBarLayout.revealOnHover },
@@ -232,6 +238,7 @@ struct MenuBarManagementView: View {
                         }
                     ))
                     .help("Hover over Mendy or the small zone beside it to reveal Hidden icons.")
+                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
 
                     Toggle("Show Hidden icons when I click empty space near Mendy", isOn: Binding(
                         get: { appModel.store.config.menuBarLayout.revealOnEmptyMenuBarClick },
@@ -240,6 +247,7 @@ struct MenuBarManagementView: View {
                         }
                     ))
                     .help("Only empty menu-bar space inside Mendy's reveal zone triggers this.")
+                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
 
                     Toggle("Show or tuck icons with a swipe near Mendy", isOn: Binding(
                         get: { appModel.store.config.menuBarLayout.revealOnScroll },
@@ -248,6 +256,7 @@ struct MenuBarManagementView: View {
                         }
                     ))
                     .help("Scroll or swipe while the pointer is in Mendy's reveal zone.")
+                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
 
                     HStack {
                         Text("Rehide delay")
@@ -276,6 +285,7 @@ struct MenuBarManagementView: View {
                             appModel.updateMenuBarLayout { $0.showHiddenItemsInSecondaryBar = value }
                         }
                     ))
+                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
 
                     HStack {
                         Text("Item spacing")
@@ -531,6 +541,28 @@ private struct MenuBarSearchField: View {
     }
 }
 
+private struct MenuBarMovementDisabledBanner: View {
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lock.trianglebadge.exclamationmark")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Physical movement disabled")
+                    .font(.callout.weight(.semibold))
+                Text("The current partial mover is not Thaw-equivalent. macMender will not hide, reorder, or restore menu-bar icons until the full Thaw runtime shape is transplanted and verified.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .liquidGlass(.row)
+    }
+}
+
 private struct LiveOrderingPermissionBanner: View {
     var requestAction: () -> Void
     var settingsAction: () -> Void
@@ -581,6 +613,7 @@ private struct MenuBarLayoutLane: View {
     var allItems: [DetectedMenuBarItem]
     var mendyInsertionIndex: Int?
     @ObservedObject var appModel: AppModel
+    var movementEnabled: Bool
     var reduceMotion: Bool
     var chipNamespace: Namespace.ID
     @Binding var activeDraggedItemID: String?
@@ -609,7 +642,7 @@ private struct MenuBarLayoutLane: View {
                         .padding(.vertical, 4)
                         .background(section.accentColor.opacity(0.26), in: Capsule())
                         .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                } else if isDragging {
+                } else if isDragging, movementEnabled {
                     Text("Drag to arrange")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
@@ -632,7 +665,7 @@ private struct MenuBarLayoutLane: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 7) {
                     if items.isEmpty && !showsMendyStatusItem {
-                        MenuBarLaneEmptyState(section: section, isTargeted: isActiveDropTarget)
+                        MenuBarLaneEmptyState(section: section, isTargeted: isActiveDropTarget, movementEnabled: movementEnabled)
                     } else {
                         if shouldShowInsertionMarker(at: 0, insertionIndex: insertionIndex) {
                             insertionFeedback(at: 0, renderedSlotCount: renderedSlotCount)
@@ -644,6 +677,7 @@ private struct MenuBarLayoutLane: View {
                                     sectionItems: items,
                                     statusItem: appModel.menuBarScanner.visibleControlItem,
                                     appModel: appModel,
+                                    movementEnabled: movementEnabled,
                                     reduceMotion: reduceMotion,
                                     chipNamespace: chipNamespace,
                                     activeDraggedItemID: $activeDraggedItemID,
@@ -662,6 +696,7 @@ private struct MenuBarLayoutLane: View {
                                 sectionItems: items,
                                 allItems: allItems,
                                 appModel: appModel,
+                                movementEnabled: movementEnabled,
                                 reduceMotion: reduceMotion,
                                 chipNamespace: chipNamespace,
                                 activeDraggedItemID: $activeDraggedItemID,
@@ -684,6 +719,7 @@ private struct MenuBarLayoutLane: View {
                                 sectionItems: items,
                                 statusItem: appModel.menuBarScanner.visibleControlItem,
                                 appModel: appModel,
+                                movementEnabled: movementEnabled,
                                 reduceMotion: reduceMotion,
                                 chipNamespace: chipNamespace,
                                 activeDraggedItemID: $activeDraggedItemID,
@@ -720,7 +756,7 @@ private struct MenuBarLayoutLane: View {
                     .stroke(isActiveDropTarget ? Color.white.opacity(0.72) : section.accentColor.opacity(0.48), lineWidth: isActiveDropTarget ? 2 : 1)
             }
             .overlay(alignment: .topTrailing) {
-                if isActiveDropTarget {
+                if isActiveDropTarget, movementEnabled {
                     Label("Drop in \(section.title)", systemImage: "arrow.down.circle.fill")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.white)
@@ -766,6 +802,7 @@ private struct MenuBarLayoutLane: View {
     }
 
     private func shouldShowInsertionMarker(at slot: Int, insertionIndex: Int?) -> Bool {
+        guard movementEnabled else { return false }
         guard let insertionIndex,
               insertionIndex == slot,
               let activeDraggedItemID else {
@@ -784,7 +821,7 @@ private struct MenuBarLayoutLane: View {
     }
 
     private func shouldReserveDropSlot(at slot: Int, renderedSlotCount: Int) -> Bool {
-        guard let activeDraggedItemID else { return false }
+        guard movementEnabled, let activeDraggedItemID else { return false }
         if activeDraggedItemID == mendyStatusItemDragID {
             return slot == renderedSlotCount
         }
@@ -818,7 +855,8 @@ private struct MenuBarLayoutLane: View {
     }
 
     private func neighborInsertionOffset(for item: DetectedMenuBarItem) -> CGFloat {
-        guard !reduceMotion,
+        guard movementEnabled,
+              !reduceMotion,
               activeInsertionSection == section,
               let activeDraggedItemID,
               activeDraggedItemID != item.id,
@@ -861,6 +899,7 @@ private struct MenuBarLaneItemChip: View {
     var sectionItems: [DetectedMenuBarItem]
     var allItems: [DetectedMenuBarItem]
     @ObservedObject var appModel: AppModel
+    var movementEnabled: Bool
     var reduceMotion: Bool
     var chipNamespace: Namespace.ID
     @Binding var activeDraggedItemID: String?
@@ -877,6 +916,7 @@ private struct MenuBarLaneItemChip: View {
             item: item,
             section: section,
             reduceMotion: reduceMotion,
+            movementEnabled: movementEnabled,
             moveAction: { destination in
                 appModel.setMenuBarSection(item, section: destination)
             }
@@ -889,6 +929,7 @@ private struct MenuBarLaneItemChip: View {
         .highPriorityGesture(
             DragGesture(minimumDistance: 8, coordinateSpace: .named(menuBarLayoutDragCoordinateSpace))
                 .onChanged { value in
+                    guard movementEnabled else { return }
                     activeDraggedItemID = item.id
                     let targetSection = section(at: value.location) ?? sectionAfterVerticalDrag(value.translation.height) ?? section
                     let commitSlot = insertionSlot(for: value.location, in: targetSection)
@@ -900,6 +941,10 @@ private struct MenuBarLaneItemChip: View {
                     updateDragPreview(location: value.location)
                 }
                 .onEnded { value in
+                    guard movementEnabled else {
+                        resetDragFeedback()
+                        return
+                    }
                     handleGestureDrop(value)
                     withAnimation(MenuBarLayoutMotion.drop(reduceMotion: reduceMotion)) {
                         resetDragFeedback()
@@ -1090,6 +1135,7 @@ private struct MenuBarFloatingDragPreview: View {
                     item: item,
                     section: preview.targetSection,
                     reduceMotion: reduceMotion,
+                    movementEnabled: false,
                     moveAction: { _ in }
                 )
             } else {
@@ -1137,6 +1183,7 @@ private struct MendyMenuBarStatusChip: View {
     var sectionItems: [DetectedMenuBarItem]
     var statusItem: DetectedMenuBarItem?
     @ObservedObject var appModel: AppModel
+    var movementEnabled: Bool
     var reduceMotion: Bool
     var chipNamespace: Namespace.ID
     @Binding var activeDraggedItemID: String?
@@ -1182,10 +1229,15 @@ private struct MendyMenuBarStatusChip: View {
         .highPriorityGesture(
             DragGesture(minimumDistance: 8, coordinateSpace: .named(menuBarLayoutDragCoordinateSpace))
                 .onChanged { value in
+                    guard movementEnabled else { return }
                     updateDragFeedback(insertionIndex: mendyInsertionIndex(for: value))
                     updateDragPreview(location: value.location)
                 }
                 .onEnded { value in
+                    guard movementEnabled else {
+                        resetDragFeedback()
+                        return
+                    }
                     handleGestureDrop(value)
                     withAnimation(MenuBarLayoutMotion.drop(reduceMotion: reduceMotion)) {
                         resetDragFeedback()
@@ -1197,7 +1249,7 @@ private struct MendyMenuBarStatusChip: View {
         }
         .animation(MenuBarLayoutMotion.hover(reduceMotion: reduceMotion), value: isHovered)
         .animation(MenuBarLayoutMotion.lane(reduceMotion: reduceMotion), value: insertionIndex)
-        .help("Mendy stays Visible so you can open macMender, but you can drag it left or right.")
+        .help(movementEnabled ? "Mendy stays Visible so you can open macMender, but you can drag it left or right." : "Mendy movement is disabled until the real Thaw runtime is transplanted.")
     }
 
     private func handleGestureDrop(_ value: DragGesture.Value) {
@@ -1328,12 +1380,13 @@ private struct MenuBarReservedDropSlot: View {
 private struct MenuBarLaneEmptyState: View {
     var section: MenuBarSection
     var isTargeted: Bool
+    var movementEnabled: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: section.emptySymbolName)
                 .font(.system(size: 15, weight: .semibold))
-            Text(isTargeted ? "Drop here" : "Drop icons here")
+            Text(movementEnabled ? (isTargeted ? "Drop here" : "Drop icons here") : "No detected icons")
                 .font(.callout.weight(.medium))
         }
         .foregroundStyle(.white.opacity(0.72))
@@ -1345,6 +1398,7 @@ private struct MenuBarItemChip: View {
     var item: DetectedMenuBarItem
     var section: MenuBarSection
     var reduceMotion: Bool
+    var movementEnabled: Bool
     var moveAction: (MenuBarSection) -> Void
     @State private var isHovered = false
 
@@ -1354,7 +1408,7 @@ private struct MenuBarItemChip: View {
             MenuBarStatusItemIconView(item: item, metrics: metrics)
 
             if isHovered {
-                Image(systemName: "line.3.horizontal")
+                Image(systemName: movementEnabled ? "line.3.horizontal" : "lock")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.70))
                     .transition(.opacity.combined(with: .scale(scale: 0.86)))
@@ -1371,18 +1425,22 @@ private struct MenuBarItemChip: View {
         .scaleEffect(isHovered && !reduceMotion ? 1.045 : 1)
         .contentShape(.rect)
         .contextMenu {
-            ForEach(MenuBarSection.allCases) { destination in
-                Button(destination.title) {
-                    moveAction(destination)
+            if movementEnabled {
+                ForEach(MenuBarSection.allCases) { destination in
+                    Button(destination.title) {
+                        moveAction(destination)
+                    }
+                    .disabled(destination == section)
                 }
-                .disabled(destination == section)
+            } else {
+                Text("Physical movement disabled")
             }
         }
         .onHover { hovering in
             isHovered = hovering
         }
         .animation(reduceMotion ? .easeInOut(duration: 0.08) : .easeInOut(duration: 0.14), value: isHovered)
-        .help("\(item.displayTitle). Drag to reorder, or click for section options.")
+        .help(movementEnabled ? "\(item.displayTitle). Drag to reorder, or click for section options." : "\(item.displayTitle). Discovery only; physical movement is disabled.")
         .accessibilityLabel(item.displayTitle)
     }
 }

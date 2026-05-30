@@ -236,6 +236,7 @@ final class AppModel: ObservableObject {
 
     func moveMenuBarItem(_ item: DetectedMenuBarItem, to section: MenuBarSection, before target: DetectedMenuBarItem?) {
         guard item.isHideCandidate else { return }
+        guard menuBarScanner.physicalMovementEnabled else { return }
         store.setMenuBarSection(itemKey: item.sectionKey, title: item.displayTitle, section: section, before: target?.sectionKey)
         let physicalTarget = target ?? nextDetectedMenuBarItem(after: item.sectionKey, in: section)
         let menuBarShelfEnabled = store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding
@@ -249,6 +250,7 @@ final class AppModel: ObservableObject {
     }
 
     func moveMendyStatusItem(before target: DetectedMenuBarItem?) {
+        guard menuBarScanner.physicalMovementEnabled else { return }
         let menuBarShelfEnabled = store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding
         guard menuBarShelfEnabled else { return }
         menuBarScanner.configureControls(

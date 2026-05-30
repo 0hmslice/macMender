@@ -96,10 +96,10 @@ private struct LiquidGlassSurfaceModifier: ViewModifier {
     var surface: LiquidGlassSurface
     var radius: CGFloat?
 
+    @ViewBuilder
     func body(content: Content) -> some View {
         let resolvedRadius = radius ?? surface.radius
-        content
-            .background(surface.material, in: RoundedRectangle(cornerRadius: resolvedRadius, style: .continuous))
+        glassBase(content: content, resolvedRadius: resolvedRadius)
             .overlay(alignment: .topLeading) {
                 if surface.highlightOpacity > 0 {
                     LinearGradient(
@@ -122,6 +122,17 @@ private struct LiquidGlassSurfaceModifier: ViewModifier {
                 }
             }
             .shadow(color: .black.opacity(surface.shadowOpacity), radius: surface.shadowRadius, y: surface.shadowRadius > 0 ? 5 : 0)
+    }
+
+    @ViewBuilder
+    private func glassBase(content: Content, resolvedRadius: CGFloat) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular, in: .rect(cornerRadius: resolvedRadius))
+        } else {
+            content
+                .background(surface.material, in: RoundedRectangle(cornerRadius: resolvedRadius, style: .continuous))
+        }
     }
 }
 
