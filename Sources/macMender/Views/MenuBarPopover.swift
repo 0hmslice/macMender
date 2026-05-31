@@ -9,40 +9,46 @@ struct MenuBarPopover: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
-                MendyAvatarView(mood: appModel.menuBarMendyMood, size: MendyAvatarSize.panel)
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer {
+                content
+            }
+        } else {
+            content
+        }
+    }
 
-                VStack(alignment: .leading, spacing: 2) {
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 9) {
+                MendyAvatarView(mood: appModel.menuBarMendyMood, size: MendyAvatarSize.compact)
+
+                VStack(alignment: .leading, spacing: 1) {
                     Text("macMender")
                         .font(.headline)
                     Text(appModel.runningStatusTitle)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(statusTone)
-                    Text(statusDetail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
+                StatusDot(isActive: !appModel.store.config.safeModeEnabled && appModel.permissions.accessibility == .granted)
             }
-            .padding(12)
+            .padding(10)
             .liquidGlass(.row)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
-                PopoverStatusChip(title: "Accessibility", isActive: appModel.permissions.accessibility == .granted)
-                PopoverStatusChip(title: "Screen Recording", isActive: appModel.permissions.screenRecording == .granted)
-                PopoverStatusChip(title: "Dock Previews", isActive: appModel.dockHover.isRunning)
-                PopoverStatusChip(title: "Window Switcher", isActive: appModel.store.config.featureToggles.windowSwitcher && appModel.activeProfile.windowSwitcher.enabled)
-                PopoverStatusChip(title: "Menu Bar Setup", isActive: true, detail: "Safe")
+            VStack(spacing: 6) {
+                PopoverStatusRow(title: "Accessibility", value: appModel.permissions.accessibility.title, isActive: appModel.permissions.accessibility == .granted)
+                PopoverStatusRow(title: "Screen Recording", value: appModel.permissions.screenRecording.title, isActive: appModel.permissions.screenRecording == .granted)
+                PopoverStatusRow(title: "Dock Hover", value: appModel.dockHover.isRunning ? "Watching" : "Paused", isActive: appModel.dockHover.isRunning)
+                PopoverStatusRow(title: "Menu Bar", value: menuBarStatus, isActive: appModel.menuBarScanner.shelfEnabled)
             }
 
-            VStack(spacing: 8) {
+            HStack(spacing: 8) {
                 Button {
                     openSettings()
                 } label: {
-                    Label(appModel.store.config.hasCompletedOnboarding ? "Open Settings" : "Continue Setup", systemImage: "gearshape")
+                    Label(appModel.store.config.hasCompletedOnboarding ? "Settings" : "Setup", systemImage: "gearshape")
                 }
                 .buttonStyle(LiquidGlassButtonStyle())
 
@@ -50,52 +56,51 @@ struct MenuBarPopover: View {
                     appModel.selectedSection = .privacy
                     openSettings()
                 } label: {
-                    Label("Check Permissions", systemImage: "lock.shield")
-                }
-                .buttonStyle(LiquidGlassButtonStyle())
-
-                Button {
-                    appModel.selectedSection = .menuBar
-                    openSettings()
-                } label: {
-                    Label("Learn Menu Bar Setup", systemImage: "command")
+                    Label("Permissions", systemImage: "lock.shield")
                 }
                 .buttonStyle(LiquidGlassButtonStyle())
             }
 
-            Text("Arrange menu-bar icons safely with macOS Command-drag.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 4)
-
-            Divider()
-
-            Button {
-                NSApp.terminate(nil)
-            } label: {
-                Label("Quit macMender", systemImage: "power")
-                    .font(.caption)
+            HStack {
+                Text(statusDetail)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer()
+                Button {
+                    NSApp.terminate(nil)
+                } label: {
+                    Label("Quit", systemImage: "power")
+                        .labelStyle(.iconOnly)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Quit macMender")
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 4)
         }
-        .padding(12)
-        .frame(width: 318)
+        .padding(10)
+        .frame(width: 286)
         .liquidGlass(.panel)
     }
 
     private var statusDetail: String {
         if !appModel.store.config.hasCompletedOnboarding {
-            return "Finish setup to start local helpers."
+            return "Setup is not complete."
         }
         if appModel.store.config.safeModeEnabled {
-            return "Paused by Safe Mode."
+            return "Safe Mode is on."
         }
         if appModel.permissions.accessibility != .granted {
-            return "Accessibility is required for global shortcuts and window actions."
+            return "Accessibility is required."
         }
-        return "Dock previews and window switching are available. Menu bar setup uses macOS Command-drag."
+        return "Local helpers are available."
+    }
+
+    private var menuBarStatus: String {
+        if appModel.store.config.featureToggles.menuBarManagement == false { return "Off" }
+        if appModel.permissions.screenRecording != .granted { return "Limited" }
+        return appModel.menuBarScanner.shelfEnabled ? "Scanning" : "Guide"
     }
 
     private var statusTone: Color {
@@ -120,22 +125,36 @@ struct MenuBarPopover: View {
     }
 }
 
-private struct PopoverStatusChip: View {
+private struct PopoverStatusRow: View {
     var title: String
+    var value: String
     var isActive: Bool
-    var detail: String?
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: isActive ? "checkmark.circle.fill" : "exclamationmark.circle")
-                .foregroundStyle(isActive ? .green : .orange)
-            Text(detail ?? (isActive ? title : "\(title) Missing"))
+            StatusDot(isActive: isActive)
+            Text(title)
+                .foregroundStyle(.primary)
+            Spacer(minLength: 8)
+            Text(value)
+                .foregroundStyle(isActive ? .green : .secondary)
                 .lineLimit(1)
         }
-        .font(.caption2.weight(.medium))
+        .font(.caption.weight(.medium))
         .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlass(.row)
+    }
+}
+
+private struct StatusDot: View {
+    var isActive: Bool
+
+    var body: some View {
+        Circle()
+            .fill(isActive ? .green : .orange)
+            .frame(width: 7, height: 7)
+            .shadow(color: (isActive ? Color.green : Color.orange).opacity(0.55), radius: 5)
     }
 }
