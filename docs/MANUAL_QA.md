@@ -18,13 +18,20 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Settings > Menu Bar looks like a safe setup guide, not a broken layout manager.
 - Confirm Settings > Menu Bar title reads `Safe Menu Bar Setup`.
 - Confirm Settings > Menu Bar shows Command-drag instructions, practical cleanup guidance, read-only discovery, session-only "Mark to review" planning controls, and clear disabled states for direct reorder/hide/reveal.
+- Confirm Settings > Menu Bar shows `Safe Hiding Setup`.
+- Confirm Safe Hiding says `Guided setup only`, explains manual Command-drag setup, and does not claim Show/Tuck is active.
+- Confirm `Show/Tuck Hidden Area` is disabled until macMender-owned divider/spacer behavior is implemented and verified.
 - Confirm "Mark to review" does not move, hide, persist, or imply any physical menu-bar operation.
 - Confirm no fake drag, reorder, move-to-hidden, Always Hidden, checkbox hide, or physical movement controls are reachable.
 - Inspect the menu bar status item and popover. Confirm it is compact, glass-like, shows accurate chips, and does not claim scroll, Dock, or hidden menu-bar syncing.
 - Inspect Option+Tab glass styling and verify keyboard selection, mouse hover selection, and mouse-click activation use the same selected highlight.
-- Verify Option+Tab activation with browser windows where it previously worked.
-- Verify Option+Tab activation with non-browser apps where it may fail.
+- Verify Option+Tab keyboard cycling and modifier-release confirm activate the highlighted card/window.
+- Verify Option+Tab hover selection followed by keyboard confirm activates the highlighted card/window.
+- Verify Option+Tab mouse click activates the clicked card/window, not a later mutable selection.
+- Verify Option+Tab activation with at least two browser windows.
+- Verify Option+Tab activation with at least two non-browser app windows.
 - Verify Option+Tab activation with two windows from the same app, duplicate or blank titles, and a minimized window.
+- When activation fails, capture `WindowActivation` diagnostic fields: source, selectedIndex, highlightedIndex, selectedTitle, selectedCG, selectedPID, selectedBundle, axMatch, frontmostPID/app, focusedCG/title, appMatches, idMatches, and steps.
 - Verify Dock preview hover on adjacent Dock items such as Messages/Mail. A wrong neighboring app preview must not appear.
 - Verify Dock preview hover on non-running Dock items. No window preview should appear.
 - Verify browser multi-window previews with Safari, Chrome, Brave, or another browser.
@@ -34,16 +41,18 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 
 ## Still Disabled
 
-- Real menu-bar physical movement, hide/reveal, Always Hidden, secondary bar return, and direct reorder are disabled.
+- Real menu-bar physical movement, hide/reveal, Always Hidden, secondary bar return, direct reorder, and safe hidden-area Show/Tuck are disabled.
 - Do not test those as working features. The expected result is that no reachable UI claims they work.
 - `MenuBarItemMover` remains in source only as the scoped future Thaw-style movement guard; app-facing UI should not call it while `physicalMovementEnabled` is false.
 
 ## Not Verified by This Agent Run
 
 - Visual UI inspection of the launched app.
+- Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can trigger a tap, but did not reliably hold Option+Tab long enough to inspect highlighted-overlay state.
 - Feel and correctness of the new Dock preview idle timeout on the user's Dock.
 - Adjacent Dock hover correctness on the user's Dock.
 - Browser multi-window thumbnail correctness.
 - Option+Tab exact selected-window activation across non-browser apps and minimized windows.
+- Safe hidden-area Show/Tuck runtime, because it remains intentionally disabled/guided-only.
 - Whether macOS accepts drag-to-add in each Privacy & Security pane on the user's OS build.
 - Xcode console warning comparison between Xcode Run, `swift run`, `script/build_and_run.sh --verify`, and `open dist/macMender.app`.

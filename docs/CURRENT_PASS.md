@@ -8,6 +8,16 @@ Branch:
 
 ## Implemented in This Pass
 
+### Option+Tab Activation and Safe Hiding Update
+
+1. Option+Tab activation now snapshots the highlighted `WindowSummary` into an explicit activation intent before the overlay is dismissed.
+2. Keyboard confirm, hover-selected keyboard confirm, and mouse-click activation all use the same final activation function.
+3. Mouse click activation passes the captured card/window object directly and no longer relies on re-reading mutable `selectedIndex` after click handling.
+4. Window activation diagnostics now include source, selected/highlighted indexes, selected title, CG window ID, PID, bundle ID, AX match status, frontmost app/PID, focused window ID/title, and attempted steps.
+5. Activation success no longer treats owning-app activation alone as enough when the selected window has a resolvable CG window ID.
+6. Settings > Menu Bar now includes `Safe Hiding Setup`, a guided-only manual hidden-area workflow. Show/Tuck controls remain disabled because the existing show/tuck runtime is still coupled to the disabled physical movement path.
+7. No synthetic cursor movement, synthetic dragging, simulated clicks, `MenuBarItemMover` changes, package changes, signing changes, entitlements changes, scrolling changes, MiddleClick changes, or Dock tuning changes were made.
+
 ### Safe Setup and Preview Timeout Update
 
 1. Settings > Menu Bar now presents as `Safe Menu Bar Setup`, with Command-drag steps, practical cleanup guidance, read-only discovery, and a session-only "mark to review" checklist for manual cleanup planning.
@@ -54,17 +64,20 @@ DockDoor parity is not claimed. macMender still does not include DockDoor's full
 ## Known or Unverified
 
 1. Real menu-bar physical movement remains disabled. No direct hide/reorder/reveal path should be reachable from the UI.
-2. The new Dock preview idle timeout setting is build/test verified, but its feel still requires manual desktop QA with actual Dock hover movement.
-3. Dock preview adjacent-icon correctness, browser multi-window matching, non-running Dock items, and sticky/flicker behavior still require manual desktop QA.
-4. Option+Tab exact activation still requires manual comparison across browser windows, non-browser apps, duplicate/blank titled windows, minimized windows, and multiple windows from one app.
-5. The `com.apple.linkd.autoShortcut` warnings appear consistent with harmless system/Xcode launch noise unless the app intentionally adopts App Intents/Shortcuts. macMender does not.
-6. `Cannot index window tabs due to missing main bundle identifier` should be treated as SwiftPM/Xcode raw executable launch noise when not running the packaged `dist/macMender.app`.
-7. Permissions and XPC behavior should be trusted from `dist/macMender.app`, not the raw SwiftPM executable.
+2. Safe hidden-area Show/Tuck is guided-only. The control is disabled until a macMender-owned divider/spacer flow can be verified without synthetic movement.
+3. Option+Tab activation intent is build/test verified and partially runtime checked, but Computer Use cannot hold Option+Tab long enough to visually inspect the overlay selection flow. Manual human verification is still required for full keyboard-cycle behavior.
+4. The new Dock preview idle timeout setting is build/test verified, but its feel still requires manual desktop QA with actual Dock hover movement.
+5. Dock preview adjacent-icon correctness, browser multi-window matching, non-running Dock items, and sticky/flicker behavior still require manual desktop QA.
+6. Option+Tab exact activation still requires manual comparison across browser windows, non-browser apps, duplicate/blank titled windows, minimized windows, and multiple windows from one app.
+7. The `com.apple.linkd.autoShortcut` warnings appear consistent with harmless system/Xcode launch noise unless the app intentionally adopts App Intents/Shortcuts. macMender does not.
+8. `Cannot index window tabs due to missing main bundle identifier` should be treated as SwiftPM/Xcode raw executable launch noise when not running the packaged `dist/macMender.app`.
+9. Permissions and XPC behavior should be trusted from `dist/macMender.app`, not the raw SwiftPM executable.
 
 ## Verification Run
 
 - `swift build`
 - `swift test`
 - `script/build_and_run.sh --verify`
+- Computer Use inspection of `dist/macMender.app` Menu Bar page confirmed `Safe Hiding Setup` is visible and Show/Tuck is presented as disabled/guided-only.
 
 Manual launch and visual verification should follow `docs/MANUAL_QA.md` before release claims.
