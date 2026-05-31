@@ -180,6 +180,7 @@ final class ProfileStore: ObservableObject {
             if profile.middleClick.action == .customShortcut {
                 profile.middleClick.action = .middleClick
             }
+            profile.dockPreviews.previewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(profile.dockPreviews.previewIdleTimeout)
             return profile
         }
         return sanitized

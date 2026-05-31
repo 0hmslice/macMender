@@ -61,13 +61,14 @@ struct MenuBarManagementView: View {
     @State private var dragPreview: MenuBarDragPreviewState?
     @State private var laneFrames: [MenuBarSection: CGRect] = [:]
     @State private var pendingDisplayMoves: [String: PendingMenuBarDisplayMove] = [:]
+    @State private var plannedManualCleanupItemIDs = Set<String>()
     @Namespace private var chipNamespace
 
     var body: some View {
         PreferencesScrollView {
             SectionCard(
-                title: "Menu Bar Setup",
-                subtitle: "Use macOS Command-drag for physical icon order. macMender provides discovery and safe guidance without synthetic cursor movement.",
+                title: "Safe Menu Bar Setup",
+                subtitle: "Scan icons, plan manual cleanup, and use macOS Command-drag. Direct movement stays disabled.",
                 symbolName: "menubar.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -112,6 +113,7 @@ struct MenuBarManagementView: View {
                     }
 
                     MenuBarSafeCommandDragGuide()
+                    MenuBarManualSetupTips()
 
                     HStack {
                         Text("macMender will not hide, reorder, or restore third-party menu-bar icons in this build.")
@@ -154,7 +156,13 @@ struct MenuBarManagementView: View {
                                 MenuBarMendyDiscoveryRow()
                             }
                             ForEach(filteredDetectedItems) { item in
-                                MenuBarDiscoveryRow(item: item)
+                                MenuBarDiscoveryRow(
+                                    item: item,
+                                    isMarkedForManualCleanup: plannedManualCleanupItemIDs.contains(item.sectionKey),
+                                    toggleManualCleanup: {
+                                        toggleManualCleanupPlan(for: item)
+                                    }
+                                )
                             }
                         }
                     }
@@ -162,11 +170,11 @@ struct MenuBarManagementView: View {
             }
 
             SectionCard(
-                title: "Unavailable Controls",
-                subtitle: "These controls are intentionally absent until a true Thaw-style runtime is implemented and manually verified.",
+                title: "Safety Boundary",
+                subtitle: "The setup assistant is useful for discovery and planning, but it will not pretend physical movement is reliable.",
                 symbolName: "lock.shield"
             ) {
-                MenuBarUnavailableFeatureList()
+                MenuBarSafetyBoundaryList()
             }
         }
         .onAppear {
@@ -342,6 +350,15 @@ struct MenuBarManagementView: View {
             pendingDisplayMoves.removeAll()
         }
     }
+
+    private func toggleManualCleanupPlan(for item: DetectedMenuBarItem) {
+        let key = item.sectionKey
+        if plannedManualCleanupItemIDs.contains(key) {
+            plannedManualCleanupItemIDs.remove(key)
+        } else {
+            plannedManualCleanupItemIDs.insert(key)
+        }
+    }
 }
 
 private struct MenuBarSearchField: View {
@@ -400,6 +417,7 @@ private struct MenuBarSafeCommandDragGuide: View {
     private let steps = [
         "Hold Command.",
         "Drag a menu-bar icon left or right to reorder it.",
+        "Release it where you want it.",
         "Drag an icon off the menu bar only when macOS allows removing that item."
     ]
 
@@ -433,8 +451,44 @@ private struct MenuBarSafeCommandDragGuide: View {
     }
 }
 
+private struct MenuBarManualSetupTips: View {
+    private let tips = [
+        ("Use the detected list", "Scan first, then use the list below to identify which app or system service owns each icon."),
+        ("Prefer app settings", "Many third-party apps include their own 'show in menu bar' setting. Use that when available."),
+        ("Use System Settings for Apple icons", "Control Center, Clock, Wi-Fi, Sound, Bluetooth, and Focus are usually managed by macOS settings.")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Practical cleanup path", systemImage: "checklist")
+                .font(.headline)
+
+            ForEach(tips, id: \.0) { tip in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(tip.0)
+                            .font(.callout.weight(.semibold))
+                        Text(tip.1)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .padding(14)
+        .liquidGlass(.card)
+    }
+}
+
 private struct MenuBarDiscoveryRow: View {
     var item: DetectedMenuBarItem
+    var isMarkedForManualCleanup: Bool
+    var toggleManualCleanup: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -455,12 +509,26 @@ private struct MenuBarDiscoveryRow: View {
 
             Spacer(minLength: 12)
 
-            Text(item.actualSection == .pinned ? "Visible now" : "Saved as \(item.actualSection.title)")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.white.opacity(0.08), in: Capsule())
+            VStack(alignment: .trailing, spacing: 8) {
+                Text(item.actualSection == .pinned ? "Visible now" : "Seen in \(item.actualSection.shortTitle)")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.white.opacity(0.08), in: Capsule())
+
+                Button {
+                    toggleManualCleanup()
+                } label: {
+                    Label(
+                        isMarkedForManualCleanup ? "Planned" : "Mark to review",
+                        systemImage: isMarkedForManualCleanup ? "checkmark.circle.fill" : "circle"
+                    )
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .help("Session-only planning aid. This does not move or hide the icon.")
+            }
         }
         .padding(12)
         .liquidGlass(.row)
@@ -502,12 +570,11 @@ private struct MenuBarMendyDiscoveryRow: View {
     }
 }
 
-private struct MenuBarUnavailableFeatureList: View {
+private struct MenuBarSafetyBoundaryList: View {
     private let items = [
-        ("Direct reorder", "Disabled because it would require synthetic movement of other apps' menu-bar icons."),
-        ("Hide selected icons", "Disabled until a real Thaw-style runtime can restore state reliably."),
-        ("Hover reveal", "Disabled because it depends on the same physical movement path."),
-        ("Always Hidden sections", "Not shown as controls until behavior is implemented and manually verified.")
+        ("Direct movement remains off", "No app-facing UI calls the physical mover while the Thaw runtime transplant is unfinished."),
+        ("Planning is local to this screen", "Marked rows are a checklist for manual cleanup; they are not saved as hide or reorder intent."),
+        ("Failures are not hidden", "macMender shows discovery and permission state instead of reporting success for disabled movement features.")
     ]
 
     var body: some View {

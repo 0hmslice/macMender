@@ -27,7 +27,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .overview: "Status and quick actions"
         case .input: "Mouse, trackpad, scrolling"
-        case .menuBar: "Hide and reveal icons"
+        case .menuBar: "Safe setup guide"
         case .dockWindows: "Switcher, previews, Dock"
         case .profiles: "Saved setups"
         case .privacy: "Local data and access"

@@ -70,6 +70,18 @@ struct AppConfigTests {
         #expect(profile.dockPreviews == .default)
     }
 
+    @Test("decodes older Dock preview settings without idle timeout")
+    func decodesOlderDockPreviewSettingsWithoutIdleTimeout() throws {
+        let encoded = try JSONEncoder().encode(DockPreviewSettings.default)
+        var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "previewIdleTimeout")
+        let olderData = try JSONSerialization.data(withJSONObject: object)
+
+        let settings = try JSONDecoder().decode(DockPreviewSettings.self, from: olderData)
+
+        #expect(settings.previewIdleTimeout == DockPreviewSettings.default.previewIdleTimeout)
+    }
+
     @Test("runtime middle-click actions only include implemented actions")
     func runtimeMiddleClickActionsOnlyIncludeImplementedActions() {
         #expect(MiddleClickAction.runtimeSupportedCases == [.middleClick, .openBackgroundTab, .closeTab])

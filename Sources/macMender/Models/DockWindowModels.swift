@@ -61,12 +61,48 @@ struct WindowSwitcherSettings: Codable, Equatable {
 struct DockPreviewSettings: Codable, Equatable {
     var enabled: Bool
     var hoverDelay: Double
+    var previewIdleTimeout: Double
     var layout: SwitcherLayout
     var thumbnailSize: Double
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case hoverDelay
+        case previewIdleTimeout
+        case layout
+        case thumbnailSize
+    }
+
+    init(
+        enabled: Bool,
+        hoverDelay: Double,
+        previewIdleTimeout: Double,
+        layout: SwitcherLayout,
+        thumbnailSize: Double
+    ) {
+        self.enabled = enabled
+        self.hoverDelay = hoverDelay
+        self.previewIdleTimeout = Self.clampedPreviewIdleTimeout(previewIdleTimeout)
+        self.layout = layout
+        self.thumbnailSize = thumbnailSize
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let fallback = DockPreviewSettings.default
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? fallback.enabled
+        hoverDelay = try container.decodeIfPresent(Double.self, forKey: .hoverDelay) ?? fallback.hoverDelay
+        previewIdleTimeout = Self.clampedPreviewIdleTimeout(
+            try container.decodeIfPresent(Double.self, forKey: .previewIdleTimeout) ?? fallback.previewIdleTimeout
+        )
+        layout = try container.decodeIfPresent(SwitcherLayout.self, forKey: .layout) ?? fallback.layout
+        thumbnailSize = try container.decodeIfPresent(Double.self, forKey: .thumbnailSize) ?? fallback.thumbnailSize
+    }
 
     static let `default` = DockPreviewSettings(
         enabled: true,
         hoverDelay: 0.35,
+        previewIdleTimeout: 1.0,
         layout: .grid,
         thumbnailSize: 152
     )
@@ -74,6 +110,7 @@ struct DockPreviewSettings: Codable, Equatable {
     static let compact = DockPreviewSettings(
         enabled: true,
         hoverDelay: 0.2,
+        previewIdleTimeout: 0.8,
         layout: .grid,
         thumbnailSize: 132
     )
@@ -81,9 +118,14 @@ struct DockPreviewSettings: Codable, Equatable {
     static let presentation = DockPreviewSettings(
         enabled: true,
         hoverDelay: 0.45,
+        previewIdleTimeout: 1.4,
         layout: .grid,
         thumbnailSize: 180
     )
+
+    static func clampedPreviewIdleTimeout(_ value: Double) -> Double {
+        min(max(value, 0.3), 5.0)
+    }
 
     func overlaySettings(using base: WindowSwitcherSettings) -> WindowSwitcherSettings {
         WindowSwitcherSettings(

@@ -173,7 +173,7 @@ private struct OnboardingMendyIntro: View {
         ) {
             HStack(alignment: .top, spacing: 12) {
                 MendyIntroCard(mood: .scanning, title: "Input", detail: "Smooth scroll and mouse fixes")
-                MendyIntroCard(mood: .thinking, title: "Menu Bar", detail: "Hide clutter until you hover Mendy")
+                MendyIntroCard(mood: .thinking, title: "Menu Bar", detail: "Scan icons and learn safe setup")
                 MendyIntroCard(mood: .success, title: "Dock", detail: "Window previews and safer defaults")
             }
         }

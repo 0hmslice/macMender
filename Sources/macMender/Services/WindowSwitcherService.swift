@@ -24,6 +24,7 @@ final class WindowSwitcherService: ObservableObject {
     private var dockPreviewMouseMonitor: Any?
     private var dockPreviewLocalMouseMonitor: Any?
     private var thumbnailTask: Task<Void, Never>?
+    private var dockPreviewIdleTimeout: TimeInterval = DockPreviewSettings.default.previewIdleTimeout
 
     init(catalog: WindowCatalogService = WindowCatalogService()) {
         self.catalog = catalog
@@ -162,6 +163,10 @@ final class WindowSwitcherService: ObservableObject {
         thumbnails[window.id]
     }
 
+    func updateDockPreviewIdleTimeout(_ timeout: TimeInterval) {
+        dockPreviewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(timeout)
+    }
+
     func scheduleDockPreviewDismiss() {
         guard isDockPreview, isShowing else {
             cancel()
@@ -170,7 +175,8 @@ final class WindowSwitcherService: ObservableObject {
 
         dockPreviewDismissTask?.cancel()
         dockPreviewDismissTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(320))
+            guard let delay = self?.dockPreviewIdleTimeout else { return }
+            try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
             guard let self, !Task.isCancelled else { return }
             if !self.isMouseInDockPreviewSafeArea() {
                 self.cancel()

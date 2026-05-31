@@ -16,7 +16,9 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm onboarding shows Accessibility, Screen Recording, and guided Input Monitoring setup.
 - Confirm the drag-to-add guidance says to drag the macMender app icon if it is not listed, includes the fallback `+`/reopen instruction, and does not claim permissions are granted.
 - Confirm Settings > Menu Bar looks like a safe setup guide, not a broken layout manager.
-- Confirm Settings > Menu Bar shows Command-drag instructions, read-only discovery, and clear unavailable states for direct reorder/hide/reveal.
+- Confirm Settings > Menu Bar title reads `Safe Menu Bar Setup`.
+- Confirm Settings > Menu Bar shows Command-drag instructions, practical cleanup guidance, read-only discovery, session-only "Mark to review" planning controls, and clear disabled states for direct reorder/hide/reveal.
+- Confirm "Mark to review" does not move, hide, persist, or imply any physical menu-bar operation.
 - Confirm no fake drag, reorder, move-to-hidden, Always Hidden, checkbox hide, or physical movement controls are reachable.
 - Inspect the menu bar status item and popover. Confirm it is compact, glass-like, shows accurate chips, and does not claim scroll, Dock, or hidden menu-bar syncing.
 - Inspect Option+Tab glass styling and verify keyboard selection, mouse hover selection, and mouse-click activation use the same selected highlight.
@@ -26,7 +28,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify Dock preview hover on adjacent Dock items such as Messages/Mail. A wrong neighboring app preview must not appear.
 - Verify Dock preview hover on non-running Dock items. No window preview should appear.
 - Verify browser multi-window previews with Safari, Chrome, Brave, or another browser.
-- Verify preview dismissal when leaving the Dock item and preview panel; record sticky preview or flicker cases.
+- Verify the Dock preview `Preview idle timeout` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
 - Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover.
 
@@ -39,6 +41,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 ## Not Verified by This Agent Run
 
 - Visual UI inspection of the launched app.
+- Feel and correctness of the new Dock preview idle timeout on the user's Dock.
 - Adjacent Dock hover correctness on the user's Dock.
 - Browser multi-window thumbnail correctness.
 - Option+Tab exact selected-window activation across non-browser apps and minimized windows.

@@ -199,7 +199,7 @@ struct MenuBarEnginePortTests {
         }
 
         let body = String(source[bodyRange.lowerBound..<endRange.lowerBound])
-        #expect(body.contains("Menu Bar Setup"))
+        #expect(body.contains("Safe Menu Bar Setup"))
         #expect(body.contains("Command-drag"))
         #expect(!body.contains("Layout Lanes"))
         #expect(!body.contains("MenuBarLayoutLane("))
