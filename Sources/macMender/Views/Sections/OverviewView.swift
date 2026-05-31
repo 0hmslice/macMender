@@ -97,12 +97,18 @@ private struct RuntimeRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Label(title, systemImage: running ? "checkmark.circle.fill" : "pause.circle")
+                .font(.callout.weight(.medium))
                 .foregroundStyle(running ? .green : .orange)
             Spacer()
             Text(detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.trailing)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .liquidGlass(.row)
     }
 }
 
@@ -127,7 +133,7 @@ private struct FeatureTile: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .liquidGlass(.row)
     }
 }
 
@@ -140,6 +146,7 @@ private struct PermissionRow: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
+                    .font(.callout.weight(.medium))
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -148,5 +155,8 @@ private struct PermissionRow: View {
             Text(state.title)
                 .foregroundStyle(state == .granted ? .green : .orange)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .liquidGlass(.row)
     }
 }

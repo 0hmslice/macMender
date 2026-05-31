@@ -34,7 +34,7 @@ struct AdvancedView: View {
 
             SectionCard(title: "Implementation Notes", subtitle: "System integrations stay local, reversible, and explicit.", symbolName: "lock.trianglebadge.exclamationmark") {
                 VStack(alignment: .leading, spacing: 8) {
-                    BoundaryRow(title: "Menu bar organization", detail: "Uses the Thaw-port engine path with reversible status-item dividers and targeted item movement.")
+                    BoundaryRow(title: "Menu bar organization", detail: "Discovery and planning use the Thaw-port engine path. Physical third-party icon movement remains disabled.")
                     BoundaryRow(title: "Dock icon hover previews", detail: "Reads the Dock accessibility tree and disables itself when Accessibility is unavailable.")
                     BoundaryRow(title: "Three-finger global gestures", detail: "Uses local multitouch callbacks where available and falls back to mouse-button triggers otherwise.")
                     BoundaryRow(title: "Spaces movement", detail: "Only actions with a reliable local runtime path are exposed in the UI.")
@@ -59,9 +59,14 @@ private struct BoundaryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
+                .font(.callout.weight(.medium))
             Text(detail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(.row)
     }
 }

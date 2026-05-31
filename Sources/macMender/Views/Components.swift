@@ -12,6 +12,18 @@ struct PreferencesScrollView<Content: View>: View {
             .frame(maxWidth: 980, alignment: .leading)
         }
         .liquidGlass(.windowBackground)
+        .background {
+            LinearGradient(
+                colors: [
+                    Color.accentColor.opacity(0.08),
+                    Color.primary.opacity(0.02),
+                    Color.clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+        }
     }
 }
 
@@ -45,6 +57,7 @@ struct SectionCard<Content: View>: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlass(.card)
+        .contentShape(RoundedRectangle(cornerRadius: LiquidGlassSurface.card.radius, style: .continuous))
     }
 }
 

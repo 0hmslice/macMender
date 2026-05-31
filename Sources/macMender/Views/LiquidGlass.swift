@@ -22,7 +22,7 @@ enum LiquidGlassSurface {
         case .sidebar:
             .ultraThinMaterial
         case .card:
-            .thinMaterial
+            .ultraThinMaterial
         case .panel, .preview:
             .regularMaterial
         case .row, .button:
@@ -46,9 +46,9 @@ enum LiquidGlassSurface {
         case .windowBackground, .sidebar:
             0
         case .button:
-            0.14
+            0.18
         case .card, .panel, .row:
-            0.10
+            0.14
         case .preview:
             0.28
         }
@@ -59,7 +59,7 @@ enum LiquidGlassSurface {
         case .windowBackground, .sidebar, .button, .row:
             0
         case .card:
-            0.08
+            0.10
         case .panel, .preview:
             0.18
         }
@@ -83,9 +83,9 @@ enum LiquidGlassSurface {
         case .panel:
             0.18
         case .card:
-            0.12
+            0.16
         case .row, .button:
-            0.08
+            0.10
         case .windowBackground, .sidebar:
             0
         }
