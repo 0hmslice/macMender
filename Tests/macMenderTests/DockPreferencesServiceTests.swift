@@ -20,6 +20,14 @@ struct DockPreferencesServiceTests {
         #expect(DockAppIdentity(title: "Messages", bundleIdentifier: nil, processIdentifier: 123).hasResolvedApplicationIdentity)
     }
 
+    @Test("Dock preview linger clamps to runtime dismissal range")
+    func dockPreviewLingerClampsToRuntimeDismissalRange() {
+        #expect(DockPreviewSettings.default.previewIdleTimeout == 1.8)
+        #expect(DockPreviewSettings.clampedPreviewIdleTimeout(-1) == 0)
+        #expect(DockPreviewSettings.clampedPreviewIdleTimeout(4.2) == 4.2)
+        #expect(DockPreviewSettings.clampedPreviewIdleTimeout(12) == 10)
+    }
+
     @Test("Dock preview code does not use title-only display eligibility")
     func dockPreviewCodeDoesNotUseTitleOnlyDisplayEligibility() throws {
         let root = URL(fileURLWithPath: #filePath)

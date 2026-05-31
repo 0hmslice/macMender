@@ -102,7 +102,7 @@ struct DockPreviewSettings: Codable, Equatable {
     static let `default` = DockPreviewSettings(
         enabled: true,
         hoverDelay: 0.35,
-        previewIdleTimeout: 1.0,
+        previewIdleTimeout: 1.8,
         layout: .grid,
         thumbnailSize: 152
     )
@@ -110,7 +110,7 @@ struct DockPreviewSettings: Codable, Equatable {
     static let compact = DockPreviewSettings(
         enabled: true,
         hoverDelay: 0.2,
-        previewIdleTimeout: 0.8,
+        previewIdleTimeout: 1.5,
         layout: .grid,
         thumbnailSize: 132
     )
@@ -118,13 +118,13 @@ struct DockPreviewSettings: Codable, Equatable {
     static let presentation = DockPreviewSettings(
         enabled: true,
         hoverDelay: 0.45,
-        previewIdleTimeout: 1.4,
+        previewIdleTimeout: 2.0,
         layout: .grid,
         thumbnailSize: 180
     )
 
     static func clampedPreviewIdleTimeout(_ value: Double) -> Double {
-        min(max(value, 0.3), 5.0)
+        min(max(value, 0), 10.0)
     }
 
     func overlaySettings(using base: WindowSwitcherSettings) -> WindowSwitcherSettings {

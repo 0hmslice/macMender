@@ -106,9 +106,9 @@ struct DockWindowsView: View {
                     valueLabel: "\(appModel.activeProfile.dockPreviews.hoverDelay.sliderValueLabel)s"
                 )
                 LabeledSlider(
-                    title: "Preview idle timeout",
+                    title: "Preview linger after leaving Dock",
                     value: binding(\.dockPreviews.previewIdleTimeout),
-                    range: 0.3...5.0,
+                    range: 0...10.0,
                     step: 0.1,
                     valueLabel: "\(appModel.activeProfile.dockPreviews.previewIdleTimeout.sliderValueLabel)s"
                 )
@@ -137,7 +137,7 @@ struct DockWindowsView: View {
                     Spacer()
                 }
 
-                Text("macMender reads the Dock's accessibility tree, waits for the configured hover delay, then opens the same preview panel used by the keyboard switcher. The idle timeout controls how long the panel waits after the pointer leaves its safe area. It does not modify the Dock process.")
+                Text("macMender reads the Dock's accessibility tree, waits for the configured hover delay, then opens the same preview panel used by the keyboard switcher. Preview linger after leaving Dock controls how long previews stay visible after your pointer leaves the Dock icon or preview safe area. It does not modify the Dock process.")
                     .foregroundStyle(.secondary)
 
                 Button("Refresh Runtime") {
