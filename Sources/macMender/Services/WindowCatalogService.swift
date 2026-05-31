@@ -103,6 +103,7 @@ protocol WindowCatalogProviding {
     var lastDiscoveryReport: WindowDiscoveryReport { get }
 
     func visibleWindows() -> [WindowSummary]
+    func dockPreviewWindows(for identity: DockAppIdentity) -> [WindowSummary]
     func activate(_ window: WindowSummary, source: WindowActivationSource, context: WindowActivationContext) -> WindowActivationOutcome
     func minimize(_ window: WindowSummary)
     func close(_ window: WindowSummary)
@@ -147,6 +148,44 @@ final class WindowCatalogService: WindowCatalogProviding {
         lastDiscoveryReport = WindowDiscoveryReport(totalWindows: sorted.count, appReports: reports)
         cachedDiscovery = CachedWindowDiscovery(createdAt: now, windows: sorted, report: lastDiscoveryReport)
         logger.debug("Window discovery \(self.lastDiscoveryReport.summary, privacy: .public)")
+        return sorted
+    }
+
+    func dockPreviewWindows(for identity: DockAppIdentity) -> [WindowSummary] {
+        guard identity.hasResolvedApplicationIdentity else {
+            lastDiscoveryReport = WindowDiscoveryReport(totalWindows: 0, appReports: [])
+            return []
+        }
+
+        let cgWindows = cgWindowDescriptions()
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        let targetApps = NSWorkspace.shared.runningApplications
+            .filter { appMatchesDockIdentity($0, identity: identity) }
+            .filter { $0.activationPolicy == .regular || $0.processIdentifier == currentPID }
+
+        var reports = [WindowAppDiscoveryReport]()
+        var summaries = [WindowSummary]()
+        for app in targetApps {
+            let result = windows(for: app, cgWindows: cgWindows)
+            if app.processIdentifier == currentPID {
+                let filtered = filterSelfPreviewWindows(result.windows)
+                reports.append(selfPreviewReport(from: result.report, filteredWindows: filtered))
+                summaries.append(contentsOf: filtered)
+            } else {
+                reports.append(result.report)
+                summaries.append(contentsOf: result.windows)
+            }
+        }
+
+        let sorted = summaries.sorted {
+            if $0.stackIndex == $1.stackIndex {
+                if $0.appName == $1.appName { return $0.title < $1.title }
+                return $0.appName < $1.appName
+            }
+            return $0.stackIndex < $1.stackIndex
+        }
+        lastDiscoveryReport = WindowDiscoveryReport(totalWindows: sorted.count, appReports: reports)
+        logger.debug("Dock preview discovery \(self.lastDiscoveryReport.summary, privacy: .public) identityTitle=\(identity.displayName, privacy: .public) bundle=\(identity.bundleIdentifier ?? "nil", privacy: .public) pid=\(identity.processIdentifier.map(String.init) ?? "nil", privacy: .public)")
         return sorted
     }
 
@@ -425,6 +464,63 @@ final class WindowCatalogService: WindowCatalogProviding {
         return (summaries, report)
     }
 
+    private func appMatchesDockIdentity(_ app: NSRunningApplication, identity: DockAppIdentity) -> Bool {
+        if let bundleIdentifier = identity.bundleIdentifier,
+           app.bundleIdentifier == bundleIdentifier {
+            return true
+        }
+        if let processIdentifier = identity.processIdentifier,
+           app.processIdentifier == processIdentifier {
+            return true
+        }
+        return false
+    }
+
+    private func filterSelfPreviewWindows(_ windows: [WindowSummary]) -> [WindowSummary] {
+        windows.filter { window in
+            guard window.processIdentifier == ProcessInfo.processInfo.processIdentifier else { return true }
+            guard !window.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            guard window.frame.width >= 240, window.frame.height >= 160 else { return false }
+            guard let axElement = window.axElement else { return true }
+            let role = stringAttribute(kAXRoleAttribute, from: axElement)
+            let subrole = stringAttribute(kAXSubroleAttribute, from: axElement)
+            guard role == kAXWindowRole as String else { return false }
+            if subrole == kAXSystemDialogSubrole as String {
+                return false
+            }
+            return true
+        }
+    }
+
+    private func selfPreviewReport(from report: WindowAppDiscoveryReport, filteredWindows: [WindowSummary]) -> WindowAppDiscoveryReport {
+        let keptIDs = Set(filteredWindows.map(\.id))
+        let entries = report.entries.map { entry in
+            if keptIDs.contains(entry.id) || !entry.included {
+                return entry
+            }
+            return WindowDiscoveryEntry(
+                id: entry.id,
+                title: entry.title,
+                cgWindowID: entry.cgWindowID,
+                cgMatchFound: entry.cgMatchFound,
+                included: false,
+                reason: "droppedSelfPreviewTransientOrPanel"
+            )
+        }
+        let droppedCount = entries.filter { !$0.included }.count
+        return WindowAppDiscoveryReport(
+            appName: report.appName,
+            bundleIdentifier: report.bundleIdentifier,
+            processIdentifier: report.processIdentifier,
+            axWindowCount: report.axWindowCount,
+            cgOnlyWindowCount: report.cgOnlyWindowCount,
+            includedCount: filteredWindows.count,
+            droppedCount: droppedCount,
+            appDropReason: filteredWindows.isEmpty ? "noPreviewableSelfWindows" : report.appDropReason,
+            entries: entries
+        )
+    }
+
     private func cgOnlyWindows(for app: NSRunningApplication, cgWindows: [CGWindowDescription]) -> [WindowSummary] {
         let appName = app.localizedName ?? app.bundleIdentifier ?? "Unknown App"
         return cgWindows.map { cgWindow in
@@ -490,6 +586,14 @@ final class WindowCatalogService: WindowCatalogProviding {
             return false
         }
         return (value as? Bool) ?? false
+    }
+
+    private func stringAttribute(_ attribute: String, from element: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
+            return nil
+        }
+        return value as? String
     }
 
     private func cgWindowID(for window: AXUIElement) -> CGWindowID? {

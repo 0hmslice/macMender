@@ -79,6 +79,32 @@ struct WindowSwitcherActivationTests {
         #expect(service.presentationStatus == "1 Notes windows available")
     }
 
+    @Test("Dock preview can use catalog path that includes current app windows")
+    func dockPreviewCanUseCurrentAppCatalogPath() {
+        let currentWindow = makeWindow(
+            id: "macmender-overview",
+            title: "Overview",
+            pid: ProcessInfo.processInfo.processIdentifier,
+            windowID: 41
+        )
+        let catalog = RecordingWindowCatalog(windows: [], dockPreviewWindows: [currentWindow])
+        let service = WindowSwitcherService(catalog: catalog, presentsPanel: false)
+
+        service.showDockPreview(
+            identity: DockAppIdentity(
+                title: "macMender",
+                bundleIdentifier: "com.ryan.macMender",
+                processIdentifier: ProcessInfo.processInfo.processIdentifier
+            ),
+            settings: .default,
+            anchorFrame: .zero
+        )
+
+        #expect(service.isShowing)
+        #expect(service.isDockPreview)
+        #expect(service.windows.map(\.id) == ["macmender-overview"])
+    }
+
     private func makeWindow(id: String, title: String, pid: pid_t, windowID: CGWindowID) -> WindowSummary {
         WindowSummary(
             id: id,
@@ -104,16 +130,35 @@ private final class RecordingWindowCatalog: WindowCatalogProviding {
     }
 
     var windows: [WindowSummary]
+    var dockPreviewWindows: [WindowSummary]?
     var lastDiscoveryReport = WindowDiscoveryReport.empty
     private(set) var activations: [Activation] = []
 
-    init(windows: [WindowSummary]) {
+    init(windows: [WindowSummary], dockPreviewWindows: [WindowSummary]? = nil) {
         self.windows = windows
+        self.dockPreviewWindows = dockPreviewWindows
     }
 
     func visibleWindows() -> [WindowSummary] {
         lastDiscoveryReport = WindowDiscoveryReport(totalWindows: windows.count, appReports: [])
         return windows
+    }
+
+    func dockPreviewWindows(for identity: DockAppIdentity) -> [WindowSummary] {
+        let candidates = dockPreviewWindows ?? windows
+        let matched = candidates.filter { window in
+            if let bundleIdentifier = identity.bundleIdentifier,
+               window.bundleIdentifier == bundleIdentifier {
+                return true
+            }
+            if let processIdentifier = identity.processIdentifier,
+               window.processIdentifier == processIdentifier {
+                return true
+            }
+            return false
+        }
+        lastDiscoveryReport = WindowDiscoveryReport(totalWindows: matched.count, appReports: [])
+        return matched
     }
 
     func activate(

@@ -87,8 +87,7 @@ final class WindowSwitcherService: ObservableObject {
             return
         }
 
-        let discovered = catalog.visibleWindows()
-            .filter { windowMatchesDockIdentity($0, identity: identity) }
+        let discovered = catalog.dockPreviewWindows(for: identity)
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
         lastDiscoveryReport = catalog.lastDiscoveryReport
@@ -240,16 +239,6 @@ final class WindowSwitcherService: ObservableObject {
             selectedIndex = min(selectedIndex, max(windows.count - 1, 0))
         }
         prefetchThumbnails()
-    }
-
-    private func windowMatchesDockIdentity(_ window: WindowSummary, identity: DockAppIdentity) -> Bool {
-        if let bundleIdentifier = identity.bundleIdentifier {
-            return window.bundleIdentifier == bundleIdentifier
-        }
-        if let processIdentifier = identity.processIdentifier {
-            return window.processIdentifier == processIdentifier
-        }
-        return false
     }
 
     private func activateSelectedWindow(_ window: WindowSummary, displayedIndex: Int, source: WindowActivationSource) {
