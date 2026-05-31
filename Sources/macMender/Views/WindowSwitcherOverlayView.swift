@@ -53,7 +53,7 @@ struct WindowSwitcherOverlayView: View {
                 select: { service.select(index: index, source: .mouseHover) },
                 activate: {
                     service.select(index: index, source: .mouseClick)
-                    service.commit(source: .mouseClick)
+                    service.activateDisplayedWindow(window, displayedIndex: index, source: .mouseClick)
                 },
                 minimize: { service.minimize(window) },
                 close: { service.close(window) }

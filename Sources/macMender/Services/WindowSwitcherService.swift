@@ -16,7 +16,7 @@ final class WindowSwitcherService: ObservableObject {
     @Published private(set) var lastActivationDiagnostic = "No window activation attempted"
     @Published private var thumbnails: [WindowSummary.ID: NSImage] = [:]
 
-    private let catalog: WindowCatalogService
+    private let catalog: any WindowCatalogProviding
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "WindowSwitcher")
     private var panel: NSPanel?
     private var dockPreviewAnchorFrame: CGRect?
@@ -25,9 +25,11 @@ final class WindowSwitcherService: ObservableObject {
     private var dockPreviewLocalMouseMonitor: Any?
     private var thumbnailTask: Task<Void, Never>?
     private var dockPreviewIdleTimeout: TimeInterval = DockPreviewSettings.default.previewIdleTimeout
+    private let presentsPanel: Bool
 
-    init(catalog: WindowCatalogService = WindowCatalogService()) {
+    init(catalog: any WindowCatalogProviding = WindowCatalogService(), presentsPanel: Bool = true) {
         self.catalog = catalog
+        self.presentsPanel = presentsPanel
     }
 
     var selectedWindow: WindowSummary? {
@@ -51,9 +53,11 @@ final class WindowSwitcherService: ObservableObject {
         overlayTitle = "Window Switcher"
         overlaySubtitle = "All open windows"
         presentationStatus = "\(discovered.count) windows available"
-        ensurePanel(settings: settings, anchorFrame: nil)
-        prefetchThumbnails()
-        panel?.orderFrontRegardless()
+        if presentsPanel {
+            ensurePanel(settings: settings, anchorFrame: nil)
+            prefetchThumbnails()
+            panel?.orderFrontRegardless()
+        }
     }
 
     func showDockPreview(appName: String, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
@@ -91,10 +95,12 @@ final class WindowSwitcherService: ObservableObject {
         overlaySubtitle = discovered.count == 1 ? "1 window" : "\(discovered.count) windows"
         presentationStatus = "\(discovered.count) \(identity.displayName) windows available"
         dockPreviewAnchorFrame = anchorFrame
-        ensurePanel(settings: settings, anchorFrame: anchorFrame)
-        prefetchThumbnails()
-        panel?.orderFrontRegardless()
-        startDockPreviewMouseTracking()
+        if presentsPanel {
+            ensurePanel(settings: settings, anchorFrame: anchorFrame)
+            prefetchThumbnails()
+            panel?.orderFrontRegardless()
+            startDockPreviewMouseTracking()
+        }
     }
 
     func showDockPreviewForMostRecentApp(settings: WindowSwitcherSettings, anchorFrame: CGRect) {
@@ -131,15 +137,20 @@ final class WindowSwitcherService: ObservableObject {
 
     func commit(source: WindowActivationSource = .keyboard) {
         guard isShowing else { return }
-        if let selectedWindow {
-            activateSelectedWindow(selectedWindow, source: source)
+        guard let selectedWindow else {
+            cancel()
+            return
         }
-        cancel()
+        activateSelectedWindow(selectedWindow, displayedIndex: selectedIndex, source: source)
     }
 
     func activate(_ window: WindowSummary, source: WindowActivationSource = .programmatic) {
-        activateSelectedWindow(window, source: source)
-        cancel()
+        let displayedIndex = windows.firstIndex(where: { $0.id == window.id }) ?? selectedIndex
+        activateSelectedWindow(window, displayedIndex: displayedIndex, source: source)
+    }
+
+    func activateDisplayedWindow(_ window: WindowSummary, displayedIndex: Int, source: WindowActivationSource) {
+        activateSelectedWindow(window, displayedIndex: displayedIndex, source: source)
     }
 
     func select(index: Int, source: WindowActivationSource) {
@@ -208,13 +219,18 @@ final class WindowSwitcherService: ObservableObject {
         return false
     }
 
-    private func activateSelectedWindow(_ window: WindowSummary, source: WindowActivationSource) {
-        let outcome = catalog.activate(window, source: source)
+    private func activateSelectedWindow(_ window: WindowSummary, displayedIndex: Int, source: WindowActivationSource) {
+        let context = WindowActivationContext(selectedIndex: displayedIndex, highlightedIndex: displayedIndex)
+        let diagnosticPrefix = "source=\(source.rawValue) selectedIndex=\(displayedIndex) highlightedIndex=\(displayedIndex) title=\(window.title) cg=\(window.windowID.map(String.init) ?? "nil") pid=\(window.processIdentifier) bundle=\(window.bundleIdentifier ?? "nil")"
+        logger.debug("Activating highlighted window \(diagnosticPrefix, privacy: .public)")
+        cancel()
+        let outcome = catalog.activate(window, source: source, context: context)
         lastActivationDiagnostic = outcome.reason
         if outcome.success {
             presentationStatus = "Activated \(window.title)"
         } else {
-            presentationStatus = "Activation uncertain for \(window.title)"
+            presentationStatus = "Activation failed for \(window.title)"
+            logger.debug("Activation failed \(self.lastActivationDiagnostic, privacy: .public)")
         }
     }
 

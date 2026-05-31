@@ -16,6 +16,13 @@ enum WindowActivationSource: String {
     case programmatic
 }
 
+struct WindowActivationContext: Equatable {
+    var selectedIndex: Int?
+    var highlightedIndex: Int?
+
+    static let none = WindowActivationContext(selectedIndex: nil, highlightedIndex: nil)
+}
+
 struct WindowActivationOutcome: Equatable {
     var attemptedSteps: [String]
     var success: Bool
@@ -45,7 +52,16 @@ struct WindowSummary: Identifiable, Equatable {
 }
 
 @MainActor
-final class WindowCatalogService {
+protocol WindowCatalogProviding {
+    func visibleWindows() -> [WindowSummary]
+    func activate(_ window: WindowSummary, source: WindowActivationSource, context: WindowActivationContext) -> WindowActivationOutcome
+    func minimize(_ window: WindowSummary)
+    func close(_ window: WindowSummary)
+    func thumbnail(for window: WindowSummary, maxSize: CGSize) async -> NSImage?
+}
+
+@MainActor
+final class WindowCatalogService: WindowCatalogProviding {
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "WindowActivation")
 
     func visibleWindows() -> [WindowSummary] {
@@ -68,10 +84,15 @@ final class WindowCatalogService {
     }
 
     @discardableResult
-    func activate(_ window: WindowSummary, source: WindowActivationSource = .programmatic) -> WindowActivationOutcome {
+    func activate(
+        _ window: WindowSummary,
+        source: WindowActivationSource = .programmatic,
+        context: WindowActivationContext = .none
+    ) -> WindowActivationOutcome {
         var steps = [String]()
         let app = NSRunningApplication(processIdentifier: window.processIdentifier)
-        let axElement = bestActivationElement(for: window)
+        let activationTarget = bestActivationTarget(for: window)
+        let axElement = activationTarget?.element
 
         if app?.isHidden == true {
             app?.unhide()
@@ -79,6 +100,7 @@ final class WindowCatalogService {
         }
 
         if let axElement {
+            steps.append("axMatch:\(activationTarget?.matchDescription ?? "unknown")")
             if window.isMinimized || boolAttribute(kAXMinimizedAttribute, from: axElement) {
                 let result = AXUIElementSetAttributeValue(axElement, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
                 steps.append("unminimize:\(result.rawValue)")
@@ -103,12 +125,32 @@ final class WindowCatalogService {
             steps.append("postActivateFocused:\(AXUIElementSetAttributeValue(axElement, kAXFocusedAttribute as CFString, kCFBooleanTrue).rawValue)")
         }
 
-        let focusedWindowID = focusedWindowID(for: window.processIdentifier)
+        let focusedWindow = focusedWindowInfo(for: window.processIdentifier)
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        let idMatches = window.windowID == nil || focusedWindowID == nil || focusedWindowID == window.windowID
+        let frontmostName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil"
+        let idMatches = if let windowID = window.windowID {
+            focusedWindow?.windowID == windowID
+        } else {
+            focusedWindow != nil || activationTarget != nil
+        }
         let appMatches = frontmostPID == window.processIdentifier
         let success = appMatches && idMatches
-        let reason = "source=\(source.rawValue) selectedTitle=\(window.title) selectedCG=\(window.windowID.map(String.init) ?? "nil") focusedCG=\(focusedWindowID.map(String.init) ?? "nil") pid=\(window.processIdentifier) bundle=\(window.bundleIdentifier ?? "nil") appMatches=\(appMatches) idMatches=\(idMatches)"
+        let reason = [
+            "source=\(source.rawValue)",
+            "selectedIndex=\(context.selectedIndex.map(String.init) ?? "nil")",
+            "highlightedIndex=\(context.highlightedIndex.map(String.init) ?? "nil")",
+            "selectedTitle=\(window.title)",
+            "selectedCG=\(window.windowID.map(String.init) ?? "nil")",
+            "selectedPID=\(window.processIdentifier)",
+            "selectedBundle=\(window.bundleIdentifier ?? "nil")",
+            "axMatch=\(activationTarget?.matchDescription ?? "missing")",
+            "frontmostPID=\(frontmostPID.map(String.init) ?? "nil")",
+            "frontmostApp=\(frontmostName)",
+            "focusedCG=\(focusedWindow?.windowID.map(String.init) ?? "nil")",
+            "focusedTitle=\(focusedWindow?.title ?? "nil")",
+            "appMatches=\(appMatches)",
+            "idMatches=\(idMatches)"
+        ].joined(separator: " ")
         logger.debug("\(reason, privacy: .public) steps=\(steps.joined(separator: ","), privacy: .public)")
         return WindowActivationOutcome(attemptedSteps: steps, success: success, reason: reason)
     }
@@ -263,20 +305,24 @@ final class WindowCatalogService {
         return windowID
     }
 
-    private func bestActivationElement(for window: WindowSummary) -> AXUIElement? {
-        if let axElement = window.axElement, activationElement(axElement, matches: window) {
-            return axElement
+    private func bestActivationTarget(for window: WindowSummary) -> ActivationTarget? {
+        if let axElement = window.axElement,
+           let matchDescription = activationMatchDescription(for: axElement, window: window, prefix: "cached") {
+            return ActivationTarget(element: axElement, matchDescription: matchDescription)
         }
 
         let appElement = AXUIElementCreateApplication(window.processIdentifier)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value) == .success,
               let windows = value as? [AXUIElement] else {
-            return window.axElement
+            if window.windowID == nil, let axElement = window.axElement {
+                return ActivationTarget(element: axElement, matchDescription: "cachedFallbackNoWindowList")
+            }
+            return nil
         }
 
         return windows
-            .compactMap { candidate -> (AXUIElement, Double)? in
+            .compactMap { candidate -> (ActivationTarget, Double)? in
                 let candidateID = cgWindowID(for: candidate)
                 let candidateFrame = frame(for: candidate)
                 let idScore = candidateID != nil && candidateID == window.windowID ? 100.0 : 0
@@ -289,27 +335,40 @@ final class WindowCatalogService {
                 }()
                 let score = idScore + frameScore + titleScore
                 guard idScore > 0 || frameScore >= 12 else { return nil }
-                return (candidate, score)
+                let description = idScore > 0 ? "resolvedCG" : "resolvedFrame"
+                return (ActivationTarget(element: candidate, matchDescription: description), score)
             }
             .max { $0.1 < $1.1 }?
-            .0 ?? window.axElement
+            .0
     }
 
-    private func activationElement(_ element: AXUIElement, matches window: WindowSummary) -> Bool {
+    private func activationMatchDescription(for element: AXUIElement, window: WindowSummary, prefix: String) -> String? {
         if let windowID = window.windowID, cgWindowID(for: element) == windowID {
-            return true
+            return "\(prefix)CG"
         }
-        return frameOverlapRatio(frame(for: element), window.frame) >= 0.70
+        if window.windowID != nil {
+            return nil
+        }
+        if frameOverlapRatio(frame(for: element), window.frame) >= 0.70 {
+            return "\(prefix)Frame"
+        }
+        if window.isMinimized {
+            return "\(prefix)Minimized"
+        }
+        return nil
     }
 
-    private func focusedWindowID(for processIdentifier: pid_t) -> CGWindowID? {
+    private func focusedWindowInfo(for processIdentifier: pid_t) -> FocusedWindowInfo? {
         let appElement = AXUIElementCreateApplication(processIdentifier)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &value) == .success,
               let focused = value else {
             return nil
         }
-        return cgWindowID(for: focused as! AXUIElement)
+        let focusedElement = focused as! AXUIElement
+        var titleValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(focusedElement, kAXTitleAttribute as CFString, &titleValue)
+        return FocusedWindowInfo(windowID: cgWindowID(for: focusedElement), title: titleValue as? String ?? "")
     }
 
     private func titlesMatch(_ lhs: String, _ rhs: String) -> Bool {
@@ -359,6 +418,16 @@ final class WindowCatalogService {
         guard smallerArea > 0 else { return 0 }
         return intersectionArea / smallerArea
     }
+}
+
+private struct ActivationTarget {
+    var element: AXUIElement
+    var matchDescription: String
+}
+
+private struct FocusedWindowInfo {
+    var windowID: CGWindowID?
+    var title: String
 }
 
 private struct CGWindowDescription {
