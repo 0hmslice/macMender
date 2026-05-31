@@ -75,14 +75,6 @@ final class WindowSwitcherService: ObservableObject {
         presentationStatus = discovered.isEmpty ? "No switchable windows detected" : "\(discovered.count) windows available"
     }
 
-    func showDockPreview(appName: String, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
-        showDockPreview(
-            identity: DockAppIdentity(title: appName, bundleIdentifier: nil, processIdentifier: nil),
-            settings: settings,
-            anchorFrame: anchorFrame
-        )
-    }
-
     func showDockPreview(identity: DockAppIdentity, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
         guard identity.hasResolvedApplicationIdentity else {
             presentationStatus = "Dock preview skipped for unresolved Dock item \(identity.displayName)"
