@@ -29,6 +29,53 @@ struct WindowActivationOutcome: Equatable {
     var reason: String
 }
 
+struct WindowDiscoveryReport: Equatable {
+    var totalWindows: Int
+    var appReports: [WindowAppDiscoveryReport]
+
+    static let empty = WindowDiscoveryReport(totalWindows: 0, appReports: [])
+
+    var summary: String {
+        let appCount = appReports.filter { $0.axWindowCount > 0 || $0.cgOnlyWindowCount > 0 || $0.includedCount > 0 }.count
+        return "\(totalWindows) windows from \(appCount) apps"
+    }
+
+    var diagnosticLines: [String] {
+        appReports.flatMap { report in
+            if report.entries.isEmpty {
+                return [
+                    "\(report.appName) bundle=\(report.bundleIdentifier ?? "nil") pid=\(report.processIdentifier) axWindows=\(report.axWindowCount) cgOnly=\(report.cgOnlyWindowCount) included=0 dropped=1 reason=\(report.appDropReason ?? "no windows")"
+                ]
+            }
+            return report.entries.map { entry in
+                "\(report.appName) bundle=\(report.bundleIdentifier ?? "nil") pid=\(report.processIdentifier) axWindows=\(report.axWindowCount) title=\"\(entry.title)\" cg=\(entry.cgWindowID.map(String.init) ?? "missing") cgMatch=\(entry.cgMatchFound ? "found" : "missing") included=\(entry.included) reason=\(entry.reason)"
+            }
+        }
+    }
+}
+
+struct WindowAppDiscoveryReport: Identifiable, Equatable {
+    var id: String { "\(processIdentifier)-\(bundleIdentifier ?? appName)" }
+    var appName: String
+    var bundleIdentifier: String?
+    var processIdentifier: pid_t
+    var axWindowCount: Int
+    var cgOnlyWindowCount: Int
+    var includedCount: Int
+    var droppedCount: Int
+    var appDropReason: String?
+    var entries: [WindowDiscoveryEntry]
+}
+
+struct WindowDiscoveryEntry: Identifiable, Equatable {
+    var id: String
+    var title: String
+    var cgWindowID: CGWindowID?
+    var cgMatchFound: Bool
+    var included: Bool
+    var reason: String
+}
+
 struct WindowSummary: Identifiable, Equatable {
     var id: String
     var windowID: CGWindowID?
@@ -53,6 +100,8 @@ struct WindowSummary: Identifiable, Equatable {
 
 @MainActor
 protocol WindowCatalogProviding {
+    var lastDiscoveryReport: WindowDiscoveryReport { get }
+
     func visibleWindows() -> [WindowSummary]
     func activate(_ window: WindowSummary, source: WindowActivationSource, context: WindowActivationContext) -> WindowActivationOutcome
     func minimize(_ window: WindowSummary)
@@ -63,6 +112,7 @@ protocol WindowCatalogProviding {
 @MainActor
 final class WindowCatalogService: WindowCatalogProviding {
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "WindowActivation")
+    private(set) var lastDiscoveryReport = WindowDiscoveryReport.empty
 
     func visibleWindows() -> [WindowSummary] {
         let cgWindows = cgWindowDescriptions()
@@ -70,17 +120,23 @@ final class WindowCatalogService: WindowCatalogProviding {
             .filter { $0.activationPolicy == .regular }
             .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
 
+        var reports = [WindowAppDiscoveryReport]()
         let summaries = runningApps.flatMap { app in
-            windows(for: app, cgWindows: cgWindows)
+            let result = windows(for: app, cgWindows: cgWindows)
+            reports.append(result.report)
+            return result.windows
         }
 
-        return summaries.sorted {
+        let sorted = summaries.sorted {
             if $0.stackIndex == $1.stackIndex {
                 if $0.appName == $1.appName { return $0.title < $1.title }
                 return $0.appName < $1.appName
             }
             return $0.stackIndex < $1.stackIndex
         }
+        lastDiscoveryReport = WindowDiscoveryReport(totalWindows: sorted.count, appReports: reports)
+        logger.debug("Window discovery \(self.lastDiscoveryReport.summary, privacy: .public)")
+        return sorted
     }
 
     @discardableResult
@@ -105,19 +161,27 @@ final class WindowCatalogService: WindowCatalogProviding {
                 let result = AXUIElementSetAttributeValue(axElement, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
                 steps.append("unminimize:\(result.rawValue)")
             }
-            steps.append("raise:\(AXUIElementPerformAction(axElement, kAXRaiseAction as CFString).rawValue)")
-            steps.append("main:\(AXUIElementSetAttributeValue(axElement, kAXMainAttribute as CFString, kCFBooleanTrue).rawValue)")
-            steps.append("focused:\(AXUIElementSetAttributeValue(axElement, kAXFocusedAttribute as CFString, kCFBooleanTrue).rawValue)")
+            steps.append("preRaise:\(AXUIElementPerformAction(axElement, kAXRaiseAction as CFString).rawValue)")
+            steps.append("preMain:\(AXUIElementSetAttributeValue(axElement, kAXMainAttribute as CFString, kCFBooleanTrue).rawValue)")
         } else {
             steps.append("noAXWindow")
         }
 
         if let app {
-            let activated = app.activate()
-            steps.append("activateApp:\(activated)")
+            if let bundleURL = app.bundleURL {
+                let configuration = NSWorkspace.OpenConfiguration()
+                configuration.activates = true
+                configuration.createsNewApplicationInstance = false
+                NSWorkspace.shared.openApplication(at: bundleURL, configuration: configuration)
+                steps.append("openApplicationActivate")
+            }
+            let activated = app.activate(options: [.activateAllWindows])
+            steps.append("activateAllWindows:\(activated)")
         } else {
             steps.append("missingRunningApp")
         }
+
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.12))
 
         if let axElement {
             steps.append("postActivateRaise:\(AXUIElementPerformAction(axElement, kAXRaiseAction as CFString).rawValue)")
@@ -128,12 +192,20 @@ final class WindowCatalogService: WindowCatalogProviding {
         let focusedWindow = focusedWindowInfo(for: window.processIdentifier)
         let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let frontmostName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil"
+        let appMatches = frontmostPID == window.processIdentifier
         let idMatches = if let windowID = window.windowID {
-            focusedWindow?.windowID == windowID
+            if focusedWindow?.windowID == windowID {
+                true
+            } else if activationTarget == nil {
+                appMatches
+            } else {
+                false
+            }
+        } else if activationTarget == nil {
+            focusedWindow != nil || appMatches
         } else {
             focusedWindow != nil || activationTarget != nil
         }
-        let appMatches = frontmostPID == window.processIdentifier
         let success = appMatches && idMatches
         let reason = [
             "source=\(source.rawValue)",
@@ -199,14 +271,41 @@ final class WindowCatalogService: WindowCatalogProviding {
         }
     }
 
-    private func windows(for app: NSRunningApplication, cgWindows: [CGWindowDescription]) -> [WindowSummary] {
+    private func windows(for app: NSRunningApplication, cgWindows: [CGWindowDescription]) -> (windows: [WindowSummary], report: WindowAppDiscoveryReport) {
+        let appName = app.localizedName ?? app.bundleIdentifier ?? "Unknown App"
+        let appCGWindows = cgWindows.filter { $0.processIdentifier == app.processIdentifier }
         let element = AXUIElementCreateApplication(app.processIdentifier)
         var value: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &value)
-        guard result == .success, let windows = value as? [AXUIElement] else { return [] }
+        guard result == .success, let windows = value as? [AXUIElement] else {
+            let fallback = cgOnlyWindows(for: app, cgWindows: appCGWindows)
+            let entries = fallback.map { summary in
+                WindowDiscoveryEntry(
+                    id: summary.id,
+                    title: summary.title,
+                    cgWindowID: summary.windowID,
+                    cgMatchFound: true,
+                    included: true,
+                    reason: "includedCGOnlyAXUnavailable:\(result.rawValue)"
+                )
+            }
+            let report = WindowAppDiscoveryReport(
+                appName: appName,
+                bundleIdentifier: app.bundleIdentifier,
+                processIdentifier: app.processIdentifier,
+                axWindowCount: 0,
+                cgOnlyWindowCount: fallback.count,
+                includedCount: fallback.count,
+                droppedCount: fallback.isEmpty ? 1 : 0,
+                appDropReason: fallback.isEmpty ? "AXUnavailable:\(result.rawValue) noCGWindows" : nil,
+                entries: entries
+            )
+            return (fallback, report)
+        }
 
         var usedCGWindowIDs = Set<CGWindowID>()
         var summaries = [WindowSummary]()
+        var entries = [WindowDiscoveryEntry]()
 
         for (index, window) in windows.enumerated() {
             var titleValue: CFTypeRef?
@@ -227,14 +326,23 @@ final class WindowCatalogService: WindowCatalogProviding {
                 usedCGWindowIDs.insert(matchedCGWindow.windowID)
             }
 
-            guard !title.isEmpty || matchedCGWindow != nil || frame.width > 0 else {
+            let hasAXShape = frame.width >= 80 && frame.height >= 60
+            guard !title.isEmpty || matchedCGWindow != nil || hasAXShape else {
+                entries.append(WindowDiscoveryEntry(
+                    id: "\(app.processIdentifier)-ax-\(index)-dropped",
+                    title: title,
+                    cgWindowID: nil,
+                    cgMatchFound: false,
+                    included: false,
+                    reason: "emptyTitleNoCGNoAXFrame"
+                ))
                 continue
             }
 
-            summaries.append(WindowSummary(
-                id: "\(app.processIdentifier)-\(matchedCGWindow?.windowID ?? CGWindowID(index))-\(title)",
+            let summary = WindowSummary(
+                id: "\(app.processIdentifier)-\(matchedCGWindow?.windowID ?? axWindowID ?? CGWindowID(index))-\(title)",
                 windowID: matchedCGWindow?.windowID,
-                appName: app.localizedName ?? app.bundleIdentifier ?? "Unknown App",
+                appName: appName,
                 bundleIdentifier: app.bundleIdentifier,
                 title: title.isEmpty ? "Untitled Window" : title,
                 processIdentifier: app.processIdentifier,
@@ -242,10 +350,69 @@ final class WindowCatalogService: WindowCatalogProviding {
                 isMinimized: minimized,
                 stackIndex: matchedCGWindow?.stackIndex ?? Int.max,
                 axElement: window
+            )
+            summaries.append(summary)
+            entries.append(WindowDiscoveryEntry(
+                id: summary.id,
+                title: summary.title,
+                cgWindowID: summary.windowID,
+                cgMatchFound: matchedCGWindow != nil,
+                included: true,
+                reason: matchedCGWindow == nil ? "includedAXWindowNoCGMatch" : "includedAXWindowCGMatched"
             ))
         }
 
-        return summaries
+        let cgFallback = appCGWindows
+            .filter { !usedCGWindowIDs.contains($0.windowID) }
+            .filter { cgWindow in
+                !summaries.contains { summary in
+                    frameOverlapRatio(summary.frame, cgWindow.frame) >= 0.72 || titlesMatch(summary.title, cgWindow.title)
+                }
+            }
+        let cgOnlySummaries = cgOnlyWindows(for: app, cgWindows: cgFallback)
+        summaries.append(contentsOf: cgOnlySummaries)
+        entries.append(contentsOf: cgOnlySummaries.map { summary in
+            WindowDiscoveryEntry(
+                id: summary.id,
+                title: summary.title,
+                cgWindowID: summary.windowID,
+                cgMatchFound: true,
+                included: true,
+                reason: "includedCGOnlyNoAXDuplicate"
+            )
+        })
+
+        let droppedCount = entries.filter { !$0.included }.count
+        let report = WindowAppDiscoveryReport(
+            appName: appName,
+            bundleIdentifier: app.bundleIdentifier,
+            processIdentifier: app.processIdentifier,
+            axWindowCount: windows.count,
+            cgOnlyWindowCount: cgOnlySummaries.count,
+            includedCount: summaries.count,
+            droppedCount: droppedCount,
+            appDropReason: summaries.isEmpty && entries.isEmpty ? "noAXOrCGWindows" : nil,
+            entries: entries
+        )
+        return (summaries, report)
+    }
+
+    private func cgOnlyWindows(for app: NSRunningApplication, cgWindows: [CGWindowDescription]) -> [WindowSummary] {
+        let appName = app.localizedName ?? app.bundleIdentifier ?? "Unknown App"
+        return cgWindows.map { cgWindow in
+            WindowSummary(
+                id: "\(app.processIdentifier)-\(cgWindow.windowID)-\(cgWindow.title)",
+                windowID: cgWindow.windowID,
+                appName: appName,
+                bundleIdentifier: app.bundleIdentifier,
+                title: cgWindow.title.isEmpty ? "Untitled Window" : cgWindow.title,
+                processIdentifier: app.processIdentifier,
+                frame: cgWindow.frame,
+                isMinimized: false,
+                stackIndex: cgWindow.stackIndex,
+                axElement: nil
+            )
+        }
     }
 
     private func cgWindowDescriptions() -> [CGWindowDescription] {

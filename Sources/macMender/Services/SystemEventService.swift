@@ -230,11 +230,14 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         }
 
         if (type == .keyUp && shortcut.modifierKeyCodes.contains(CGKeyCode(keyCode))) || (type == .flagsChanged && !shortcutHeld) {
+            guard switcherSessionActive else {
+                return Unmanaged.passUnretained(event)
+            }
             DispatchQueue.main.async { [weak self] in
                 self?.switcherSessionActive = false
                 self?.onCommitSwitcher?()
             }
-            return Unmanaged.passUnretained(event)
+            return nil
         }
 
         if type == .keyDown, keyCode == 53 {

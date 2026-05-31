@@ -14,6 +14,7 @@ final class WindowSwitcherService: ObservableObject {
     @Published private(set) var gridColumnCount = 3
     @Published private(set) var isDockPreview = false
     @Published private(set) var lastActivationDiagnostic = "No window activation attempted"
+    @Published private(set) var lastDiscoveryReport = WindowDiscoveryReport.empty
     @Published private var thumbnails: [WindowSummary.ID: NSImage] = [:]
 
     private let catalog: any WindowCatalogProviding
@@ -41,6 +42,7 @@ final class WindowSwitcherService: ObservableObject {
         let discovered = catalog.visibleWindows()
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
+        lastDiscoveryReport = catalog.lastDiscoveryReport
 
         guard !discovered.isEmpty else {
             presentationStatus = "No switchable windows detected"
@@ -58,6 +60,14 @@ final class WindowSwitcherService: ObservableObject {
             prefetchThumbnails()
             panel?.orderFrontRegardless()
         }
+    }
+
+    func refreshDiscovery(settings: WindowSwitcherSettings) {
+        let discovered = catalog.visibleWindows()
+            .filter { settings.includeMinimizedWindows || !$0.isMinimized }
+            .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
+        lastDiscoveryReport = catalog.lastDiscoveryReport
+        presentationStatus = discovered.isEmpty ? "No switchable windows detected" : "\(discovered.count) windows available"
     }
 
     func showDockPreview(appName: String, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
@@ -80,6 +90,7 @@ final class WindowSwitcherService: ObservableObject {
             .filter { windowMatchesDockIdentity($0, identity: identity) }
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
+        lastDiscoveryReport = catalog.lastDiscoveryReport
 
         guard !discovered.isEmpty else {
             presentationStatus = "No windows detected for \(identity.displayName)"
@@ -105,9 +116,11 @@ final class WindowSwitcherService: ObservableObject {
 
     func showDockPreviewForMostRecentApp(settings: WindowSwitcherSettings, anchorFrame: CGRect) {
         guard let window = catalog.visibleWindows().first else {
+            lastDiscoveryReport = catalog.lastDiscoveryReport
             presentationStatus = "No windows available for preview"
             return
         }
+        lastDiscoveryReport = catalog.lastDiscoveryReport
         showDockPreview(appName: window.appName, settings: settings, anchorFrame: anchorFrame)
     }
 
@@ -198,6 +211,7 @@ final class WindowSwitcherService: ObservableObject {
     private func refreshKeepingSelection() {
         let selectedID = selectedWindow?.id
         windows = catalog.visibleWindows()
+        lastDiscoveryReport = catalog.lastDiscoveryReport
         thumbnails = thumbnails.filter { cached in
             windows.contains(where: { $0.id == cached.key })
         }

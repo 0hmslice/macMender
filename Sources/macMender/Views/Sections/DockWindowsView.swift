@@ -81,10 +81,15 @@ struct DockWindowsView: View {
                     CapabilityBadge(title: appModel.permissions.screenRecording == .granted ? "Thumbnails Available" : "Icon Fallback", systemImage: "rectangle.on.rectangle", tone: appModel.permissions.screenRecording == .granted ? .active : .warning)
                     CapabilityBadge(title: appModel.windowSwitcher.presentationStatus, systemImage: appModel.windowSwitcher.isShowing ? "rectangle.stack.fill" : "info.circle", tone: appModel.windowSwitcher.isShowing ? .active : .neutral)
                     Spacer()
+                    Button("Refresh Discovery") {
+                        appModel.windowSwitcher.refreshDiscovery(settings: appModel.activeProfile.windowSwitcher)
+                    }
                     Button("Test Switcher") {
                         appModel.windowSwitcher.show(settings: appModel.activeProfile.windowSwitcher)
                     }
                 }
+
+                WindowDiscoveryDiagnosticsView(report: appModel.windowSwitcher.lastDiscoveryReport, activationDiagnostic: appModel.windowSwitcher.lastActivationDiagnostic)
             }
         }
     }
@@ -231,6 +236,85 @@ struct DockWindowsView: View {
             profile[keyPath: keyPath] = newValue
             appModel.updateActiveProfile(profile)
         }
+    }
+}
+
+private struct WindowDiscoveryDiagnosticsView: View {
+    var report: WindowDiscoveryReport
+    var activationDiagnostic: String
+
+    var body: some View {
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Activation: \(activationDiagnostic)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                if report.appReports.isEmpty {
+                    Text("No discovery pass has run yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(report.appReports.filter(shouldShowReport)) { appReport in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("\(appReport.appName)  bundle=\(appReport.bundleIdentifier ?? "nil")  pid=\(appReport.processIdentifier)")
+                                .font(.caption.weight(.semibold))
+                                .textSelection(.enabled)
+                            Text("AX windows: \(appReport.axWindowCount)  CG-only: \(appReport.cgOnlyWindowCount)  included: \(appReport.includedCount)  dropped: \(appReport.droppedCount)")
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                            ForEach(Array(appReport.entries.prefix(6))) { entry in
+                                WindowDiscoveryEntryLineView(entry: entry)
+                            }
+                            if appReport.entries.count > 6 {
+                                Text("\(appReport.entries.count - 6) more windows omitted")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let reason = appReport.appDropReason {
+                                Text("App drop reason: \(reason)")
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.orange)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        .padding(10)
+                        .liquidGlass(.row)
+                    }
+                }
+            }
+            .padding(.top, 8)
+        } label: {
+            Label("Discovery diagnostics: \(report.summary)", systemImage: "list.bullet.rectangle")
+                .font(.callout.weight(.semibold))
+        }
+        .padding(12)
+        .liquidGlass(.card)
+    }
+
+    private func shouldShowReport(_ report: WindowAppDiscoveryReport) -> Bool {
+        report.axWindowCount > 0 || report.cgOnlyWindowCount > 0 || report.includedCount > 0 || report.appDropReason != nil
+    }
+
+}
+
+private struct WindowDiscoveryEntryLineView: View {
+    var entry: WindowDiscoveryEntry
+
+    var body: some View {
+        Text(entryLine)
+            .font(.caption2.monospaced())
+            .foregroundStyle(entry.included ? Color.secondary : Color.orange)
+            .textSelection(.enabled)
+    }
+
+    private var entryLine: String {
+        let state = entry.included ? "included" : "dropped"
+        let cgID = entry.cgWindowID.map(String.init) ?? "missing"
+        let match = entry.cgMatchFound ? "found" : "missing"
+        return "• \(state) title=\"\(entry.title)\" cg=\(cgID) match=\(match) reason=\(entry.reason)"
     }
 }
 

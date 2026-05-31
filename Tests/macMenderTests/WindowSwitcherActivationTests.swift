@@ -87,6 +87,7 @@ private final class RecordingWindowCatalog: WindowCatalogProviding {
     }
 
     var windows: [WindowSummary]
+    var lastDiscoveryReport = WindowDiscoveryReport.empty
     private(set) var activations: [Activation] = []
 
     init(windows: [WindowSummary]) {
@@ -94,7 +95,8 @@ private final class RecordingWindowCatalog: WindowCatalogProviding {
     }
 
     func visibleWindows() -> [WindowSummary] {
-        windows
+        lastDiscoveryReport = WindowDiscoveryReport(totalWindows: windows.count, appReports: [])
+        return windows
     }
 
     func activate(
