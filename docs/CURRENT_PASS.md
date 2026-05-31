@@ -4,30 +4,55 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/thaw-runtime-transplant`
+`codex/dockdoor-preview-menu-safe-setup`
 
 ## Implemented in This Pass
 
-1. Physical menu-bar hide/reorder/move operations are disabled. The current partial macMender mover is not Thaw-equivalent and is bypassed instead of being patched again.
-2. Settings > Menu Bar is now discovery-only for physical layout. It shows a clear disabled banner and does not offer working drag/drop or section movement controls while the real Thaw runtime is absent.
-3. `MenuBarScannerService` reports movement disabled and refuses reveal, hide, reconcile, user-item move, and Mendy status-item move requests.
-4. Mendy renders without hard square avatar containers by default, uses larger hero/overview sizes, and relies on state-colored glow/shadow plus local PNG state assets.
-5. Liquid Glass surfaces now use native `glassEffect` on macOS 26 when available, with the existing layered material fallback for older runtimes.
-6. Option+Tab and Dock preview panels are wrapped in a `GlassEffectContainer` where available and keep the stricter preview glass treatment.
-7. Dock previews retain the strict high-confidence rule: bundle/PID identity is required, and title-only neighboring previews are suppressed.
+1. Dock preview display eligibility no longer uses title/name-only matching. A Dock item must resolve to a bundle identifier or process identifier, and ambiguous neighboring Dock hits are suppressed.
+2. Dock preview diagnostics now log mouse location, Dock item frame/title, resolved bundle ID/PID, suppression reason, and preview show/no-window outcomes.
+3. Window discovery now prefers AX window ID and CG window ID matching, then frame overlap. Title matching is only a weak tie-breaker and is not enough to assign a CG window.
+4. Option+Tab mouse hover, mouse click, and keyboard selection now share the same selected index state. Mouse click commits through the same final activation path as keyboard confirm.
+5. Selected-window activation now re-resolves the AX window where possible, unminimizes, raises, sets main/focused, activates the owning app, repeats focus/raise, and logs verification details.
+6. Settings > Menu Bar is now a safe setup guide with Command-drag instructions and read-only discovery. Fake lanes, drag/drop, reveal toggles, reset layout, and hide/reorder controls are no longer reachable from the page body.
+7. Onboarding and Privacy settings now include guided Input Monitoring setup and a visual drag-to-add panel for adding the macMender app icon to Privacy & Security lists when macOS requires it.
+8. The menu bar popover is now a compact control center with accurate status chips, permission/menu-bar setup actions, and no claims about hidden icon syncing.
+9. Startup diagnostics log `Bundle.main.bundleIdentifier`, bundle path, whether the process is running from a `.app`, and whether the bundled menu-bar XPC helper exists.
 
-## Still Known or Unverified
+## Upstream DockDoor Comparison
 
-1. A real Thaw runtime transplant is not complete. Required missing pieces include Thaw's full `MenuBarItemManager`, `HIDEventManager`, `EventTap`, `ControlItem`, `MenuBarSection`, `LayoutSolver`, `LayoutReconciler`, `PendingLedger`, `IceBar/LayoutBar`, and exact XPC request/response service boundary.
-2. The existing `script/build_and_run.sh --verify` path creates `dist/macMender.app/Contents/XPCServices/MacMenderMenuBarItemService.xpc`, but helper launch/connect behavior and Thaw side-by-side source-PID parity remain unverified.
-3. DockDoor parity is not claimed. This pass only keeps high-confidence Dock preview gating; preview lifetime, browser multi-window behavior, animations, and full DockDoor semantics still need a dedicated pass.
-4. Visual inspection of Mendy rendering, settings Liquid Glass, menu bar discovery disabled state, Option+Tab glass, and Dock adjacent-hover behavior is still required on a launched app.
-5. Mos-style scrolling, MiddleClick, and Dock tuning were intentionally not expanded in this pass.
+Inspected upstream:
+`/tmp/DockDoor` at `63e14c998ac78ca04f193caa2eda3df7a3c748f9`
+
+Relevant upstream files:
+
+- `DockDoor/Utilities/DockObserver.swift`
+- `DockDoor/Utilities/DockObserver+CmdTab.swift`
+- `DockDoor/Utilities/Window Management/WindowUtil.swift`
+- `DockDoor/Utilities/Window Management/WindowInfo.swift`
+- `DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift`
+- `DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift`
+
+Key behavior adapted conservatively:
+
+- Prefer Dock AX selected-item identity and validate before display.
+- Suppress previews instead of relying on app-name fallbacks.
+- Resolve windows through PID, bundle ID, AX window ID, CG window ID, and frame before title.
+- Use a single selected-window activation path for keyboard and mouse selection.
+
+DockDoor parity is not claimed. macMender still does not include DockDoor's full cache, observer, animation, live preview, gesture, or private front-process stack.
+
+## Known or Unverified
+
+1. Real menu-bar physical movement remains disabled. No direct hide/reorder/reveal path should be reachable from the UI.
+2. Dock preview adjacent-icon correctness, browser multi-window matching, non-running Dock items, and sticky/flicker behavior still require manual desktop QA.
+3. Option+Tab exact activation still requires manual comparison across browser windows, non-browser apps, duplicate/blank titled windows, minimized windows, and multiple windows from one app.
+4. The `com.apple.linkd.autoShortcut` warnings appear consistent with harmless system/Xcode launch noise unless the app intentionally adopts App Intents/Shortcuts. macMender does not.
+5. `Cannot index window tabs due to missing main bundle identifier` should be treated as SwiftPM/Xcode raw executable launch noise when not running the packaged `dist/macMender.app`.
+6. Permissions and XPC behavior should be trusted from `dist/macMender.app`, not the raw SwiftPM executable.
 
 ## Verification Run
 
 - `swift build`
 - `swift test`
-- `script/build_and_run.sh --verify` launched `dist/macMender.app` and confirmed a running `macMender` process.
 
-Manual launch and UI verification should follow `docs/MANUAL_QA.md` and the menu bar QA scripts before release claims.
+Manual launch and visual verification should follow `docs/MANUAL_QA.md` before release claims.
