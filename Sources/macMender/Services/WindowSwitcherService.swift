@@ -1,5 +1,6 @@
 import AppKit
 import os
+import QuartzCore
 import SwiftUI
 
 @MainActor
@@ -27,6 +28,9 @@ final class WindowSwitcherService: ObservableObject {
     private var dockPreviewLocalMouseMonitor: Any?
     private var thumbnailTask: Task<Void, Never>?
     private var dockPreviewIdleTimeout: TimeInterval = DockPreviewSettings.default.previewIdleTimeout
+    private var dockPreviewAnimationStyle = DockPreviewSettings.default.animationStyle
+    private var dockPreviewAnimationSpeed = DockPreviewSettings.default.animationSpeed
+    private var panelAnimationGeneration = 0
     private var thumbnailCache: [WindowSummary.ID: ThumbnailCacheEntry] = [:]
     private var thumbnailCacheOrder: [WindowSummary.ID] = []
     private let thumbnailCacheLimit = 80
@@ -105,7 +109,7 @@ final class WindowSwitcherService: ObservableObject {
         dockPreviewAnchorFrame = anchorFrame
         if presentsPanel {
             ensurePanel(settings: settings, anchorFrame: anchorFrame)
-            panel?.orderFrontRegardless()
+            presentPanel()
             prefetchThumbnails()
             startDockPreviewMouseTracking()
         }
@@ -136,6 +140,7 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     func cancel() {
+        let shouldAnimateDockDismiss = isDockPreview && (panel?.isVisible == true)
         isShowing = false
         dockPreviewAnchorFrame = nil
         thumbnailTask?.cancel()
@@ -150,7 +155,11 @@ final class WindowSwitcherService: ObservableObject {
         }
         dockPreviewMouseMonitor = nil
         dockPreviewLocalMouseMonitor = nil
-        panel?.orderOut(nil)
+        if shouldAnimateDockDismiss {
+            dismissPanel()
+        } else {
+            panel?.orderOut(nil)
+        }
     }
 
     func commit(source: WindowActivationSource = .keyboard) {
@@ -194,6 +203,11 @@ final class WindowSwitcherService: ObservableObject {
 
     func updateDockPreviewIdleTimeout(_ timeout: TimeInterval) {
         dockPreviewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(timeout)
+    }
+
+    func updateDockPreviewAnimation(style: DockPreviewAnimationStyle, speed: DockPreviewAnimationSpeed) {
+        dockPreviewAnimationStyle = style
+        dockPreviewAnimationSpeed = speed
     }
 
     func scheduleDockPreviewDismiss() {
@@ -341,6 +355,98 @@ final class WindowSwitcherService: ObservableObject {
 
         if let screen {
             panel?.setFrameOrigin(panelOrigin(size: size, screen: screen, anchorFrame: anchorFrame))
+        }
+    }
+
+    private func presentPanel() {
+        guard let panel else { return }
+        panelAnimationGeneration += 1
+        let generation = panelAnimationGeneration
+        let style = effectiveDockPreviewAnimationStyle
+        let finalFrame = panel.frame
+        let startFrame = panelAnimationFrame(from: finalFrame, style: style, appearing: true)
+
+        if style != .none {
+            panel.alphaValue = 0
+            panel.setFrame(startFrame, display: false)
+        } else {
+            panel.alphaValue = 1
+            panel.setFrame(finalFrame, display: false)
+        }
+        panel.orderFrontRegardless()
+
+        guard style != .none else { return }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = dockPreviewAnimationDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+            panel.animator().setFrame(finalFrame, display: true)
+        } completionHandler: { [weak self, weak panel] in
+            Task { @MainActor in
+                guard let self, self.panelAnimationGeneration == generation else { return }
+                panel?.alphaValue = 1
+                panel?.setFrame(finalFrame, display: false)
+            }
+        }
+    }
+
+    private func dismissPanel() {
+        guard let panel else { return }
+        panelAnimationGeneration += 1
+        let generation = panelAnimationGeneration
+        let style = effectiveDockPreviewAnimationStyle
+        let finalFrame = panel.frame
+        let targetFrame = panelAnimationFrame(from: finalFrame, style: style, appearing: false)
+
+        guard style != .none else {
+            panel.alphaValue = 1
+            panel.orderOut(nil)
+            return
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = min(dockPreviewAnimationDuration, 0.18)
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+            panel.animator().setFrame(targetFrame, display: true)
+        } completionHandler: { [weak self, weak panel] in
+            Task { @MainActor in
+                guard let self, self.panelAnimationGeneration == generation else { return }
+                panel?.orderOut(nil)
+                panel?.alphaValue = 1
+                panel?.setFrame(finalFrame, display: false)
+            }
+        }
+    }
+
+    private var effectiveDockPreviewAnimationStyle: DockPreviewAnimationStyle {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            dockPreviewAnimationStyle == .none ? .none : .fade
+        } else {
+            dockPreviewAnimationStyle
+        }
+    }
+
+    private var dockPreviewAnimationDuration: TimeInterval {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            return min(dockPreviewAnimationSpeed.duration, 0.12)
+        }
+        return dockPreviewAnimationSpeed.duration
+    }
+
+    private func panelAnimationFrame(from frame: CGRect, style: DockPreviewAnimationStyle, appearing: Bool) -> CGRect {
+        switch style {
+        case .none, .fade:
+            return frame
+        case .system:
+            return frame.insetBy(dx: frame.width * 0.012, dy: frame.height * 0.012)
+        case .scale:
+            return frame.insetBy(dx: frame.width * 0.02, dy: frame.height * 0.02)
+        case .glassPop:
+            return frame.insetBy(dx: frame.width * 0.026, dy: frame.height * 0.026)
+        case .slideUp:
+            let offset = appearing ? -10.0 : -8.0
+            return frame.offsetBy(dx: 0, dy: offset)
         }
     }
 

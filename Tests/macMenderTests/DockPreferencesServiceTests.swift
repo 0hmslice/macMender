@@ -28,6 +28,14 @@ struct DockPreferencesServiceTests {
         #expect(DockPreviewSettings.clampedPreviewIdleTimeout(12) == 10)
     }
 
+    @Test("Dock preview animation defaults are persisted profile settings")
+    func dockPreviewAnimationDefaultsArePersistedProfileSettings() {
+        #expect(DockPreviewSettings.default.animationStyle == .system)
+        #expect(DockPreviewSettings.default.animationSpeed == .balanced)
+        #expect(DockPreviewAnimationStyle.allCases.map(\.title).contains("Glass Pop"))
+        #expect(DockPreviewAnimationSpeed.allCases.map(\.title) == ["Snappy", "Balanced", "Smooth"])
+    }
+
     @Test("Dock preview code does not use title-only display eligibility")
     func dockPreviewCodeDoesNotUseTitleOnlyDisplayEligibility() throws {
         let root = URL(fileURLWithPath: #filePath)

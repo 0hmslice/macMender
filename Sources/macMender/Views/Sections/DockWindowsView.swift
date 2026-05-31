@@ -112,6 +112,16 @@ struct DockWindowsView: View {
                     step: 0.1,
                     valueLabel: "\(appModel.activeProfile.dockPreviews.previewIdleTimeout.sliderValueLabel)s"
                 )
+                Picker("Preview animation", selection: binding(\.dockPreviews.animationStyle)) {
+                    ForEach(DockPreviewAnimationStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                Picker("Animation speed", selection: binding(\.dockPreviews.animationSpeed)) {
+                    ForEach(DockPreviewAnimationSpeed.allCases) { speed in
+                        Text(speed.title).tag(speed)
+                    }
+                }
                 Picker("Preview Layout", selection: binding(\.dockPreviews.layout)) {
                     ForEach(SwitcherLayout.allCases) { layout in
                         Text(layout.title).tag(layout)

@@ -369,6 +369,10 @@ final class AppModel: ObservableObject {
 
         dockHover.hoverDelay = activeProfile.dockPreviews.hoverDelay
         windowSwitcher.updateDockPreviewIdleTimeout(activeProfile.dockPreviews.previewIdleTimeout)
+        windowSwitcher.updateDockPreviewAnimation(
+            style: activeProfile.dockPreviews.animationStyle,
+            speed: activeProfile.dockPreviews.animationSpeed
+        )
         if permissions.accessibility == .granted,
            !runtimePaused,
            store.config.featureToggles.windowSwitcher,

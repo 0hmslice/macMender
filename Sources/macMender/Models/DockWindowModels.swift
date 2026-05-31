@@ -22,6 +22,52 @@ enum SwitcherLayout: String, CaseIterable, Codable, Identifiable {
     var title: String { rawValue.capitalized }
 }
 
+enum DockPreviewAnimationStyle: String, CaseIterable, Codable, Identifiable {
+    case system
+    case fade
+    case scale
+    case slideUp
+    case glassPop
+    case none
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: "System"
+        case .fade: "Fade"
+        case .scale: "Scale"
+        case .slideUp: "Slide Up"
+        case .glassPop: "Glass Pop"
+        case .none: "None"
+        }
+    }
+}
+
+enum DockPreviewAnimationSpeed: String, CaseIterable, Codable, Identifiable {
+    case snappy
+    case balanced
+    case smooth
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .snappy: "Snappy"
+        case .balanced: "Balanced"
+        case .smooth: "Smooth"
+        }
+    }
+
+    var duration: TimeInterval {
+        switch self {
+        case .snappy: 0.12
+        case .balanced: 0.18
+        case .smooth: 0.26
+        }
+    }
+}
+
 struct WindowSwitcherSettings: Codable, Equatable {
     var enabled: Bool
     var shortcut: String
@@ -62,6 +108,8 @@ struct DockPreviewSettings: Codable, Equatable {
     var enabled: Bool
     var hoverDelay: Double
     var previewIdleTimeout: Double
+    var animationStyle: DockPreviewAnimationStyle
+    var animationSpeed: DockPreviewAnimationSpeed
     var layout: SwitcherLayout
     var thumbnailSize: Double
 
@@ -69,6 +117,8 @@ struct DockPreviewSettings: Codable, Equatable {
         case enabled
         case hoverDelay
         case previewIdleTimeout
+        case animationStyle
+        case animationSpeed
         case layout
         case thumbnailSize
     }
@@ -77,12 +127,16 @@ struct DockPreviewSettings: Codable, Equatable {
         enabled: Bool,
         hoverDelay: Double,
         previewIdleTimeout: Double,
+        animationStyle: DockPreviewAnimationStyle = .system,
+        animationSpeed: DockPreviewAnimationSpeed = .balanced,
         layout: SwitcherLayout,
         thumbnailSize: Double
     ) {
         self.enabled = enabled
         self.hoverDelay = hoverDelay
         self.previewIdleTimeout = Self.clampedPreviewIdleTimeout(previewIdleTimeout)
+        self.animationStyle = animationStyle
+        self.animationSpeed = animationSpeed
         self.layout = layout
         self.thumbnailSize = thumbnailSize
     }
@@ -95,6 +149,8 @@ struct DockPreviewSettings: Codable, Equatable {
         previewIdleTimeout = Self.clampedPreviewIdleTimeout(
             try container.decodeIfPresent(Double.self, forKey: .previewIdleTimeout) ?? fallback.previewIdleTimeout
         )
+        animationStyle = try container.decodeIfPresent(DockPreviewAnimationStyle.self, forKey: .animationStyle) ?? fallback.animationStyle
+        animationSpeed = try container.decodeIfPresent(DockPreviewAnimationSpeed.self, forKey: .animationSpeed) ?? fallback.animationSpeed
         layout = try container.decodeIfPresent(SwitcherLayout.self, forKey: .layout) ?? fallback.layout
         thumbnailSize = try container.decodeIfPresent(Double.self, forKey: .thumbnailSize) ?? fallback.thumbnailSize
     }
@@ -103,6 +159,8 @@ struct DockPreviewSettings: Codable, Equatable {
         enabled: true,
         hoverDelay: 0.35,
         previewIdleTimeout: 1.8,
+        animationStyle: .system,
+        animationSpeed: .balanced,
         layout: .grid,
         thumbnailSize: 152
     )
@@ -111,6 +169,8 @@ struct DockPreviewSettings: Codable, Equatable {
         enabled: true,
         hoverDelay: 0.2,
         previewIdleTimeout: 1.5,
+        animationStyle: .system,
+        animationSpeed: .balanced,
         layout: .grid,
         thumbnailSize: 132
     )
@@ -119,6 +179,8 @@ struct DockPreviewSettings: Codable, Equatable {
         enabled: true,
         hoverDelay: 0.45,
         previewIdleTimeout: 2.0,
+        animationStyle: .system,
+        animationSpeed: .smooth,
         layout: .grid,
         thumbnailSize: 180
     )
