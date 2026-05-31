@@ -13,6 +13,8 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 ## Current Pass Checklist
 
 - Launch `dist/macMender.app` and inspect onboarding, Preferences, Menu Bar, Dock & Windows, Privacy, and Profiles.
+- When using Computer Use, target `/Users/ryan/Documents/macMender/dist/macMender.app` explicitly. The generic app name can attach to stale cached bundles under `/var/folders/...`.
+- Confirm packaged-app idle CPU stays near 0% after the window is idle for several seconds. Recheck with `top -l 5 -s 1 -pid $(pgrep -x macMender | head -n1)` or Activity Monitor.
 - Confirm onboarding shows Accessibility, Screen Recording, and guided Input Monitoring setup.
 - Confirm the drag-to-add guidance says to drag the macMender app icon if it is not listed, includes the fallback `+`/reopen instruction, and does not claim permissions are granted.
 - Confirm Settings > Menu Bar looks like a safe setup guide, not a broken layout manager.
@@ -36,6 +38,8 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify Dock preview hover on adjacent Dock items such as Messages/Mail. A wrong neighboring app preview must not appear.
 - Verify Dock preview hover on non-running Dock items. No window preview should appear.
 - Verify browser multi-window previews with Safari, Chrome, Brave, or another browser.
+- Verify first Dock/Option+Tab thumbnail batch timing in Dock & Windows > Dock Previews. A first warm batch on this run reported `requested=10 cached=0 captured=10 duration=382ms`; repeated preview reported `requested=1 cached=1 captured=0 duration=0ms`.
+- Verify preview panels appear immediately with placeholders if thumbnails are still loading, then progressively fill in.
 - Verify the Dock preview `Preview linger after leaving Dock` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
 - Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover.
@@ -48,7 +52,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 
 ## Not Verified by This Agent Run
 
-- Visual UI inspection of the launched app.
+- Full Dock hover over adjacent Dock icons using the user's actual pointer path after the thumbnail/cache changes.
 - Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
 - Feel and correctness of the Dock preview linger setting on the user's Dock.
 - Adjacent Dock hover correctness on the user's Dock.

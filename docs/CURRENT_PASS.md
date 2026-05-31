@@ -4,7 +4,37 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/runtime-switcher-menu-hide-repair`
+`codex/performance-preview-cleanup`
+
+## Performance Preview Cleanup Pass
+
+### Idle CPU Reduction
+
+1. Packaged-app baseline from `dist/macMender.app` showed reproducible idle CPU around 19-28% with the preferences window open, RSS around 134 MB, and a `sample` dominated by SwiftUI/AppKit layout/render (`NSHostingView.layout`, `ViewGraphRootValueUpdater.render`, and Core Animation transaction commits).
+2. The active idle source was continuous SwiftUI animation/layout churn, especially small/sidebar Mendy instances using repeat-forever state motion while idle. Dock hover fallback polling and per-mouse-move diagnostics were also tightened so idle runtime does not perform unnecessary AX Dock reads or publish/log repeated diagnostics.
+3. `MendyAvatarView` now limits continuous motion to active, panel-sized-or-larger Mendy surfaces and honors Reduce Motion. Sidebar/compact Mendy remains visible and state-specific without constantly driving layout.
+4. `DockHoverService` fallback polling now returns immediately when no hover, pending preview, or displayed preview exists, and diagnostics are throttled.
+5. Packaged-app after measurement showed idle CPU at 0-0.1% in the same `top` sampling window, RSS around 112 MB immediately after relaunch and around 170 MB after thumbnail capture/cache warmup.
+
+### Dock Preview Thumbnail Latency
+
+1. The previous thumbnail path called `SCShareableContent.current` once per missing thumbnail. The new path adds a batch thumbnail API that resolves `SCShareableContent.current` once per preview batch and captures thumbnails for the requested windows from that shared content snapshot.
+2. `WindowSwitcherService` now orders the preview/switcher panel before thumbnail capture starts, so the UI can appear with placeholders and progressively fill thumbnails.
+3. Thumbnails are cached by stable `WindowSummary.ID`, with a 20 second TTL and an 80 image bound. Expired entries are pruned before each prefetch.
+4. `WindowCatalogService.visibleWindows()` now uses a short 0.35 second discovery cache to avoid repeated full AX/CG scans during immediate show/refresh paths without weakening Dock preview identity rules.
+5. `Test Dock Preview` now uses the most recent discovered window's resolved bundle/PID identity. The dead title-only `showDockPreview(appName:)` path was removed.
+6. Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` verified switcher discovery still found 10 windows from 9 apps. First thumbnail batch reported `requested=10 cached=0 captured=10 duration=382ms`; repeated Test Dock Preview reported `requested=1 cached=1 captured=0 duration=0ms`.
+7. Dock preview identity matching was preserved: preview display still requires a resolved bundle identifier or process identifier, and title/name matching is not a final eligibility reason.
+
+### Verification Notes
+
+- `swift build` passed after each milestone in this pass.
+- `swift test` passed after each milestone; final run passed 62 tests.
+- `script/build_and_run.sh --verify` passed after packaging.
+- Computer Use initially attached to a stale cached `local.macmender.app` from `/var/folders/...`; verification was repeated by targeting `/Users/ryan/Documents/macMender/dist/macMender.app` explicitly.
+- Computer Use confirmed Option+Tab discovery still reports multiple normal apps from the packaged app.
+- Computer Use confirmed Dock & Windows > Dock Previews shows the thumbnail runtime diagnostic and cache hit/miss behavior.
+- Menu Bar safe setup was opened previously in this branch and no menu-bar movement code was changed in this pass.
 
 ## Implemented in This Pass
 
