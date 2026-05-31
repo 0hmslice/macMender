@@ -50,7 +50,11 @@ struct WindowSwitcherOverlayView: View {
                 image: service.thumbnail(for: window, size: CGSize(width: service.displayThumbnailSize, height: service.displayThumbnailSize * 0.68)),
                 isSelected: index == service.selectedIndex,
                 thumbnailSize: service.displayThumbnailSize,
-                activate: { service.activate(window) },
+                select: { service.select(index: index, source: .mouseHover) },
+                activate: {
+                    service.select(index: index, source: .mouseClick)
+                    service.commit(source: .mouseClick)
+                },
                 minimize: { service.minimize(window) },
                 close: { service.close(window) }
             )
@@ -63,6 +67,7 @@ private struct WindowSwitcherCard: View {
     var image: NSImage?
     var isSelected: Bool
     var thumbnailSize: Double
+    var select: () -> Void
     var activate: () -> Void
     var minimize: () -> Void
     var close: () -> Void
@@ -122,6 +127,11 @@ private struct WindowSwitcherCard: View {
             .animation(LiquidGlassMotion.quick, value: isSelected)
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering {
+                select()
+            }
+        }
         .contextMenu {
             Button("Activate", action: activate)
             Button("Minimize", action: minimize)

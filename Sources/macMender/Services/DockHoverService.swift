@@ -1,11 +1,13 @@
 import AppKit
 import ApplicationServices
 import Foundation
+import os
 
 @MainActor
 final class DockHoverService: ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var lastHoveredApp: String?
+    @Published private(set) var lastDiagnostic = "Dock previews idle"
 
     var hoverDelay: TimeInterval = 0.35
     var onHoverApp: ((DockAppIdentity, CGRect) -> Void)?
@@ -24,6 +26,7 @@ final class DockHoverService: ObservableObject {
     private let exitGrace: TimeInterval = 0.22
     private let dockItemCacheDuration: TimeInterval = 30
     private let fallbackPollInterval: TimeInterval = 1.25
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "DockHover")
 
     func start() {
         guard globalMouseMonitor == nil, localMouseMonitor == nil else { return }
@@ -128,36 +131,43 @@ final class DockHoverService: ObservableObject {
 
     private func dockItemUnderMouse() -> DockItem? {
         guard let mouse = CGEvent(source: nil)?.location else { return nil }
-        guard isDockCurrentlyVisible() else {
+        guard let dockList = visibleDockList() else {
             cachedDockItems = []
             lastDockItemRefresh = nil
+            recordDiagnostic("suppressed: Dock list unavailable mouse=\(mouse.debugDescription)")
             return nil
         }
+
+        if let selectedItem = selectedDockItem(in: dockList),
+           let item = dockItem(from: selectedItem),
+           item.identity.hasResolvedApplicationIdentity,
+           item.hitFrame.contains(mouse) {
+            recordDiagnostic("selected Dock item title=\(item.identity.displayName) frame=\(item.hitFrame.debugDescription) bundle=\(item.identity.bundleIdentifier ?? "nil") pid=\(item.identity.processIdentifier.map(String.init) ?? "nil")")
+            return item
+        }
+
         refreshDockItemsIfNeeded(near: mouse)
         let candidates = cachedDockItems.filter {
             $0.identity.hasResolvedApplicationIdentity &&
                 !$0.identity.displayName.isEmpty &&
-                $0.hitFrame.insetBy(dx: -4, dy: -8).contains(mouse)
+                $0.hitFrame.contains(mouse)
         }
-        guard !candidates.isEmpty else { return nil }
-
-        let exactHits = candidates.filter { $0.hitFrame.contains(mouse) }
-        if let nearestExact = nearestDockItem(to: mouse, in: exactHits) {
-            return nearestExact
+        guard !candidates.isEmpty else {
+            recordDiagnostic("suppressed: no resolved Dock item under mouse=\(mouse.debugDescription)")
+            return nil
         }
-        return nearestDockItem(to: mouse, in: candidates)
+        guard candidates.count == 1, let item = candidates.first else {
+            let titles = candidates.map(\.identity.displayName).joined(separator: ", ")
+            recordDiagnostic("suppressed: ambiguous Dock hit mouse=\(mouse.debugDescription) candidates=\(titles)")
+            return nil
+        }
+        recordDiagnostic("frame Dock item title=\(item.identity.displayName) frame=\(item.hitFrame.debugDescription) bundle=\(item.identity.bundleIdentifier ?? "nil") pid=\(item.identity.processIdentifier.map(String.init) ?? "nil")")
+        return item
     }
 
-    private func nearestDockItem(to point: CGPoint, in items: [DockItem]) -> DockItem? {
-        items.min { lhs, rhs in
-            squaredDistance(point, lhs.hitFrame.center) < squaredDistance(point, rhs.hitFrame.center)
-        }
-    }
-
-    private func squaredDistance(_ lhs: CGPoint, _ rhs: CGPoint) -> CGFloat {
-        let dx = lhs.x - rhs.x
-        let dy = lhs.y - rhs.y
-        return dx * dx + dy * dy
+    private func recordDiagnostic(_ message: String) {
+        lastDiagnostic = message
+        logger.debug("\(message, privacy: .public)")
     }
 
     private func refreshDockItems(force: Bool) {
@@ -225,35 +235,7 @@ final class DockHoverService: ObservableObject {
             return []
         }
 
-        return elements.compactMap { element in
-            var roleValue: CFTypeRef?
-            AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
-            guard (roleValue as? String) == "AXDockItem" else { return nil }
-
-            var titleValue: CFTypeRef?
-            var positionValue: CFTypeRef?
-            var sizeValue: CFTypeRef?
-            AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue)
-            AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue)
-            AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
-
-            guard let title = titleValue as? String,
-                  let positionValue,
-                  let sizeValue else {
-                return nil
-            }
-
-            var position = CGPoint.zero
-            var size = CGSize.zero
-            AXValueGetValue(positionValue as! AXValue, .cgPoint, &position)
-            AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
-            let hitFrame = quartzFrame(fromAccessibilityPosition: position, size: size)
-            return DockItem(
-                identity: identity(for: element, title: title),
-                hitFrame: hitFrame,
-                anchorFrame: appKitFrame(fromQuartzFrame: hitFrame)
-            )
-        }
+        return elements.compactMap(dockItem(from:))
     }
 
     private func identity(for element: AXUIElement, title: String) -> DockAppIdentity {
@@ -266,14 +248,40 @@ final class DockHoverService: ObservableObject {
             )
         }
 
-        let matchingApp = NSWorkspace.shared.runningApplications.first { app in
-            app.activationPolicy == .regular &&
-                (app.localizedName == title || app.bundleURL?.deletingPathExtension().lastPathComponent == title)
-        }
         return DockAppIdentity(
-            title: matchingApp?.localizedName ?? title,
-            bundleIdentifier: matchingApp?.bundleIdentifier,
-            processIdentifier: matchingApp?.processIdentifier
+            title: title,
+            bundleIdentifier: nil,
+            processIdentifier: nil
+        )
+    }
+
+    private func dockItem(from element: AXUIElement) -> DockItem? {
+        var roleValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
+        guard (roleValue as? String) == "AXDockItem" else { return nil }
+
+        var titleValue: CFTypeRef?
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue)
+        AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue)
+        AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
+
+        guard let title = titleValue as? String,
+              let positionValue,
+              let sizeValue else {
+            return nil
+        }
+
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        AXValueGetValue(positionValue as! AXValue, .cgPoint, &position)
+        AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+        let hitFrame = quartzFrame(fromAccessibilityPosition: position, size: size)
+        return DockItem(
+            identity: identity(for: element, title: title),
+            hitFrame: hitFrame,
+            anchorFrame: appKitFrame(fromQuartzFrame: hitFrame)
         )
     }
 
@@ -314,6 +322,16 @@ final class DockHoverService: ObservableObject {
         }
 
         return isDockListVisible(list) ? list : nil
+    }
+
+    private func selectedDockItem(in list: AXUIElement) -> AXUIElement? {
+        var selectedChildren: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(list, kAXSelectedChildrenAttribute as CFString, &selectedChildren) == .success,
+              let selected = selectedChildren as? [AXUIElement],
+              let hoveredItem = selected.first else {
+            return nil
+        }
+        return hoveredItem
     }
 
     private func isDockListVisible(_ list: AXUIElement) -> Bool {

@@ -1,4 +1,5 @@
 import AppKit
+import os
 import SwiftUI
 
 @MainActor
@@ -12,9 +13,11 @@ final class WindowSwitcherService: ObservableObject {
     @Published private(set) var displayThumbnailSize = 160.0
     @Published private(set) var gridColumnCount = 3
     @Published private(set) var isDockPreview = false
+    @Published private(set) var lastActivationDiagnostic = "No window activation attempted"
     @Published private var thumbnails: [WindowSummary.ID: NSImage] = [:]
 
     private let catalog: WindowCatalogService
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "WindowSwitcher")
     private var panel: NSPanel?
     private var dockPreviewAnchorFrame: CGRect?
     private var dockPreviewDismissTask: Task<Void, Never>?
@@ -63,6 +66,7 @@ final class WindowSwitcherService: ObservableObject {
     func showDockPreview(identity: DockAppIdentity, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
         guard identity.hasResolvedApplicationIdentity else {
             presentationStatus = "Dock preview skipped for unresolved Dock item \(identity.displayName)"
+            logger.debug("Dock preview suppressed unresolved title=\(identity.displayName, privacy: .public)")
             cancel()
             return
         }
@@ -74,6 +78,7 @@ final class WindowSwitcherService: ObservableObject {
 
         guard !discovered.isEmpty else {
             presentationStatus = "No windows detected for \(identity.displayName)"
+            logger.debug("Dock preview suppressed noWindows title=\(identity.displayName, privacy: .public) bundle=\(identity.bundleIdentifier ?? "nil", privacy: .public) pid=\(identity.processIdentifier.map(String.init) ?? "nil", privacy: .public)")
             cancel()
             return
         }
@@ -102,6 +107,7 @@ final class WindowSwitcherService: ObservableObject {
     func cycle() {
         guard !windows.isEmpty else { return }
         selectedIndex = (selectedIndex + 1) % windows.count
+        logger.debug("Selected window index=\(self.selectedIndex, privacy: .public) source=keyboard")
     }
 
     func cancel() {
@@ -122,17 +128,24 @@ final class WindowSwitcherService: ObservableObject {
         panel?.orderOut(nil)
     }
 
-    func commit() {
+    func commit(source: WindowActivationSource = .keyboard) {
         guard isShowing else { return }
         if let selectedWindow {
-            catalog.activate(selectedWindow)
+            activateSelectedWindow(selectedWindow, source: source)
         }
         cancel()
     }
 
-    func activate(_ window: WindowSummary) {
-        catalog.activate(window)
+    func activate(_ window: WindowSummary, source: WindowActivationSource = .programmatic) {
+        activateSelectedWindow(window, source: source)
         cancel()
+    }
+
+    func select(index: Int, source: WindowActivationSource) {
+        guard windows.indices.contains(index) else { return }
+        guard selectedIndex != index else { return }
+        selectedIndex = index
+        logger.debug("Selected window index=\(index, privacy: .public) source=\(source.rawValue, privacy: .public)")
     }
 
     func minimize(_ window: WindowSummary) {
@@ -186,7 +199,17 @@ final class WindowSwitcherService: ObservableObject {
         if let processIdentifier = identity.processIdentifier {
             return window.processIdentifier == processIdentifier
         }
-        return window.appName.localizedCaseInsensitiveCompare(identity.displayName) == .orderedSame
+        return false
+    }
+
+    private func activateSelectedWindow(_ window: WindowSummary, source: WindowActivationSource) {
+        let outcome = catalog.activate(window, source: source)
+        lastActivationDiagnostic = outcome.reason
+        if outcome.success {
+            presentationStatus = "Activated \(window.title)"
+        } else {
+            presentationStatus = "Activation uncertain for \(window.title)"
+        }
     }
 
     private func prefetchThumbnails() {

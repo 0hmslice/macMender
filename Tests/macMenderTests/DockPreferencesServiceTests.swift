@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import macMender
 
@@ -17,5 +18,25 @@ struct DockPreferencesServiceTests {
         #expect(!DockAppIdentity(title: "Messages", bundleIdentifier: nil, processIdentifier: nil).hasResolvedApplicationIdentity)
         #expect(DockAppIdentity(title: "Messages", bundleIdentifier: "com.apple.MobileSMS", processIdentifier: nil).hasResolvedApplicationIdentity)
         #expect(DockAppIdentity(title: "Messages", bundleIdentifier: nil, processIdentifier: 123).hasResolvedApplicationIdentity)
+    }
+
+    @Test("Dock preview code does not use title-only display eligibility")
+    func dockPreviewCodeDoesNotUseTitleOnlyDisplayEligibility() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let dockHover = try String(
+            contentsOf: root.appendingPathComponent("Sources/macMender/Services/DockHoverService.swift"),
+            encoding: .utf8
+        )
+        let switcher = try String(
+            contentsOf: root.appendingPathComponent("Sources/macMender/Services/WindowSwitcherService.swift"),
+            encoding: .utf8
+        )
+
+        #expect(!dockHover.contains("app.localizedName == title"))
+        #expect(!dockHover.contains("deletingPathExtension().lastPathComponent == title"))
+        #expect(!switcher.contains("localizedCaseInsensitiveCompare(identity.displayName)"))
     }
 }
