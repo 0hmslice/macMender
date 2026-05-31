@@ -23,9 +23,12 @@ final class DockHoverService: ObservableObject {
     private var lastInsideDockAt: Date?
     private var cachedDockItems: [DockItem] = []
     private var lastDockItemRefresh: Date?
+    private var lastDiagnosticMessage = "Dock previews idle"
+    private var lastDiagnosticAt: Date?
     private let exitGrace: TimeInterval = 0.22
     private let dockItemCacheDuration: TimeInterval = 30
     private let fallbackPollInterval: TimeInterval = 1.25
+    private let diagnosticPublishInterval: TimeInterval = 1.25
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "DockHover")
 
     func start() {
@@ -45,7 +48,7 @@ final class DockHoverService: ObservableObject {
         }
         fallbackTimer = Timer.scheduledTimer(withTimeInterval: fallbackPollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.poll(allowNewHover: false)
+                self?.pollFallback()
             }
         }
 
@@ -111,6 +114,13 @@ final class DockHoverService: ObservableObject {
         onHoverApp?(item.identity, item.anchorFrame)
     }
 
+    private func pollFallback() {
+        guard pendingApp != nil || displayedApp != nil || lastInsideDockAt != nil else {
+            return
+        }
+        poll(allowNewHover: false)
+    }
+
     private func schedulePreview(for item: DockItem) {
         hoverTask?.cancel()
         hoverTask = Task { @MainActor [weak self] in
@@ -166,6 +176,13 @@ final class DockHoverService: ObservableObject {
     }
 
     private func recordDiagnostic(_ message: String) {
+        let now = Date()
+        let messageChanged = message != lastDiagnosticMessage
+        let shouldPublish = messageChanged ||
+            lastDiagnosticAt.map { now.timeIntervalSince($0) >= diagnosticPublishInterval } ?? true
+        guard shouldPublish else { return }
+        lastDiagnosticMessage = message
+        lastDiagnosticAt = now
         lastDiagnostic = message
         logger.debug("\(message, privacy: .public)")
     }

@@ -118,6 +118,7 @@ struct MendyAvatarView: View {
     var showsGlass: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isAnimating = false
 
     var body: some View {
@@ -146,6 +147,9 @@ struct MendyAvatarView: View {
             restartAnimation()
         }
         .onChange(of: mood) { _, _ in
+            restartAnimation()
+        }
+        .onChange(of: scenePhase) { _, _ in
             restartAnimation()
         }
     }
@@ -207,7 +211,7 @@ struct MendyAvatarView: View {
     }
 
     private var activityScale: CGFloat {
-        guard mood.isLively, !reduceMotion else { return 1 }
+        guard mood.isLively, permitsContinuousMotion else { return 1 }
         switch mood {
         case .success:
             return isAnimating ? 1.1 : 0.955
@@ -234,7 +238,7 @@ struct MendyAvatarView: View {
     }
 
     private var activityOffset: CGSize {
-        guard mood.isLively, !reduceMotion else { return .zero }
+        guard mood.isLively, permitsContinuousMotion else { return .zero }
         switch mood {
         case .idle, .greeting, .happy, .sleeping:
             return CGSize(width: 0, height: isAnimating ? -size * 0.035 : size * 0.014)
@@ -248,7 +252,7 @@ struct MendyAvatarView: View {
     }
 
     private var activityRotation: Angle {
-        guard mood == .error, !reduceMotion else { return .zero }
+        guard mood == .error, permitsContinuousMotion else { return .zero }
         return isAnimating ? .degrees(2.4) : .degrees(-2.4)
     }
 
@@ -258,7 +262,7 @@ struct MendyAvatarView: View {
     }
 
     private var activityAnimation: Animation? {
-        guard mood.isLively, !reduceMotion else { return nil }
+        guard mood.isLively, permitsContinuousMotion else { return nil }
         switch mood {
         case .success:
             return .spring(response: 0.32, dampingFraction: 0.52)
@@ -282,6 +286,10 @@ struct MendyAvatarView: View {
         case .greeting, .idle, .sleeping:
             0.14
         }
+    }
+
+    private var permitsContinuousMotion: Bool {
+        !reduceMotion && scenePhase == .active && size >= MendyAvatarSize.panel
     }
 }
 
