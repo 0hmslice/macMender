@@ -16,15 +16,16 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm onboarding shows Accessibility, Screen Recording, and guided Input Monitoring setup.
 - Confirm the drag-to-add guidance says to drag the macMender app icon if it is not listed, includes the fallback `+`/reopen instruction, and does not claim permissions are granted.
 - Confirm Settings > Menu Bar looks like a safe setup guide, not a broken layout manager.
-- Confirm Settings > Menu Bar title reads `Safe Menu Bar Setup`.
-- Confirm Settings > Menu Bar shows Command-drag instructions, practical cleanup guidance, read-only discovery, session-only "Mark to review" planning controls, and clear disabled states for direct reorder/hide/reveal.
-- Confirm Settings > Menu Bar shows `Safe Hiding Setup`.
-- Confirm Safe Hiding says `Guided setup only`, explains manual Command-drag setup, and does not claim Show/Tuck is active.
-- Confirm `Show/Tuck Hidden Area` is disabled until macMender-owned divider/spacer behavior is implemented and verified.
+- Confirm Settings > Menu Bar title reads `Hide Menu Bar Icons`.
+- Confirm Settings > Menu Bar shows Command-drag instructions, read-only discovery, session-only "Mark to review" planning controls, and clear disabled states for direct reorder/hide/reveal.
+- Confirm Settings > Menu Bar does not show `Safe Hiding Setup`, `Show/Tuck Hidden Area`, layout lanes, fake hidden sections, or automatic third-party icon movement controls.
+- Confirm detected menu-bar rows show resolved app icons where possible and fall back gracefully for unresolved/system items.
 - Confirm "Mark to review" does not move, hide, persist, or imply any physical menu-bar operation.
 - Confirm no fake drag, reorder, move-to-hidden, Always Hidden, checkbox hide, or physical movement controls are reachable.
 - Inspect the menu bar status item and popover. Confirm it is compact, glass-like, shows accurate chips, and does not claim scroll, Dock, or hidden menu-bar syncing.
 - Inspect Option+Tab glass styling and verify keyboard selection, mouse hover selection, and mouse-click activation use the same selected highlight.
+- Confirm Dock & Windows > Switcher discovery diagnostics list total discovered windows, app name, bundle ID, PID, AX window count, CG match status, included/dropped state, and drop/include reason.
+- Confirm switcher discovery includes Finder, Terminal, System Settings, Safari, browser windows, and other normal app windows when those apps are open.
 - Verify Option+Tab keyboard cycling and modifier-release confirm activate the highlighted card/window.
 - Verify Option+Tab hover selection followed by keyboard confirm activates the highlighted card/window.
 - Verify Option+Tab mouse click activates the clicked card/window, not a later mutable selection.
@@ -35,7 +36,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify Dock preview hover on adjacent Dock items such as Messages/Mail. A wrong neighboring app preview must not appear.
 - Verify Dock preview hover on non-running Dock items. No window preview should appear.
 - Verify browser multi-window previews with Safari, Chrome, Brave, or another browser.
-- Verify the Dock preview `Preview idle timeout` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
+- Verify the Dock preview `Preview linger after leaving Dock` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
 - Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover.
 
@@ -48,11 +49,11 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 ## Not Verified by This Agent Run
 
 - Visual UI inspection of the launched app.
-- Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can trigger a tap, but did not reliably hold Option+Tab long enough to inspect highlighted-overlay state.
-- Feel and correctness of the new Dock preview idle timeout on the user's Dock.
+- Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
+- Feel and correctness of the Dock preview linger setting on the user's Dock.
 - Adjacent Dock hover correctness on the user's Dock.
 - Browser multi-window thumbnail correctness.
-- Option+Tab exact selected-window activation across non-browser apps and minimized windows.
-- Safe hidden-area Show/Tuck runtime, because it remains intentionally disabled/guided-only.
+- Option+Tab exact selected-window activation across minimized windows, duplicate/blank titled windows, and keyboard-confirm paths.
+- Safe hidden-area Show/Tuck runtime, because it remains intentionally hidden/disabled.
 - Whether macOS accepts drag-to-add in each Privacy & Security pane on the user's OS build.
 - Xcode console warning comparison between Xcode Run, `swift run`, `script/build_and_run.sh --verify`, and `open dist/macMender.app`.
