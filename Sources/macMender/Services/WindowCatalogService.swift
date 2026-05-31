@@ -107,14 +107,24 @@ protocol WindowCatalogProviding {
     func minimize(_ window: WindowSummary)
     func close(_ window: WindowSummary)
     func thumbnail(for window: WindowSummary, maxSize: CGSize) async -> NSImage?
+    func thumbnails(for windows: [WindowSummary], maxSize: CGSize) async -> [WindowSummary.ID: NSImage]
 }
 
 @MainActor
 final class WindowCatalogService: WindowCatalogProviding {
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "WindowActivation")
     private(set) var lastDiscoveryReport = WindowDiscoveryReport.empty
+    private var cachedDiscovery: CachedWindowDiscovery?
+    private let discoveryCacheDuration: TimeInterval = 0.35
 
     func visibleWindows() -> [WindowSummary] {
+        let now = Date()
+        if let cachedDiscovery,
+           now.timeIntervalSince(cachedDiscovery.createdAt) < discoveryCacheDuration {
+            lastDiscoveryReport = cachedDiscovery.report
+            return cachedDiscovery.windows
+        }
+
         let cgWindows = cgWindowDescriptions()
         let runningApps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
@@ -135,6 +145,7 @@ final class WindowCatalogService: WindowCatalogProviding {
             return $0.stackIndex < $1.stackIndex
         }
         lastDiscoveryReport = WindowDiscoveryReport(totalWindows: sorted.count, appReports: reports)
+        cachedDiscovery = CachedWindowDiscovery(createdAt: now, windows: sorted, report: lastDiscoveryReport)
         logger.debug("Window discovery \(self.lastDiscoveryReport.summary, privacy: .public)")
         return sorted
     }
@@ -228,11 +239,13 @@ final class WindowCatalogService: WindowCatalogProviding {
     }
 
     func minimize(_ window: WindowSummary) {
+        cachedDiscovery = nil
         guard let axElement = window.axElement else { return }
         AXUIElementSetAttributeValue(axElement, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
     }
 
     func close(_ window: WindowSummary) {
+        cachedDiscovery = nil
         guard let axElement = window.axElement else { return }
         var closeButton: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(axElement, kAXCloseButtonAttribute as CFString, &closeButton)
@@ -241,33 +254,48 @@ final class WindowCatalogService: WindowCatalogProviding {
     }
 
     func thumbnail(for window: WindowSummary, maxSize: CGSize) async -> NSImage? {
-        guard let windowID = window.windowID else { return nil }
+        await thumbnails(for: [window], maxSize: maxSize)[window.id]
+    }
+
+    func thumbnails(for windows: [WindowSummary], maxSize: CGSize) async -> [WindowSummary.ID: NSImage] {
+        let windowsWithIDs = windows.compactMap { window -> (WindowSummary, CGWindowID)? in
+            guard let windowID = window.windowID else { return nil }
+            return (window, windowID)
+        }
+        guard !windowsWithIDs.isEmpty else { return [:] }
+
         do {
             let content = try await SCShareableContent.current
-            guard let screenCaptureWindow = content.windows.first(where: { $0.windowID == windowID }) else {
-                return nil
+            let captureWindowsByID = Dictionary(uniqueKeysWithValues: content.windows.map { ($0.windowID, $0) })
+            var images = [WindowSummary.ID: NSImage]()
+
+            for (window, windowID) in windowsWithIDs {
+                guard let screenCaptureWindow = captureWindowsByID[windowID] else {
+                    continue
+                }
+
+                let sourceSize = screenCaptureWindow.frame.size
+                let scale = min(
+                    maxSize.width / max(sourceSize.width, 1),
+                    maxSize.height / max(sourceSize.height, 1),
+                    1
+                )
+                let targetSize = CGSize(
+                    width: max(1, sourceSize.width * scale),
+                    height: max(1, sourceSize.height * scale)
+                )
+                let configuration = SCStreamConfiguration()
+                configuration.width = max(1, Int(targetSize.width * 2))
+                configuration.height = max(1, Int(targetSize.height * 2))
+                configuration.showsCursor = false
+
+                let filter = SCContentFilter(desktopIndependentWindow: screenCaptureWindow)
+                let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
+                images[window.id] = NSImage(cgImage: image, size: targetSize)
             }
-
-            let sourceSize = screenCaptureWindow.frame.size
-            let scale = min(
-                maxSize.width / max(sourceSize.width, 1),
-                maxSize.height / max(sourceSize.height, 1),
-                1
-            )
-            let targetSize = CGSize(
-                width: max(1, sourceSize.width * scale),
-                height: max(1, sourceSize.height * scale)
-            )
-            let configuration = SCStreamConfiguration()
-            configuration.width = max(1, Int(targetSize.width * 2))
-            configuration.height = max(1, Int(targetSize.height * 2))
-            configuration.showsCursor = false
-
-            let filter = SCContentFilter(desktopIndependentWindow: screenCaptureWindow)
-            let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
-            return NSImage(cgImage: image, size: targetSize)
+            return images
         } catch {
-            return nil
+            return [:]
         }
     }
 
@@ -595,6 +623,12 @@ private struct ActivationTarget {
 private struct FocusedWindowInfo {
     var windowID: CGWindowID?
     var title: String
+}
+
+private struct CachedWindowDiscovery {
+    var createdAt: Date
+    var windows: [WindowSummary]
+    var report: WindowDiscoveryReport
 }
 
 private struct CGWindowDescription {

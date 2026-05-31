@@ -62,6 +62,23 @@ struct WindowSwitcherActivationTests {
         #expect(catalog.activations.first?.context.highlightedIndex == 1)
     }
 
+    @Test("test Dock preview uses resolved window identity")
+    func testDockPreviewUsesResolvedWindowIdentity() {
+        let windows = [
+            makeWindow(id: "notes", title: "Notes", pid: 401, windowID: 31),
+            makeWindow(id: "terminal", title: "Terminal", pid: 402, windowID: 32)
+        ]
+        let catalog = RecordingWindowCatalog(windows: windows)
+        let service = WindowSwitcherService(catalog: catalog, presentsPanel: false)
+
+        service.showDockPreviewForMostRecentApp(settings: .default, anchorFrame: .zero)
+
+        #expect(service.isShowing)
+        #expect(service.isDockPreview)
+        #expect(service.windows.map(\.id) == ["notes"])
+        #expect(service.presentationStatus == "1 Notes windows available")
+    }
+
     private func makeWindow(id: String, title: String, pid: pid_t, windowID: CGWindowID) -> WindowSummary {
         WindowSummary(
             id: id,
@@ -114,5 +131,9 @@ private final class RecordingWindowCatalog: WindowCatalogProviding {
 
     func thumbnail(for window: WindowSummary, maxSize: CGSize) async -> NSImage? {
         nil
+    }
+
+    func thumbnails(for windows: [WindowSummary], maxSize: CGSize) async -> [WindowSummary.ID: NSImage] {
+        [:]
     }
 }

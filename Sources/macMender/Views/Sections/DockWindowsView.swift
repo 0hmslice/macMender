@@ -140,6 +140,11 @@ struct DockWindowsView: View {
                 Text("macMender reads the Dock's accessibility tree, waits for the configured hover delay, then opens the same preview panel used by the keyboard switcher. Preview linger after leaving Dock controls how long previews stay visible after your pointer leaves the Dock icon or preview safe area. It does not modify the Dock process.")
                     .foregroundStyle(.secondary)
 
+                Text("Thumbnail runtime: \(appModel.windowSwitcher.lastThumbnailDiagnostic)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
                 Button("Refresh Runtime") {
                     appModel.refreshSystemState(force: true)
                 }

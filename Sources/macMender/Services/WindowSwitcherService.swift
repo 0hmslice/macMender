@@ -15,6 +15,7 @@ final class WindowSwitcherService: ObservableObject {
     @Published private(set) var isDockPreview = false
     @Published private(set) var lastActivationDiagnostic = "No window activation attempted"
     @Published private(set) var lastDiscoveryReport = WindowDiscoveryReport.empty
+    @Published private(set) var lastThumbnailDiagnostic = "No thumbnail batch yet"
     @Published private var thumbnails: [WindowSummary.ID: NSImage] = [:]
 
     private let catalog: any WindowCatalogProviding
@@ -26,6 +27,10 @@ final class WindowSwitcherService: ObservableObject {
     private var dockPreviewLocalMouseMonitor: Any?
     private var thumbnailTask: Task<Void, Never>?
     private var dockPreviewIdleTimeout: TimeInterval = DockPreviewSettings.default.previewIdleTimeout
+    private var thumbnailCache: [WindowSummary.ID: ThumbnailCacheEntry] = [:]
+    private var thumbnailCacheOrder: [WindowSummary.ID] = []
+    private let thumbnailCacheLimit = 80
+    private let thumbnailCacheDuration: TimeInterval = 20
     private let presentsPanel: Bool
 
     init(catalog: any WindowCatalogProviding = WindowCatalogService(), presentsPanel: Bool = true) {
@@ -57,8 +62,8 @@ final class WindowSwitcherService: ObservableObject {
         presentationStatus = "\(discovered.count) windows available"
         if presentsPanel {
             ensurePanel(settings: settings, anchorFrame: nil)
-            prefetchThumbnails()
             panel?.orderFrontRegardless()
+            prefetchThumbnails()
         }
     }
 
@@ -108,8 +113,8 @@ final class WindowSwitcherService: ObservableObject {
         dockPreviewAnchorFrame = anchorFrame
         if presentsPanel {
             ensurePanel(settings: settings, anchorFrame: anchorFrame)
-            prefetchThumbnails()
             panel?.orderFrontRegardless()
+            prefetchThumbnails()
             startDockPreviewMouseTracking()
         }
     }
@@ -121,7 +126,15 @@ final class WindowSwitcherService: ObservableObject {
             return
         }
         lastDiscoveryReport = catalog.lastDiscoveryReport
-        showDockPreview(appName: window.appName, settings: settings, anchorFrame: anchorFrame)
+        showDockPreview(
+            identity: DockAppIdentity(
+                title: window.appName,
+                bundleIdentifier: window.bundleIdentifier,
+                processIdentifier: window.processIdentifier
+            ),
+            settings: settings,
+            anchorFrame: anchorFrame
+        )
     }
 
     func cycle() {
@@ -252,19 +265,61 @@ final class WindowSwitcherService: ObservableObject {
         thumbnailTask?.cancel()
         let currentWindows = windows
         let maxSize = CGSize(width: displayThumbnailSize, height: displayThumbnailSize * 0.68)
-        thumbnails = thumbnails.filter { cached in
-            currentWindows.contains(where: { $0.id == cached.key })
+        let requestedCount = currentWindows.count
+        let start = Date()
+        var cachedHits = 0
+        var displayThumbnails = [WindowSummary.ID: NSImage]()
+        var missingWindows = [WindowSummary]()
+
+        pruneExpiredThumbnailCache()
+        for window in currentWindows {
+            if let cached = thumbnailCache[window.id], Date().timeIntervalSince(cached.createdAt) < thumbnailCacheDuration {
+                displayThumbnails[window.id] = cached.image
+                cachedHits += 1
+            } else {
+                thumbnailCache[window.id] = nil
+                missingWindows.append(window)
+            }
+        }
+        thumbnails = displayThumbnails
+
+        guard !missingWindows.isEmpty else {
+            lastThumbnailDiagnostic = "thumbnail batch requested=\(requestedCount) cached=\(cachedHits) captured=0 duration=0ms"
+            return
         }
 
         thumbnailTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            for window in currentWindows where self.thumbnails[window.id] == nil {
-                guard !Task.isCancelled else { return }
-                if let image = await self.catalog.thumbnail(for: window, maxSize: maxSize), !Task.isCancelled {
+            let captured = await self.catalog.thumbnails(for: missingWindows, maxSize: maxSize)
+            guard !Task.isCancelled else { return }
+            for window in missingWindows {
+                if let image = captured[window.id] {
+                    self.insertThumbnailCache(image, for: window.id)
                     self.thumbnails[window.id] = image
                 }
             }
+            let elapsedMS = Int(Date().timeIntervalSince(start) * 1000)
+            self.lastThumbnailDiagnostic = "thumbnail batch requested=\(requestedCount) cached=\(cachedHits) captured=\(captured.count) duration=\(elapsedMS)ms"
+            self.logger.debug("\(self.lastThumbnailDiagnostic, privacy: .public)")
         }
+    }
+
+    private func insertThumbnailCache(_ image: NSImage, for id: WindowSummary.ID) {
+        thumbnailCache[id] = ThumbnailCacheEntry(image: image, createdAt: Date())
+        thumbnailCacheOrder.removeAll { $0 == id }
+        thumbnailCacheOrder.append(id)
+        while thumbnailCacheOrder.count > thumbnailCacheLimit, let evicted = thumbnailCacheOrder.first {
+            thumbnailCacheOrder.removeFirst()
+            thumbnailCache[evicted] = nil
+        }
+    }
+
+    private func pruneExpiredThumbnailCache() {
+        let now = Date()
+        thumbnailCache = thumbnailCache.filter { _, entry in
+            now.timeIntervalSince(entry.createdAt) < thumbnailCacheDuration
+        }
+        thumbnailCacheOrder.removeAll { thumbnailCache[$0] == nil }
     }
 
     private func ensurePanel(settings: WindowSwitcherSettings, anchorFrame: CGRect?) {
@@ -402,4 +457,9 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
     }
+}
+
+private struct ThumbnailCacheEntry {
+    var image: NSImage
+    var createdAt: Date
 }
