@@ -25,6 +25,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm "Mark to review" does not move, hide, persist, or imply any physical menu-bar operation.
 - Confirm no fake drag, reorder, move-to-hidden, Always Hidden, checkbox hide, or physical movement controls are reachable.
 - Inspect the menu bar status item and popover. Confirm it is compact, glass-like, shows accurate chips, and does not claim scroll, Dock, or hidden menu-bar syncing.
+- Confirm the popover stays slim: small Mendy mark, live status rows, short Settings/Permissions/Quit actions, no tutorial layout, no long Command-drag instructions, and no clipped text.
 - Inspect Option+Tab glass styling and verify keyboard selection, mouse hover selection, and mouse-click activation use the same selected highlight.
 - Confirm Dock & Windows > Switcher discovery diagnostics list total discovered windows, app name, bundle ID, PID, AX window count, CG match status, included/dropped state, and drop/include reason.
 - Confirm switcher discovery includes Finder, Terminal, System Settings, Safari, browser windows, and other normal app windows when those apps are open.
@@ -41,6 +42,8 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify first Dock/Option+Tab thumbnail batch timing in Dock & Windows > Dock Previews. A first warm batch on this run reported `requested=10 cached=0 captured=10 duration=382ms`; repeated preview reported `requested=1 cached=1 captured=0 duration=0ms`.
 - Verify preview panels appear immediately with placeholders if thumbnails are still loading, then progressively fill in.
 - Verify the Dock preview `Preview linger after leaving Dock` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
+- Verify Dock preview `Preview animation` and `Animation speed` settings are visible, persist after relaunch, and affect only panel presentation/dismissal.
+- Hover the macMender Dock item while its Preferences window is visible. Expected result: either one real Preferences/Overview window preview appears, or the preview is suppressed with a clear diagnostic reason. Preview panels, switcher overlays, popovers, and transient windows must never appear.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
 - Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover.
 

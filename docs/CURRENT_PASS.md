@@ -4,7 +4,42 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/performance-preview-cleanup`
+`codex/ui-delight-status-polish`
+
+## UI Delight and Status Polish Pass
+
+### Dock Preview Animation Settings
+
+1. Dock preview settings now include presentation-only `Preview animation` and `Animation speed` controls.
+2. The setting is persisted per profile and decoded safely for older configs.
+3. The runtime animation changes only preview panel presentation and dismissal. It does not change Dock identity matching, title matching, thumbnail capture, caching, hover eligibility, or preview linger timing.
+4. Reduce Motion degrades the preview animation to a simpler presentation path.
+5. Packaged-app Computer Use inspection confirmed the settings are visible in Dock & Windows > Dock Previews and persist to the local config.
+
+### macMender Dock Self-Preview
+
+1. Option+Tab discovery still excludes the current macMender process.
+2. Dock preview uses a separate resolved-identity catalog path that can include the current process only for Dock preview display.
+3. Self-preview filtering excludes blank, tiny, non-window, system-dialog, preview-panel, overlay, popover, and transient-style windows from display.
+4. Packaged-app verification against `dist/macMender.app` confirmed hovering the macMender Dock icon showed one real `Overview` preferences window and did not recursively show preview panels, overlays, or the menu bar popover.
+5. Dock preview identity rules were preserved: display still requires a resolved bundle identifier or process identifier. Title/name-only display eligibility was not reintroduced.
+
+### Popover and Glass Polish
+
+1. The menu bar popover is now a slim live status dashboard: small Mendy mark, app status, Accessibility, Screen Recording, Dock Hover, and Menu Bar status rows, plus short Settings, Permissions, and Quit actions.
+2. The popover no longer uses a tutorial layout, large Mendy hero, long Command-drag instructions, or hidden menu-bar syncing claims.
+3. Settings surfaces received a light Liquid Glass tuning pass: lighter glass cards/rows, subtle layered background, overview runtime rows, and clearer Advanced implementation notes.
+4. The Advanced notes now explicitly state that physical third-party menu-bar icon movement remains disabled.
+
+### Verification Notes
+
+- `swift build` passed after each milestone in this pass.
+- `swift test` passed after each milestone; final milestone runs passed 64 tests.
+- `script/build_and_run.sh --verify` passed after packaging.
+- Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` confirmed the animation settings, macMender self-preview, slim popover, and overview glass changes.
+- Physical menu-bar movement remains disabled and was not re-enabled.
+- Option+Tab activation/discovery and Dock preview identity logic were not changed in the visual polish milestones.
+- `docs/qa/screenshots` was not modified.
 
 ## Performance Preview Cleanup Pass
 
