@@ -1,4 +1,5 @@
 import AppKit
+import os
 import SwiftUI
 
 @main
@@ -50,7 +51,10 @@ struct MacMenderApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "Startup")
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        logLaunchIdentity()
         let launchBehavior = MacMenderLaunchBehavior.load()
         NSApp.setActivationPolicy(launchBehavior.hideDockIcon ? .accessory : .regular)
         guard !launchBehavior.hideDockIcon else { return }
@@ -59,6 +63,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async {
             NSApp.windows.first?.makeKeyAndOrderFront(nil)
         }
+    }
+
+    private func logLaunchIdentity() {
+        let bundle = Bundle.main
+        let bundlePath = bundle.bundlePath
+        let isAppBundle = bundlePath.hasSuffix(".app")
+        let helperURL = bundle.bundleURL
+            .appendingPathComponent("Contents/XPCServices/MacMenderMenuBarItemService.xpc", isDirectory: true)
+        let helperExists = FileManager.default.fileExists(atPath: helperURL.path)
+        logger.info("Launch identity bundleIdentifier=\(bundle.bundleIdentifier ?? "nil", privacy: .public) bundlePath=\(bundlePath, privacy: .public) isAppBundle=\(isAppBundle, privacy: .public) xpcHelperExists=\(helperExists, privacy: .public)")
     }
 }
 
