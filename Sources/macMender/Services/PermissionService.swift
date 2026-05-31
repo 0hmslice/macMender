@@ -46,6 +46,10 @@ final class PermissionService: ObservableObject {
         refreshScreenRecordingAfterTCCChange()
     }
 
+    func openInputMonitoringSettings() {
+        openSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+    }
+
     private func openSettingsPane(_ string: String) {
         guard let url = URL(string: string) else { return }
         NSWorkspace.shared.open(url)

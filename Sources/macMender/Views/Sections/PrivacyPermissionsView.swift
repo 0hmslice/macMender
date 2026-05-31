@@ -37,6 +37,27 @@ struct PrivacyPermissionsView: View {
                 secondaryAction: { appModel.permissions.openScreenRecordingSettings() }
             )
 
+            SectionCard(
+                title: "Input Monitoring",
+                subtitle: "Guidance only. macOS may request this for global input observation; macMender does not mark it granted without a system permission check.",
+                symbolName: "keyboard"
+            ) {
+                HStack(spacing: 12) {
+                    MendyAvatarView(mood: .thinking, size: MendyAvatarSize.compact)
+                    VStack(alignment: .leading, spacing: 4) {
+                        CapabilityBadge(title: "Open Settings if prompted", systemImage: "keyboard.badge.eye", tone: .neutral)
+                        Text("If macMender is not listed in Input Monitoring, add the macMender app icon with the + button or by dragging it into the list when macOS accepts that gesture.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button("Open Input Monitoring") {
+                        appModel.permissions.openInputMonitoringSettings()
+                    }
+                }
+            }
+
             SectionCard(title: "Launch at Login", subtitle: "Starts macMender automatically using the best available per-user macOS login mechanism.", symbolName: "power") {
                 Toggle("Launch macMender at login", isOn: Binding(
                     get: { appModel.loginItems.launchAtLogin },

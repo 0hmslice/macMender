@@ -19,10 +19,10 @@ struct OnboardingView: View {
 
                     SectionCard(
                         title: "Enable macMender",
-                        subtitle: "Grant the access macMender needs to tune input, middle-click, and window behavior. Nothing leaves this Mac.",
+                        subtitle: "Grant the access macMender needs to tune input, middle-click, window previews, and window actions. Nothing leaves this Mac.",
                         symbolName: "wrench.and.screwdriver"
                     ) {
-                        HStack(alignment: .top, spacing: 16) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 3), alignment: .leading, spacing: 14) {
                             PermissionSetupCard(
                                 title: "Accessibility",
                                 detail: "Required for scroll tuning, middle-click actions, global shortcuts, and window actions.",
@@ -44,24 +44,25 @@ struct OnboardingView: View {
                                     appModel.permissions.openScreenRecordingSettings()
                                 }
                             )
+
+                            PermissionGuidanceCard(
+                                title: "Input Monitoring",
+                                detail: "macOS may ask for this when observing global input. Open this pane if macOS prompts or Option+Tab does not respond.",
+                                systemImage: "keyboard",
+                                primaryTitle: "Open Input Monitoring",
+                                primaryAction: {
+                                    appModel.permissions.openInputMonitoringSettings()
+                                }
+                            )
                         }
                     }
 
                     SectionCard(
-                        title: "Drag macMender into Settings",
-                        subtitle: "If System Settings shows an empty permissions list or an add button, drag this app tile into the list after opening the correct pane.",
+                        title: "Add macMender if it is missing",
+                        subtitle: "System Settings sometimes needs you to add the app before the toggle appears.",
                         symbolName: "hand.draw"
                     ) {
-                        HStack(spacing: 16) {
-                            DraggableAppTile()
-
-                            VStack(alignment: .leading, spacing: 10) {
-                                OnboardingStep(number: 1, title: "Click Open Accessibility.")
-                                OnboardingStep(number: 2, title: "Unlock System Settings if macOS asks.")
-                                OnboardingStep(number: 3, title: "Turn on macMender, or drag the app tile into the list if macOS asks you to add an app.")
-                                OnboardingStep(number: 4, title: "Return here. The status updates automatically.")
-                            }
-                        }
+                        PermissionDragToAddGuide()
                     }
 
                     SectionCard(
@@ -240,22 +241,102 @@ private struct PermissionSetupCard: View {
     }
 }
 
+private struct PermissionGuidanceCard: View {
+    var title: String
+    var detail: String
+    var systemImage: String
+    var primaryTitle: String
+    var primaryAction: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.headline)
+                    Text("Guided setup")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            Text(detail)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(primaryTitle, action: primaryAction)
+                .buttonStyle(.bordered)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct PermissionDragToAddGuide: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var animateArrow = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            MendyAvatarView(mood: .thinking, size: MendyAvatarSize.panel)
+
+            DraggableAppTile()
+
+            Image(systemName: "arrow.right")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .offset(x: reduceMotion ? 0 : (animateArrow ? 4 : -1))
+                .animation(reduceMotion ? nil : .easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: animateArrow)
+                .onAppear { animateArrow = true }
+
+            PrivacyListMockup()
+
+            VStack(alignment: .leading, spacing: 10) {
+                OnboardingStep(number: 1, title: "Click Open System Settings from macMender.")
+                OnboardingStep(number: 2, title: "Look for macMender in the Privacy & Security list.")
+                OnboardingStep(number: 3, title: "Drag the macMender app icon here if it is not listed.")
+                OnboardingStep(number: 4, title: "Turn the toggle on, then restart macMender if macOS asks.")
+                Text("If dragging is not accepted, use the + button or reopen macMender and try again.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .liquidGlass(.card)
+    }
+}
+
 private struct DraggableAppTile: View {
     private var appURL: URL {
         Bundle.main.bundleURL
     }
 
+    private var appIcon: NSImage {
+        NSWorkspace.shared.icon(forFile: appURL.path)
+    }
+
     var body: some View {
         VStack(spacing: 10) {
-            MendyAvatarView(mood: .idle, size: MendyAvatarSize.panel)
+            Image(nsImage: appIcon)
+                .resizable()
+                .frame(width: 58, height: 58)
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
 
-            Text("macMender.app")
+            Text("macMender app icon")
                 .font(.headline)
             Text("Drag to the permissions list")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 210, height: 180)
+        .frame(width: 180, height: 154)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -263,6 +344,50 @@ private struct DraggableAppTile: View {
         }
         .onDrag {
             NSItemProvider(object: appURL as NSURL)
+        }
+    }
+}
+
+private struct PrivacyListMockup: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Privacy & Security")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            PrivacyMockRow(title: "Finder", enabled: true)
+            PrivacyMockRow(title: "macMender", enabled: false, highlighted: true)
+            PrivacyMockRow(title: "Other App", enabled: true)
+            Text("Drag macMender here")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .padding(.top, 2)
+        }
+        .padding(12)
+        .frame(width: 180)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.accentColor.opacity(0.22), lineWidth: 1)
+        }
+    }
+}
+
+private struct PrivacyMockRow: View {
+    var title: String
+    var enabled: Bool
+    var highlighted: Bool = false
+
+    var body: some View {
+        HStack {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(highlighted ? Color.accentColor.opacity(0.40) : .secondary.opacity(0.25))
+                .frame(width: 18, height: 18)
+            Text(title)
+                .font(.caption)
+            Spacer()
+            Capsule()
+                .fill(enabled ? Color.green.opacity(0.75) : .secondary.opacity(0.25))
+                .frame(width: 28, height: 16)
         }
     }
 }
