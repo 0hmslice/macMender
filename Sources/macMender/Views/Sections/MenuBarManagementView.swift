@@ -132,6 +132,14 @@ struct MenuBarManagementView: View {
             }
 
             SectionCard(
+                title: "Safe Hiding Setup",
+                subtitle: "Plan a manual hidden area without letting macMender drag other apps' icons.",
+                symbolName: "rectangle.dashed.badge.record"
+            ) {
+                MenuBarSafeHidingSetupView()
+            }
+
+            SectionCard(
                 title: "Detected Icons",
                 subtitle: "Read-only menu-bar discovery. Use this list to identify icons before arranging them manually.",
                 symbolName: "list.bullet.rectangle"
@@ -482,6 +490,95 @@ private struct MenuBarManualSetupTips: View {
         }
         .padding(14)
         .liquidGlass(.card)
+    }
+}
+
+private struct MenuBarSafeHidingSetupView: View {
+    private let steps = [
+        ("Pick icons to review", "Use the detected list below to mark clutter you want to move manually later."),
+        ("Use Command-drag yourself", "Hold Command and drag those icons next to macMender's menu-bar icon or into the area you want to keep quiet."),
+        ("Prefer app-owned hiding", "If an app offers 'show in menu bar', turn that off in the app instead of relying on physical placement.")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                MendyAvatarView(mood: .thinking, size: MendyAvatarSize.panel)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text("Guided setup only")
+                            .font(.headline)
+                        CapabilityBadge(title: "No synthetic movement", systemImage: "cursorarrow.slash", tone: .active)
+                    }
+
+                    Text("macMender can guide safe hiding, but this build does not expose Show/Tuck controls. The existing runtime still depends on the disabled physical movement path, so direct hidden-area toggling remains blocked until a macMender-owned divider/spacer flow is verified in the packaged app.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 10) {
+                MenuBarSafeHidingPill(title: "Mendy", symbolName: "face.smiling")
+                Image(systemName: "command")
+                    .foregroundStyle(.secondary)
+                MenuBarSafeHidingPill(title: "User drags icons", symbolName: "hand.draw")
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(.secondary)
+                MenuBarSafeHidingPill(title: "Manual quiet area", symbolName: "rectangle.dashed")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(index + 1)")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 22, height: 22)
+                            .background(Color.accentColor, in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(step.0)
+                                .font(.callout.weight(.semibold))
+                            Text(step.1)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+
+            HStack {
+                Button("Show/Tuck Hidden Area") {}
+                    .disabled(true)
+                    .help("Disabled until macMender-owned status-item show/tuck behavior is implemented and verified without synthetic movement.")
+
+                Text("Disabled: runtime not verified")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(14)
+        .liquidGlass(.card)
+    }
+}
+
+private struct MenuBarSafeHidingPill: View {
+    var title: String
+    var symbolName: String
+
+    var body: some View {
+        Label(title, systemImage: symbolName)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .liquidGlass(.row)
     }
 }
 
