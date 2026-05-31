@@ -67,8 +67,8 @@ struct MenuBarManagementView: View {
     var body: some View {
         PreferencesScrollView {
             SectionCard(
-                title: "Safe Menu Bar Setup",
-                subtitle: "Scan icons, plan manual cleanup, and use macOS Command-drag. Direct movement stays disabled.",
+                title: "Hide Menu Bar Icons",
+                subtitle: "Discover menu-bar items, pick what to review, and use app settings or macOS Command-drag for the actual change.",
                 symbolName: "menubar.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -76,9 +76,9 @@ struct MenuBarManagementView: View {
                         MendyAvatarView(mood: .thinking, size: MendyAvatarSize.prominent)
 
                         VStack(alignment: .leading, spacing: 7) {
-                            Text("Organize icons safely with macOS itself.")
+                            Text("Choose what to clean up. macMender will not drag third-party icons.")
                                 .font(.title3.weight(.semibold))
-                            Text("macOS does not provide a smooth public API for moving other apps' menu-bar icons. The previous programmatic mover is disabled because it could move the pointer, glitch, or trigger menus.")
+                            Text("Use this page as a safe checklist. Turn off menu-bar icons in each app when possible, or hold Command and drag icons manually when macOS allows it.")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -112,11 +112,8 @@ struct MenuBarManagementView: View {
                         Spacer()
                     }
 
-                    MenuBarSafeCommandDragGuide()
-                    MenuBarManualSetupTips()
-
                     HStack {
-                        Text("macMender will not hide, reorder, or restore third-party menu-bar icons in this build.")
+                        Text("Automatic hide, reorder, restore, and show/tuck controls stay disabled in this build.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 12)
@@ -127,21 +124,14 @@ struct MenuBarManagementView: View {
                         }
                     }
 
+                    MenuBarSafeCommandDragGuide()
                     MenuBarMovementDisabledBanner()
                 }
             }
 
             SectionCard(
-                title: "Safe Hiding Setup",
-                subtitle: "Plan a manual hidden area without letting macMender drag other apps' icons.",
-                symbolName: "rectangle.dashed.badge.record"
-            ) {
-                MenuBarSafeHidingSetupView()
-            }
-
-            SectionCard(
-                title: "Detected Icons",
-                subtitle: "Read-only menu-bar discovery. Use this list to identify icons before arranging them manually.",
+                title: "Detected Menu Bar Icons",
+                subtitle: "Planning-only list. Marked rows do not move, hide, or restore anything.",
                 symbolName: "list.bullet.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -423,15 +413,15 @@ private struct MenuBarMovementDisabledBanner: View {
 
 private struct MenuBarSafeCommandDragGuide: View {
     private let steps = [
-        "Hold Command.",
-        "Drag a menu-bar icon left or right to reorder it.",
-        "Release it where you want it.",
-        "Drag an icon off the menu bar only when macOS allows removing that item."
+        "Scan icons.",
+        "Mark clutter to review.",
+        "Use each app's own setting when available.",
+        "Use Command-drag manually when macOS allows it."
     ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Safe manual setup", systemImage: "command")
+            Label("Safe setup path", systemImage: "command")
                 .font(.headline)
 
             HStack(alignment: .top, spacing: 10) {
@@ -450,7 +440,7 @@ private struct MenuBarSafeCommandDragGuide: View {
                 }
             }
 
-            Text("macMender helps identify icons and explains safe setup. It does not use synthetic dragging for other apps' menu-bar items in this build.")
+            Text("The checklist is planning-only. It never calls the physical mover, warps the cursor, synthesizes drags, or clicks menu-bar items.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -589,11 +579,7 @@ private struct MenuBarDiscoveryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: item.isSystemManaged ? "lock.fill" : "app.badge")
-                .font(.headline)
-                .foregroundStyle(item.isSystemManaged ? .secondary : Color.accentColor)
-                .frame(width: 28, height: 28)
-                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            MenuBarItemIconView(item: item)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.displayTitle)
@@ -637,6 +623,44 @@ private struct MenuBarDiscoveryRow: View {
             return "\(source) · macOS-managed or not safely movable"
         }
         return "\(source) · discovered for manual setup guidance"
+    }
+}
+
+private struct MenuBarItemIconView: View {
+    var item: DetectedMenuBarItem
+
+    var body: some View {
+        Group {
+            if let icon = resolvedIcon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(3)
+            } else {
+                Image(systemName: item.isSystemManaged ? "lock.fill" : "app.badge")
+                    .font(.headline)
+                    .foregroundStyle(item.isSystemManaged ? .secondary : Color.accentColor)
+            }
+        }
+        .frame(width: 30, height: 30)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+    }
+
+    private var resolvedIcon: NSImage? {
+        if let bundleIdentifier = item.sourceBundleIdentifier {
+            if let runningIcon = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleIdentifier })?.icon {
+                return runningIcon
+            }
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+                return NSWorkspace.shared.icon(forFile: appURL.path)
+            }
+        }
+
+        if let runningIcon = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == item.ownerName })?.icon {
+            return runningIcon
+        }
+
+        return nil
     }
 }
 

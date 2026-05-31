@@ -199,10 +199,11 @@ struct MenuBarEnginePortTests {
         }
 
         let body = String(source[bodyRange.lowerBound..<endRange.lowerBound])
-        #expect(body.contains("Safe Menu Bar Setup"))
-        #expect(body.contains("Safe Hiding Setup"))
-        #expect(source.contains("Guided setup only"))
+        #expect(body.contains("Hide Menu Bar Icons"))
+        #expect(body.contains("Detected Menu Bar Icons"))
+        #expect(source.contains("planning-only"))
         #expect(body.contains("Command-drag"))
+        #expect(source.contains("MenuBarItemIconView"))
         #expect(!body.contains("Layout Lanes"))
         #expect(!body.contains("MenuBarLayoutLane("))
         #expect(!body.contains("Toggle(\"Tuck icons away automatically\""))
