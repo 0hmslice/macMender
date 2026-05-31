@@ -182,6 +182,32 @@ struct MenuBarEnginePortTests {
         }
     }
 
+    @Test("menu bar settings body stays safe setup only")
+    func menuBarSettingsBodyStaysSafeSetupOnly() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent("Sources/macMender/Views/Sections/MenuBarManagementView.swift"),
+            encoding: .utf8
+        )
+        guard let bodyRange = source.range(of: "var body: some View {"),
+              let endRange = source.range(of: "private var hiddenStatusTitle", range: bodyRange.upperBound..<source.endIndex) else {
+            Issue.record("Could not isolate MenuBarManagementView body")
+            return
+        }
+
+        let body = String(source[bodyRange.lowerBound..<endRange.lowerBound])
+        #expect(body.contains("Menu Bar Setup"))
+        #expect(body.contains("Command-drag"))
+        #expect(!body.contains("Layout Lanes"))
+        #expect(!body.contains("MenuBarLayoutLane("))
+        #expect(!body.contains("Toggle(\"Tuck icons away automatically\""))
+        #expect(!body.contains("Toggle(\"Show Hidden icons"))
+        #expect(!body.contains("MenuBarResetLayoutCard"))
+    }
+
     @Test("Thaw XPC and side-by-side parity cases stay covered in QA docs")
     func thawXPCAndSideBySideParityCasesStayCoveredInQADocs() throws {
         let root = URL(fileURLWithPath: #filePath)

@@ -66,18 +66,18 @@ struct MenuBarManagementView: View {
     var body: some View {
         PreferencesScrollView {
             SectionCard(
-                title: "Menu Bar Layout",
-                subtitle: appModel.menuBarScanner.physicalMovementEnabled ? "Drag icons into Visible, Hidden, or Always Hidden. Mendy keeps the bar tidy until you need something." : "Discovery is available. Physical hide, reveal, and reorder controls are disabled until the real Thaw runtime is transplanted.",
+                title: "Menu Bar Setup",
+                subtitle: "Use macOS Command-drag for physical icon order. macMender provides discovery and safe guidance without synthetic cursor movement.",
                 symbolName: "menubar.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack(spacing: 14) {
-                        MendyAvatarView(mood: .thinking, size: MendyAvatarSize.panel)
+                        MendyAvatarView(mood: .thinking, size: MendyAvatarSize.prominent)
 
                         VStack(alignment: .leading, spacing: 7) {
-                            Text(appModel.menuBarScanner.physicalMovementEnabled ? "Arrange your menu-bar icons into calm, predictable lanes." : "Review detected menu-bar icons without moving them.")
+                            Text("Organize icons safely with macOS itself.")
                                 .font(.title3.weight(.semibold))
-                            Text(appModel.menuBarScanner.physicalMovementEnabled ? "Visible icons stay in the menu bar. Hidden icons reveal from the zone around Mendy. Always Hidden waits until you explicitly ask for it." : appModel.menuBarScanner.physicalMovementStatusDescription)
+                            Text("macOS does not provide a smooth public API for moving other apps' menu-bar icons. The previous programmatic mover is disabled because it could move the pointer, glitch, or trigger menus.")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -99,51 +99,40 @@ struct MenuBarManagementView: View {
                             tone: appModel.menuBarScanner.detectedItems.isEmpty ? .warning : .active
                         )
                         CapabilityBadge(
-                            title: hiddenStatusTitle,
-                            systemImage: appModel.hiddenMenuBarItemCount == 0 ? "eye" : "eye.slash",
-                            tone: appModel.hiddenMenuBarItemCount == 0 ? .neutral : .active
+                            title: "Safe setup mode",
+                            systemImage: "hand.raised.fill",
+                            tone: .active
                         )
                         CapabilityBadge(
-                            title: appModel.permissions.screenRecording == .granted ? "Live order sync" : "Live order limited",
+                            title: appModel.permissions.screenRecording == .granted ? "Live discovery" : "Discovery limited",
                             systemImage: appModel.permissions.screenRecording == .granted ? "dot.viewfinder" : "lock",
                             tone: appModel.permissions.screenRecording == .granted ? .active : .warning
                         )
                         Spacer()
                     }
 
-                    HStack(spacing: 12) {
-                        Toggle("Let Mendy manage menu-bar icons", isOn: Binding(
-                            get: { appModel.store.config.featureToggles.menuBarManagement },
-                            set: { value in
-                                appModel.store.config.featureToggles.menuBarManagement = value
-                                appModel.store.save()
-                                appModel.updateRuntime()
-                            }
-                        ))
+                    MenuBarSafeCommandDragGuide()
 
-                        Spacer()
-
+                    HStack {
+                        Text("macMender will not hide, reorder, or restore third-party menu-bar icons in this build.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 12)
                         Button {
                             appModel.scanMenuBarItems()
                         } label: {
-                            Label("Scan Now", systemImage: "arrow.clockwise")
+                            Label("Scan Icons", systemImage: "arrow.clockwise")
                         }
                     }
 
-                    Text("Hidden icons reveal from the zone around Mendy using the triggers below. macMender keeps macOS-fixed icons read-only and only offers icons backed by real movable status items.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-
-                    if !appModel.menuBarScanner.physicalMovementEnabled {
-                        MenuBarMovementDisabledBanner()
-                    }
+                    MenuBarMovementDisabledBanner()
                 }
             }
 
             SectionCard(
-                title: "Layout Lanes",
-                subtitle: "Drop icons exactly where you want them. Existing order stays put unless you drag.",
-                symbolName: "square.grid.3x1.below.line.grid.1x2"
+                title: "Detected Icons",
+                subtitle: "Read-only menu-bar discovery. Use this list to identify icons before arranging them manually.",
+                symbolName: "list.bullet.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
                     MenuBarSearchField(searchText: $searchText)
@@ -157,59 +146,15 @@ struct MenuBarManagementView: View {
 
                     if appModel.menuBarScanner.detectedItems.isEmpty {
                         EmptyMenuBarItemsView()
-                    } else if filteredHideCandidateItems.isEmpty {
+                    } else if filteredDetectedItems.isEmpty {
                         EmptySearchView()
                     } else {
-                        VStack(spacing: 18) {
-                            ForEach(MenuBarSection.allCases) { section in
-                                MenuBarLayoutLane(
-                                    section: section,
-                                    items: items(in: section),
-                                    allItems: hideCandidateItems,
-                                    mendyInsertionIndex: section == .pinned ? mendyInsertionIndex(in: items(in: section)) : nil,
-                                    appModel: appModel,
-                                    movementEnabled: appModel.menuBarScanner.physicalMovementEnabled,
-                                    reduceMotion: reduceMotion,
-                                    chipNamespace: chipNamespace,
-                                    activeDraggedItemID: $activeDraggedItemID,
-                                    activeDropSection: $activeDropSection,
-                                    activeInsertionSection: $activeInsertionSection,
-                                    activeInsertionIndex: $activeInsertionIndex,
-                                    dragPreview: $dragPreview,
-                                    pendingDisplayMoves: $pendingDisplayMoves,
-                                    laneFrames: laneFrames
-                                )
-                            }
-                        }
-                        .animation(layoutAnimation, value: laneAnimationKey)
-                    }
-
-                    MenuBarResetLayoutCard {
-                        showingResetLayoutConfirmation = true
-                    }
-
-                    if !systemManagedItems.isEmpty {
-                        Divider()
-                        Text("Fixed by macOS")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
                         VStack(spacing: 8) {
-                            ForEach(systemManagedItems) { item in
-                                SystemManagedMenuBarRow(item: item)
+                            if shouldShowMendyStatusItem {
+                                MenuBarMendyDiscoveryRow()
                             }
-                        }
-                    }
-
-                    if !hiddenSelectionsMissingFromScan.isEmpty {
-                        Divider()
-                        Text("Stored hidden selections")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        VStack(spacing: 8) {
-                            ForEach(hiddenSelectionsMissingFromScan) { item in
-                                StoredHiddenMenuBarRow(item: item) {
-                                    appModel.setStoredMenuBarItemVisible(item)
-                                }
+                            ForEach(filteredDetectedItems) { item in
+                                MenuBarDiscoveryRow(item: item)
                             }
                         }
                     }
@@ -217,98 +162,11 @@ struct MenuBarManagementView: View {
             }
 
             SectionCard(
-                title: "Reveal and Spacing",
-                subtitle: appModel.menuBarScanner.physicalMovementEnabled ? "Choose how Hidden icons come back when you need them." : "Reveal settings are disabled because physical menu-bar hiding is disabled.",
-                symbolName: "cursorarrow.motionlines"
+                title: "Unavailable Controls",
+                subtitle: "These controls are intentionally absent until a true Thaw-style runtime is implemented and manually verified.",
+                symbolName: "lock.shield"
             ) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Tuck icons away automatically", isOn: Binding(
-                        get: { appModel.store.config.menuBarLayout.autoRehideEnabled },
-                        set: { value in
-                            appModel.updateMenuBarLayout { $0.autoRehideEnabled = value }
-                        }
-                    ))
-                    .help("Hidden icons return to their tucked-away state after a short delay.")
-                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
-
-                    Toggle("Show Hidden icons when I hover near Mendy", isOn: Binding(
-                        get: { appModel.store.config.menuBarLayout.revealOnHover },
-                        set: { value in
-                            appModel.updateMenuBarLayout { $0.revealOnHover = value }
-                        }
-                    ))
-                    .help("Hover over Mendy or the small zone beside it to reveal Hidden icons.")
-                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
-
-                    Toggle("Show Hidden icons when I click empty space near Mendy", isOn: Binding(
-                        get: { appModel.store.config.menuBarLayout.revealOnEmptyMenuBarClick },
-                        set: { value in
-                            appModel.updateMenuBarLayout { $0.revealOnEmptyMenuBarClick = value }
-                        }
-                    ))
-                    .help("Only empty menu-bar space inside Mendy's reveal zone triggers this.")
-                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
-
-                    Toggle("Show or tuck icons with a swipe near Mendy", isOn: Binding(
-                        get: { appModel.store.config.menuBarLayout.revealOnScroll },
-                        set: { value in
-                            appModel.updateMenuBarLayout { $0.revealOnScroll = value }
-                        }
-                    ))
-                    .help("Scroll or swipe while the pointer is in Mendy's reveal zone.")
-                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
-
-                    HStack {
-                        Text("Rehide delay")
-                        Slider(value: Binding(
-                            get: { appModel.store.config.menuBarLayout.autoRehideDelay },
-                            set: { value in
-                                appModel.updateMenuBarLayout { $0.autoRehideDelay = value }
-                            }
-                        ), in: 0.4...4.0, step: 0.1)
-                        Text(appModel.store.config.menuBarLayout.autoRehideDelay.formatted(.number.precision(.fractionLength(1))) + "s")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 42, alignment: .trailing)
-                    }
-
-                    Toggle("Make room when app menus overlap", isOn: Binding(
-                        get: { appModel.store.config.menuBarLayout.hideApplicationMenusOnOverlap },
-                        set: { value in
-                            appModel.updateMenuBarLayout { $0.hideApplicationMenusOnOverlap = value }
-                        }
-                    ))
-
-                    Toggle("Use a separate macMender bar for Hidden icons", isOn: Binding(
-                        get: { appModel.store.config.menuBarLayout.showHiddenItemsInSecondaryBar },
-                        set: { value in
-                            appModel.updateMenuBarLayout { $0.showHiddenItemsInSecondaryBar = value }
-                        }
-                    ))
-                    .disabled(!appModel.menuBarScanner.physicalMovementEnabled)
-
-                    HStack {
-                        Text("Item spacing")
-                        Slider(value: Binding(
-                            get: { Double(appModel.store.config.menuBarLayout.itemSpacingOffset) },
-                            set: { value in
-                                appModel.updateMenuBarLayout { $0.itemSpacingOffset = Int(value.rounded()) }
-                            }
-                        ), in: -16...16, step: 1)
-                        Text("\(appModel.store.config.menuBarLayout.itemSpacingOffset)")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 32, alignment: .trailing)
-                        Button(appModel.menuBarScanner.isApplyingSpacing ? "Applying..." : "Apply") {
-                            appModel.applyMenuBarSpacing()
-                        }
-                        .disabled(appModel.menuBarScanner.isApplyingSpacing)
-                    }
-
-                    Text(appModel.menuBarScanner.spacingStatusDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                MenuBarUnavailableFeatureList()
             }
         }
         .onAppear {
@@ -321,46 +179,21 @@ struct MenuBarManagementView: View {
                 try? await Task.sleep(for: .milliseconds(interval))
             }
         }
-        .coordinateSpace(name: menuBarLayoutDragCoordinateSpace)
-        .onPreferenceChange(MenuBarLaneFramePreferenceKey.self) { frames in
-            laneFrames = frames
-        }
-        .onChange(of: laneAnimationKey) { _, _ in
-            reconcilePendingDisplayMoves()
-        }
-        .overlay(alignment: .topLeading) {
-            if let dragPreview {
-                MenuBarFloatingDragPreview(
-                    preview: dragPreview,
-                    reduceMotion: reduceMotion
-                )
-                .position(dragPreview.location)
-                .allowsHitTesting(false)
-                .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                .animation(MenuBarLayoutMotion.lane(reduceMotion: reduceMotion), value: dragPreview.location)
-                .zIndex(1000)
-            }
-        }
-        .onDisappear {
-            resetDragFeedback()
-        }
-        .confirmationDialog(
-            "Reset Menu Bar Layout?",
-            isPresented: $showingResetLayoutConfirmation
-        ) {
-            Button("Reset Layout", role: .destructive) {
-                appModel.resetMenuBarLayout()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Mendy will move managed icons back to Visible and clear the saved layout.")
-        }
     }
 
     private var hiddenStatusTitle: String {
         let count = appModel.hiddenMenuBarItemCount
         if count == 0 { return "Nothing hidden" }
         return count == 1 ? "1 managed icon" : "\(count) managed icons"
+    }
+
+    private var filteredDetectedItems: [DetectedMenuBarItem] {
+        let items = deduplicated(ordered(appModel.menuBarScanner.detectedItems))
+        let query = normalizedSearchText(searchText)
+        guard !query.isEmpty else { return items }
+        return items.filter { item in
+            searchableText(for: item).contains(query)
+        }
     }
 
     private var layoutAnimation: Animation? {
@@ -550,9 +383,9 @@ private struct MenuBarMovementDisabledBanner: View {
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("Physical movement disabled")
+                Text("Physical movement is disabled")
                     .font(.callout.weight(.semibold))
-                Text("The current partial mover is not Thaw-equivalent. macMender will not hide, reorder, or restore menu-bar icons until the full Thaw runtime shape is transplanted and verified.")
+                Text("This prevents visible cursor movement, accidental menus, and false success states. A future Thaw-style runtime must be transplanted and verified before macMender offers direct hide or reorder controls again.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -560,6 +393,144 @@ private struct MenuBarMovementDisabledBanner: View {
         }
         .padding(12)
         .liquidGlass(.row)
+    }
+}
+
+private struct MenuBarSafeCommandDragGuide: View {
+    private let steps = [
+        "Hold Command.",
+        "Drag a menu-bar icon left or right to reorder it.",
+        "Drag an icon off the menu bar only when macOS allows removing that item."
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Safe manual setup", systemImage: "command")
+                .font(.headline)
+
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("\(index + 1)")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 22, height: 22)
+                            .background(Color.accentColor, in: Circle())
+                        Text(step)
+                            .font(.callout)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            Text("macMender helps identify icons and explains safe setup. It does not use synthetic dragging for other apps' menu-bar items in this build.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .liquidGlass(.card)
+    }
+}
+
+private struct MenuBarDiscoveryRow: View {
+    var item: DetectedMenuBarItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: item.isSystemManaged ? "lock.fill" : "app.badge")
+                .font(.headline)
+                .foregroundStyle(item.isSystemManaged ? .secondary : Color.accentColor)
+                .frame(width: 28, height: 28)
+                .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.displayTitle)
+                    .font(.callout.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 12)
+
+            Text(item.actualSection == .pinned ? "Visible now" : "Saved as \(item.actualSection.title)")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.white.opacity(0.08), in: Capsule())
+        }
+        .padding(12)
+        .liquidGlass(.row)
+    }
+
+    private var detail: String {
+        let source = item.sourceBundleIdentifier ?? item.ownerName
+        if item.isSystemManaged {
+            return "\(source) · macOS-managed or not safely movable"
+        }
+        return "\(source) · discovered for manual setup guidance"
+    }
+}
+
+private struct MenuBarMendyDiscoveryRow: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            MendyAvatarView(mood: .idle, size: MendyAvatarSize.compact)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("macMender menu-bar icon")
+                    .font(.callout.weight(.semibold))
+                Text("Mendy opens this control center. You can Command-drag this icon like other macOS status items.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 12)
+
+            Text("Guide")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.white.opacity(0.08), in: Capsule())
+        }
+        .padding(12)
+        .liquidGlass(.row)
+    }
+}
+
+private struct MenuBarUnavailableFeatureList: View {
+    private let items = [
+        ("Direct reorder", "Disabled because it would require synthetic movement of other apps' menu-bar icons."),
+        ("Hide selected icons", "Disabled until a real Thaw-style runtime can restore state reliably."),
+        ("Hover reveal", "Disabled because it depends on the same physical movement path."),
+        ("Always Hidden sections", "Not shown as controls until behavior is implemented and manually verified.")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(items, id: \.0) { item in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "nosign")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.0)
+                            .font(.callout.weight(.semibold))
+                        Text(item.1)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                }
+                .padding(10)
+                .liquidGlass(.row)
+            }
+        }
     }
 }
 
