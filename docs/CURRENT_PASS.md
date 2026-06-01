@@ -11,10 +11,20 @@ Branch:
 ### Dock Preview Animation Settings
 
 1. Dock preview settings now include presentation-only `Preview animation` and `Animation speed` controls.
-2. The setting is persisted per profile and decoded safely for older configs.
-3. The runtime animation changes only preview panel presentation and dismissal. It does not change Dock identity matching, title matching, thumbnail capture, caching, hover eligibility, or preview linger timing.
-4. Reduce Motion degrades the preview animation to a simpler presentation path.
-5. Packaged-app Computer Use inspection confirmed the settings are visible in Dock & Windows > Dock Previews and persist to the local config.
+2. `System`, `Fade`, `Scale`, `Slide Up`, `Glass Pop`, and `None` now use distinct presentation paths: opacity-only fade, visible frame scale, Dock-direction slide, one-shot glass pop highlight/overshoot, and immediate none.
+3. `Animation speed` now has clearer timing separation: Snappy 0.10s, Balanced 0.22s, Smooth 0.36s.
+4. The setting is persisted per profile and decoded safely for older configs.
+5. The runtime animation changes only preview panel presentation and dismissal. It does not change Dock identity matching, title matching, thumbnail capture, caching, hover eligibility, or preview linger timing.
+6. Reduce Motion degrades the preview animation to a simpler presentation path.
+7. Packaged-app Computer Use inspection confirmed the settings are visible in Dock & Windows > Dock Previews and expose all animation styles plus Snappy/Balanced/Smooth speeds.
+8. `Test Preview Animation` remains wired to the resolved Dock-preview path, but the transient preview panel did not surface as a separate Computer Use-verifiable window in this run; visual comparison of each animation style remains manual QA.
+
+### App Shell Layout
+
+1. Preferences now use a shared detail shell with a connected section header instead of relying on the detached window title area.
+2. The sidebar uses one glass surface instead of nested sidebar glass, reducing the visible rectangle seam between sidebar and content.
+3. Shared Preferences scroll content now centers within an adaptive width instead of pinning a max-width column to the left.
+4. Overview, Menu Bar, Dock & Windows, Privacy, Profiles, and Advanced inherit the same header, content alignment, and window background rules.
 
 ### macMender Dock Self-Preview
 
@@ -26,17 +36,21 @@ Branch:
 
 ### Popover and Glass Polish
 
-1. The menu bar popover is now a slim live status dashboard: small Mendy mark, app status, Accessibility, Screen Recording, Dock Hover, and Menu Bar status rows, plus short Settings, Permissions, and Quit actions.
+1. The menu bar popover is now a slim live status dashboard: small Mendy mark, app status, Accessibility, Screen Recording, Window Switcher, Dock Hover, and Menu Bar status rows, plus short Settings, Permissions, and Quit actions.
 2. The popover no longer uses a tutorial layout, large Mendy hero, long Command-drag instructions, or hidden menu-bar syncing claims.
 3. Settings surfaces received a light Liquid Glass tuning pass: lighter glass cards/rows, subtle layered background, overview runtime rows, and clearer Advanced implementation notes.
 4. The Advanced notes now explicitly state that physical third-party menu-bar icon movement remains disabled.
+5. Menu Bar setup now leads with live discovery status and a compact planning explanation; long manual setup rationale is under `Why manual setup?`.
+6. Dock & Windows keeps raw preview diagnostics behind disclosure, Privacy presents permission status as calm checklist rows, and Advanced keeps dense implementation details in disclosures.
 
 ### Verification Notes
 
 - `swift build` passed after each milestone in this pass.
 - `swift test` passed after each milestone; final milestone runs passed 64 tests.
 - `script/build_and_run.sh --verify` passed after packaging.
-- Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` confirmed the animation settings, macMender self-preview, slim popover, and overview glass changes.
+- Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` confirmed the animation settings, speed picker, centered shell/header alignment, simplified Menu Bar page, Privacy checklist, and Advanced disclosures.
+- Computer Use confirmed Option+Tab discovery still reports multiple normal apps after this UI pass: 12 windows from 11 apps in the packaged app.
+- Settled idle CPU after returning to Overview and waiting several seconds sampled at 0.0% with about 87 MB resident memory. A previous 28.6% sample happened while actively interacting with Dock & Windows controls and did not persist once idle.
 - Physical menu-bar movement remains disabled and was not re-enabled.
 - Option+Tab activation/discovery and Dock preview identity logic were not changed in the visual polish milestones.
 - `docs/qa/screenshots` was not modified.

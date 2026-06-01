@@ -43,6 +43,9 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify preview panels appear immediately with placeholders if thumbnails are still loading, then progressively fill in.
 - Verify the Dock preview `Preview linger after leaving Dock` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
 - Verify Dock preview `Preview animation` and `Animation speed` settings are visible, persist after relaunch, and affect only panel presentation/dismissal.
+- Use `Test Preview Animation` to compare System, Fade, Scale, Slide Up, Glass Pop, and None. In the 2026-05-31 agent run the controls were visible and selectable, but the transient test preview did not appear as a separate Computer Use-verifiable window.
+- Confirm Snappy, Balanced, and Smooth are noticeably different durations. Expected configured durations are 0.10s, 0.22s, and 0.36s.
+- With Reduce Motion enabled in macOS, confirm Dock preview presentation simplifies to None or Fade.
 - Hover the macMender Dock item while its Preferences window is visible. Expected result: either one real Preferences/Overview window preview appears, or the preview is suppressed with a clear diagnostic reason. Preview panels, switcher overlays, popovers, and transient windows must never appear.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
 - Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover.
@@ -58,6 +61,8 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Full Dock hover over adjacent Dock icons using the user's actual pointer path after the thumbnail/cache changes.
 - Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
 - Feel and correctness of the Dock preview linger setting on the user's Dock.
+- Visual comparison of all Dock preview animation styles and speeds with an actual preview panel.
+- Reduce Motion behavior for Dock preview animations.
 - Adjacent Dock hover correctness on the user's Dock.
 - Browser multi-window thumbnail correctness.
 - Option+Tab exact selected-window activation across minimized windows, duplicate/blank titled windows, and keyboard-confirm paths.
