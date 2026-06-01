@@ -52,6 +52,6 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 12)
-        .liquidGlass(.sidebar)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

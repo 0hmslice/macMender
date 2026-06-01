@@ -14,8 +14,8 @@ struct PreferencesWindow: View {
                     .liquidGlass(.sidebar)
                     .navigationSplitViewColumnWidth(min: 230, ideal: 260)
             } detail: {
-                DetailRouter(appModel: appModel)
-                    .navigationTitle(appModel.selectedSection.title)
+                PreferencesDetailShell(appModel: appModel)
+                    .navigationTitle("")
                     .toolbar {
                         ToolbarItemGroup {
                             if appModel.store.config.profiles.count > 1 {
@@ -82,6 +82,56 @@ private struct MendySidebarHeader: View {
             appModel.permissions.needsAttention ? "Needs one permission" : "Privacy checks look good"
         case .advanced:
             "Ready for recovery tools"
+        }
+    }
+}
+
+private struct PreferencesDetailShell: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: appModel.selectedSection.symbolName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.tint)
+                    .frame(width: 30, height: 30)
+                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(appModel.selectedSection.title)
+                        .font(.title3.weight(.semibold))
+                    Text(appModel.selectedSection.subtitle)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+            .background(.ultraThinMaterial)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(.white.opacity(0.08))
+                    .frame(height: 1)
+            }
+
+            DetailRouter(appModel: appModel)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .liquidGlass(.windowBackground)
+        .background {
+            LinearGradient(
+                colors: [
+                    Color.accentColor.opacity(0.08),
+                    Color.primary.opacity(0.025),
+                    Color.clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
         }
     }
 }

@@ -4,25 +4,32 @@ struct PreferencesScrollView<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                content
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    content
+                }
+                .padding(.vertical, 22)
+                .frame(width: contentWidth(for: proxy.size.width), alignment: .topLeading)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(24)
-            .frame(maxWidth: 980, alignment: .leading)
         }
-        .liquidGlass(.windowBackground)
-        .background {
-            LinearGradient(
-                colors: [
-                    Color.accentColor.opacity(0.08),
-                    Color.primary.opacity(0.02),
-                    Color.clear
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+    }
+
+    private func contentWidth(for availableWidth: CGFloat) -> CGFloat {
+        let horizontalMargin: CGFloat = availableWidth < 760 ? 18 : 28
+        let maxWidth: CGFloat = availableWidth > 1180 ? 1040 : availableWidth - (horizontalMargin * 2)
+        return max(320, min(maxWidth, availableWidth - (horizontalMargin * 2)))
+    }
+}
+
+struct PreferencesSectionGrid<Content: View>: View {
+    var minimumColumnWidth: CGFloat = 260
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: minimumColumnWidth), spacing: 12)], spacing: 12) {
+            content
         }
     }
 }
