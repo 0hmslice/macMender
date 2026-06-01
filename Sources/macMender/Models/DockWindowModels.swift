@@ -61,9 +61,9 @@ enum DockPreviewAnimationSpeed: String, CaseIterable, Codable, Identifiable {
 
     var duration: TimeInterval {
         switch self {
-        case .snappy: 0.10
-        case .balanced: 0.22
-        case .smooth: 0.36
+        case .snappy: 0.07
+        case .balanced: 0.16
+        case .smooth: 0.32
         }
     }
 }

@@ -44,7 +44,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify the Dock preview `Preview linger after leaving Dock` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
 - Verify Dock preview `Preview animation` and `Animation speed` settings are visible, persist after relaunch, and affect only panel presentation/dismissal.
 - Use `Test Preview Animation` to compare System, Fade, Scale, Slide Up, Glass Pop, and None. In the 2026-05-31 agent run the controls were visible and selectable, but the transient test preview did not appear as a separate Computer Use-verifiable window.
-- Confirm Snappy, Balanced, and Smooth are noticeably different durations. Expected configured durations are 0.10s, 0.22s, and 0.36s.
+- Confirm Snappy, Balanced, and Smooth are noticeably different durations. Expected configured durations are 0.07s, 0.16s, and 0.32s.
 - With Reduce Motion enabled in macOS, confirm Dock preview presentation simplifies to None or Fade.
 - Hover the macMender Dock item while its Preferences window is visible. Expected result: either one real Preferences/Overview window preview appears, or the preview is suppressed with a clear diagnostic reason. Preview panels, switcher overlays, popovers, and transient windows must never appear.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
@@ -62,6 +62,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
 - Feel and correctness of the Dock preview linger setting on the user's Dock.
 - Visual comparison of all Dock preview animation styles and speeds with an actual preview panel.
+- Confirm the presentation-only 2026-05-31 animation feel pass: System has a small scale/drift, Fade is opacity-only, Scale grows from visibly smaller to normal, Slide Up travels clearly from the Dock direction, Glass Pop has a one-shot overshoot/highlight, and None is instant.
 - Reduce Motion behavior for Dock preview animations.
 - Adjacent Dock hover correctness on the user's Dock.
 - Browser multi-window thumbnail correctness.

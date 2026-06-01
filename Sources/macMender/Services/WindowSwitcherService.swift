@@ -386,18 +386,18 @@ final class WindowSwitcherService: ObservableObject {
 
     private func presentGlassPop(panel: NSPanel, finalFrame: CGRect, generation: Int) {
         applyPanelHighlight()
-        let overshootFrame = finalFrame.insetBy(dx: -finalFrame.width * 0.014, dy: -finalFrame.height * 0.014)
+        let overshootFrame = finalFrame.insetBy(dx: -finalFrame.width * 0.035, dy: -finalFrame.height * 0.035)
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = dockPreviewAnimationDuration * 0.68
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 0.88, 0.24, 1.22)
+            context.duration = max(dockPreviewAnimationDuration * 0.62, 0.06)
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.08, 0.88, 0.18, 1.25)
             panel.animator().alphaValue = 1
             panel.animator().setFrame(overshootFrame, display: true)
         } completionHandler: { [weak self, weak panel] in
             Task { @MainActor in
                 guard let self, let panel, self.panelAnimationGeneration == generation else { return }
                 NSAnimationContext.runAnimationGroup { context in
-                    context.duration = max(self.dockPreviewAnimationDuration * 0.32, 0.05)
-                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    context.duration = max(self.dockPreviewAnimationDuration * 0.38, 0.07)
+                    context.timingFunction = CAMediaTimingFunction(controlPoints: 0.18, 0.74, 0.22, 1.0)
                     panel.animator().setFrame(finalFrame, display: true)
                 } completionHandler: { [weak self, weak panel] in
                     Task { @MainActor in
@@ -461,13 +461,13 @@ final class WindowSwitcherService: ObservableObject {
         case .none:
             0
         case .fade:
-            max(dockPreviewAnimationDuration * 0.82, 0.08)
+            max(dockPreviewAnimationDuration * 0.72, 0.05)
         case .system:
-            max(dockPreviewAnimationDuration * 0.76, 0.09)
+            max(dockPreviewAnimationDuration * 0.70, 0.05)
         case .scale, .slideUp:
-            max(dockPreviewAnimationDuration * 0.86, 0.10)
+            max(dockPreviewAnimationDuration * 0.76, 0.06)
         case .glassPop:
-            max(dockPreviewAnimationDuration * 0.70, 0.10)
+            max(dockPreviewAnimationDuration * 0.62, 0.06)
         }
     }
 
@@ -476,13 +476,18 @@ final class WindowSwitcherService: ObservableObject {
         case .none, .fade:
             return frame
         case .system:
-            return frame.insetBy(dx: frame.width * 0.018, dy: frame.height * 0.018)
+            let scaleInset = appearing ? 0.018 : 0.012
+            let offset = appearing ? -18.0 : -12.0
+            return frame
+                .insetBy(dx: frame.width * scaleInset, dy: frame.height * scaleInset)
+                .offsetBy(dx: 0, dy: offset)
         case .scale:
-            return frame.insetBy(dx: frame.width * 0.045, dy: frame.height * 0.045)
+            let scaleInset = appearing ? 0.115 : 0.075
+            return frame.insetBy(dx: frame.width * scaleInset, dy: frame.height * scaleInset)
         case .glassPop:
-            return frame.insetBy(dx: frame.width * 0.07, dy: frame.height * 0.07)
+            return frame.insetBy(dx: frame.width * 0.145, dy: frame.height * 0.145)
         case .slideUp:
-            let offset = appearing ? -46.0 : -34.0
+            let offset = appearing ? -96.0 : -72.0
             return frame.offsetBy(dx: 0, dy: offset)
         }
     }
@@ -494,11 +499,11 @@ final class WindowSwitcherService: ObservableObject {
         case .fade:
             CAMediaTimingFunction(name: appearing ? .easeOut : .easeIn)
         case .system:
-            CAMediaTimingFunction(controlPoints: 0.20, 0.78, 0.18, 1.0)
+            CAMediaTimingFunction(controlPoints: 0.21, 0.62, 0.20, 1.0)
         case .scale:
-            CAMediaTimingFunction(controlPoints: 0.15, 0.85, 0.22, 1.0)
+            CAMediaTimingFunction(controlPoints: 0.10, 0.82, 0.20, 1.0)
         case .slideUp:
-            CAMediaTimingFunction(controlPoints: 0.18, 0.82, 0.16, 1.0)
+            CAMediaTimingFunction(controlPoints: 0.12, 0.86, 0.16, 1.0)
         case .glassPop:
             CAMediaTimingFunction(name: appearing ? .easeOut : .easeIn)
         }
@@ -510,11 +515,11 @@ final class WindowSwitcherService: ObservableObject {
         guard let layer = contentView.layer else { return }
         layer.cornerRadius = LiquidGlassSurface.preview.radius
         layer.masksToBounds = false
-        layer.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.64).cgColor
-        layer.borderWidth = 1.8
-        layer.shadowColor = NSColor.controlAccentColor.withAlphaComponent(0.65).cgColor
-        layer.shadowOpacity = 0.42
-        layer.shadowRadius = 24
+        layer.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.82).cgColor
+        layer.borderWidth = 2.4
+        layer.shadowColor = NSColor.controlAccentColor.withAlphaComponent(0.78).cgColor
+        layer.shadowOpacity = 0.58
+        layer.shadowRadius = 34
         layer.shadowOffset = CGSize(width: 0, height: 0)
     }
 
@@ -523,10 +528,10 @@ final class WindowSwitcherService: ObservableObject {
         let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = 1
         fade.toValue = 0
-        fade.duration = 0.16
+        fade.duration = 0.14
         fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
         layer.add(fade, forKey: "macmender.glassPopHighlightFade")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
             layer.borderWidth = 0
             layer.shadowOpacity = 0
             layer.opacity = 1
