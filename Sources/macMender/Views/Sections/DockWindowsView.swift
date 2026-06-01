@@ -95,7 +95,7 @@ struct DockWindowsView: View {
     }
 
     private var previewsView: some View {
-        SectionCard(title: "Dock Previews", subtitle: "Hover a running Dock icon to show a macMender preview panel for that app's windows.", symbolName: "dock.arrow.up.rectangle") {
+        SectionCard(title: "Dock Previews", subtitle: "Preview an app's windows when you hover its Dock icon.", symbolName: "dock.arrow.up.rectangle") {
             VStack(alignment: .leading, spacing: 14) {
                 Toggle("Enable Dock Previews", isOn: binding(\.dockPreviews.enabled))
                 LabeledSlider(
@@ -137,7 +137,7 @@ struct DockWindowsView: View {
 
                 HStack {
                     CapabilityBadge(
-                        title: appModel.dockHover.isRunning ? "Hover Monitor Running" : "Hover Monitor Paused",
+                        title: appModel.dockHover.isRunning ? "Dock previews are active" : "Dock previews are paused",
                         systemImage: appModel.dockHover.isRunning ? "checkmark.circle.fill" : "pause.circle",
                         tone: appModel.dockHover.isRunning ? .active : .warning
                     )
@@ -147,27 +147,37 @@ struct DockWindowsView: View {
                     Spacer()
                 }
 
-                Text("macMender reads the Dock's accessibility tree, waits for the configured hover delay, then opens the same preview panel used by the keyboard switcher. Preview linger after leaving Dock controls how long previews stay visible after your pointer leaves the Dock icon or preview safe area. It does not modify the Dock process.")
+                Text("Pick how quickly previews appear, how long they linger after your pointer leaves, and how the panel animates.")
                     .foregroundStyle(.secondary)
 
-                Text("Thumbnail runtime: \(appModel.windowSwitcher.lastThumbnailDiagnostic)")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-
-                Button("Refresh Runtime") {
-                    appModel.refreshSystemState(force: true)
+                DisclosureGroup("Preview diagnostics") {
+                    Text("Thumbnail status: \(appModel.windowSwitcher.lastThumbnailDiagnostic)")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .padding(.top, 4)
                 }
-                Button("Test Dock Preview") {
-                    let screenFrame = NSApp.keyWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
-                    let anchor = CGRect(x: screenFrame.midX - 30, y: screenFrame.minY + 8, width: 60, height: 60)
-                    appModel.windowSwitcher.showDockPreviewForMostRecentApp(
-                        settings: appModel.activeProfile.dockPreviews.overlaySettings(using: appModel.activeProfile.windowSwitcher),
-                        anchorFrame: anchor
-                    )
+                .font(.caption)
+
+                HStack {
+                    Button("Refresh Status") {
+                        appModel.refreshSystemState(force: true)
+                    }
+                    Button("Test Preview Animation") {
+                        testDockPreviewAnimation()
+                    }
                 }
             }
         }
+    }
+
+    private func testDockPreviewAnimation() {
+        let screenFrame = NSApp.keyWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let anchor = CGRect(x: screenFrame.midX - 30, y: screenFrame.minY + 8, width: 60, height: 60)
+        appModel.windowSwitcher.showDockPreviewForMostRecentApp(
+            settings: appModel.activeProfile.dockPreviews.overlaySettings(using: appModel.activeProfile.windowSwitcher),
+            anchorFrame: anchor
+        )
     }
 
     private var settingsView: some View {

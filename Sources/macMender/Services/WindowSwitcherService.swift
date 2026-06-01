@@ -355,6 +355,7 @@ final class WindowSwitcherService: ObservableObject {
         let finalFrame = panel.frame
         let startFrame = panelAnimationFrame(from: finalFrame, style: style, appearing: true)
 
+        resetPanelHighlight()
         if style != .none {
             panel.alphaValue = 0
             panel.setFrame(startFrame, display: false)
@@ -365,9 +366,13 @@ final class WindowSwitcherService: ObservableObject {
         panel.orderFrontRegardless()
 
         guard style != .none else { return }
+        if style == .glassPop {
+            presentGlassPop(panel: panel, finalFrame: finalFrame, generation: generation)
+            return
+        }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = dockPreviewAnimationDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.timingFunction = timingFunction(for: style, appearing: true)
             panel.animator().alphaValue = 1
             panel.animator().setFrame(finalFrame, display: true)
         } completionHandler: { [weak self, weak panel] in
@@ -375,6 +380,33 @@ final class WindowSwitcherService: ObservableObject {
                 guard let self, self.panelAnimationGeneration == generation else { return }
                 panel?.alphaValue = 1
                 panel?.setFrame(finalFrame, display: false)
+            }
+        }
+    }
+
+    private func presentGlassPop(panel: NSPanel, finalFrame: CGRect, generation: Int) {
+        applyPanelHighlight()
+        let overshootFrame = finalFrame.insetBy(dx: -finalFrame.width * 0.014, dy: -finalFrame.height * 0.014)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = dockPreviewAnimationDuration * 0.68
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 0.88, 0.24, 1.22)
+            panel.animator().alphaValue = 1
+            panel.animator().setFrame(overshootFrame, display: true)
+        } completionHandler: { [weak self, weak panel] in
+            Task { @MainActor in
+                guard let self, let panel, self.panelAnimationGeneration == generation else { return }
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = max(self.dockPreviewAnimationDuration * 0.32, 0.05)
+                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    panel.animator().setFrame(finalFrame, display: true)
+                } completionHandler: { [weak self, weak panel] in
+                    Task { @MainActor in
+                        guard let self, self.panelAnimationGeneration == generation else { return }
+                        panel?.alphaValue = 1
+                        panel?.setFrame(finalFrame, display: false)
+                        self.fadePanelHighlight()
+                    }
+                }
             }
         }
     }
@@ -394,8 +426,8 @@ final class WindowSwitcherService: ObservableObject {
         }
 
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = min(dockPreviewAnimationDuration, 0.18)
-            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            context.duration = dockPreviewDismissDuration
+            context.timingFunction = timingFunction(for: style, appearing: false)
             panel.animator().alphaValue = 0
             panel.animator().setFrame(targetFrame, display: true)
         } completionHandler: { [weak self, weak panel] in
@@ -404,6 +436,7 @@ final class WindowSwitcherService: ObservableObject {
                 panel?.orderOut(nil)
                 panel?.alphaValue = 1
                 panel?.setFrame(finalFrame, display: false)
+                self.resetPanelHighlight()
             }
         }
     }
@@ -423,20 +456,87 @@ final class WindowSwitcherService: ObservableObject {
         return dockPreviewAnimationSpeed.duration
     }
 
+    private var dockPreviewDismissDuration: TimeInterval {
+        switch effectiveDockPreviewAnimationStyle {
+        case .none:
+            0
+        case .fade:
+            max(dockPreviewAnimationDuration * 0.82, 0.08)
+        case .system:
+            max(dockPreviewAnimationDuration * 0.76, 0.09)
+        case .scale, .slideUp:
+            max(dockPreviewAnimationDuration * 0.86, 0.10)
+        case .glassPop:
+            max(dockPreviewAnimationDuration * 0.70, 0.10)
+        }
+    }
+
     private func panelAnimationFrame(from frame: CGRect, style: DockPreviewAnimationStyle, appearing: Bool) -> CGRect {
         switch style {
         case .none, .fade:
             return frame
         case .system:
-            return frame.insetBy(dx: frame.width * 0.012, dy: frame.height * 0.012)
+            return frame.insetBy(dx: frame.width * 0.018, dy: frame.height * 0.018)
         case .scale:
-            return frame.insetBy(dx: frame.width * 0.02, dy: frame.height * 0.02)
+            return frame.insetBy(dx: frame.width * 0.045, dy: frame.height * 0.045)
         case .glassPop:
-            return frame.insetBy(dx: frame.width * 0.026, dy: frame.height * 0.026)
+            return frame.insetBy(dx: frame.width * 0.07, dy: frame.height * 0.07)
         case .slideUp:
-            let offset = appearing ? -10.0 : -8.0
+            let offset = appearing ? -46.0 : -34.0
             return frame.offsetBy(dx: 0, dy: offset)
         }
+    }
+
+    private func timingFunction(for style: DockPreviewAnimationStyle, appearing: Bool) -> CAMediaTimingFunction {
+        switch style {
+        case .none:
+            CAMediaTimingFunction(name: .linear)
+        case .fade:
+            CAMediaTimingFunction(name: appearing ? .easeOut : .easeIn)
+        case .system:
+            CAMediaTimingFunction(controlPoints: 0.20, 0.78, 0.18, 1.0)
+        case .scale:
+            CAMediaTimingFunction(controlPoints: 0.15, 0.85, 0.22, 1.0)
+        case .slideUp:
+            CAMediaTimingFunction(controlPoints: 0.18, 0.82, 0.16, 1.0)
+        case .glassPop:
+            CAMediaTimingFunction(name: appearing ? .easeOut : .easeIn)
+        }
+    }
+
+    private func applyPanelHighlight() {
+        guard let contentView = panel?.contentView else { return }
+        contentView.wantsLayer = true
+        guard let layer = contentView.layer else { return }
+        layer.cornerRadius = LiquidGlassSurface.preview.radius
+        layer.masksToBounds = false
+        layer.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.64).cgColor
+        layer.borderWidth = 1.8
+        layer.shadowColor = NSColor.controlAccentColor.withAlphaComponent(0.65).cgColor
+        layer.shadowOpacity = 0.42
+        layer.shadowRadius = 24
+        layer.shadowOffset = CGSize(width: 0, height: 0)
+    }
+
+    private func fadePanelHighlight() {
+        guard let layer = panel?.contentView?.layer else { return }
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        fade.duration = 0.16
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(fade, forKey: "macmender.glassPopHighlightFade")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+            layer.borderWidth = 0
+            layer.shadowOpacity = 0
+            layer.opacity = 1
+        }
+    }
+
+    private func resetPanelHighlight() {
+        guard let layer = panel?.contentView?.layer else { return }
+        layer.borderWidth = 0
+        layer.shadowOpacity = 0
     }
 
     private func panelSize(for settings: WindowSwitcherSettings, screen: NSScreen?) -> CGSize {
