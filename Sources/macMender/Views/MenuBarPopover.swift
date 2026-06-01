@@ -40,6 +40,7 @@ struct MenuBarPopover: View {
             VStack(spacing: 6) {
                 PopoverStatusRow(title: "Accessibility", value: appModel.permissions.accessibility.title, isActive: appModel.permissions.accessibility == .granted)
                 PopoverStatusRow(title: "Screen Recording", value: appModel.permissions.screenRecording.title, isActive: appModel.permissions.screenRecording == .granted)
+                PopoverStatusRow(title: "Window Switcher", value: windowSwitcherStatus, isActive: windowSwitcherIsReady)
                 PopoverStatusRow(title: "Dock Hover", value: appModel.dockHover.isRunning ? "Watching" : "Paused", isActive: appModel.dockHover.isRunning)
                 PopoverStatusRow(title: "Menu Bar", value: menuBarStatus, isActive: appModel.menuBarScanner.shelfEnabled)
             }
@@ -80,7 +81,7 @@ struct MenuBarPopover: View {
             }
         }
         .padding(10)
-        .frame(width: 286)
+        .frame(width: 306)
         .liquidGlass(.panel)
     }
 
@@ -100,7 +101,20 @@ struct MenuBarPopover: View {
     private var menuBarStatus: String {
         if appModel.store.config.featureToggles.menuBarManagement == false { return "Off" }
         if appModel.permissions.screenRecording != .granted { return "Limited" }
-        return appModel.menuBarScanner.shelfEnabled ? "Scanning" : "Guide"
+        return appModel.menuBarScanner.shelfEnabled ? "Discovery" : "Guide"
+    }
+
+    private var windowSwitcherIsReady: Bool {
+        appModel.store.config.featureToggles.windowSwitcher &&
+        !appModel.store.config.safeModeEnabled &&
+        appModel.permissions.accessibility == .granted
+    }
+
+    private var windowSwitcherStatus: String {
+        if !appModel.store.config.featureToggles.windowSwitcher { return "Off" }
+        if appModel.store.config.safeModeEnabled { return "Paused" }
+        if appModel.permissions.accessibility != .granted { return "Needs Access" }
+        return appModel.windowSwitcher.isShowing ? "Open" : "Ready"
     }
 
     private var statusTone: Color {

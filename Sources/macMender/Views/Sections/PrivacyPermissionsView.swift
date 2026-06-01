@@ -17,7 +17,7 @@ struct PrivacyPermissionsView: View {
 
             PermissionCard(
                 title: "Accessibility",
-                subtitle: "Required for event taps, middle-click posting, global shortcuts, and window actions.",
+                subtitle: "Required for global shortcuts, input handling, and selecting windows.",
                 symbolName: "accessibility",
                 state: appModel.permissions.accessibility,
                 primaryActionTitle: "Request Access",
@@ -28,7 +28,7 @@ struct PrivacyPermissionsView: View {
 
             PermissionCard(
                 title: "Screen Recording",
-                subtitle: "Optional. Used only to show live window thumbnails in switcher previews.",
+                subtitle: "Optional. Used only for live window thumbnails in previews.",
                 symbolName: "rectangle.on.rectangle",
                 state: appModel.permissions.screenRecording,
                 primaryActionTitle: "Request Access",
@@ -39,14 +39,13 @@ struct PrivacyPermissionsView: View {
 
             SectionCard(
                 title: "Input Monitoring",
-                subtitle: "Guidance only. macOS may request this for global input observation; macMender does not mark it granted without a system permission check.",
+                subtitle: "Guidance only. macOS may request this for some global input observation.",
                 symbolName: "keyboard"
             ) {
                 HStack(spacing: 12) {
-                    MendyAvatarView(mood: .thinking, size: MendyAvatarSize.compact)
                     VStack(alignment: .leading, spacing: 4) {
                         CapabilityBadge(title: "Open Settings if prompted", systemImage: "keyboard.badge.eye", tone: .neutral)
-                        Text("If macMender is not listed in Input Monitoring, add the macMender app icon with the + button or by dragging it into the list when macOS accepts that gesture.")
+                        Text("If macMender is not listed, add the app with the + button or drag the app icon into the list when macOS accepts it.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -125,17 +124,20 @@ private struct PermissionCard: View {
 
     var body: some View {
         SectionCard(title: title, subtitle: subtitle, symbolName: symbolName) {
-            HStack(spacing: 12) {
-                MendyAvatarView(mood: state == .granted ? .success : .error, size: MendyAvatarSize.compact)
+            HStack(alignment: .center, spacing: 12) {
                 CapabilityBadge(
                     title: state.title,
                     systemImage: state == .granted ? "checkmark.circle.fill" : "exclamationmark.circle",
                     tone: state == .granted ? .active : .warning
                 )
                 Spacer()
-                Button(primaryActionTitle, action: primaryAction)
-                Button(secondaryActionTitle, action: secondaryAction)
+                HStack(spacing: 8) {
+                    Button(primaryActionTitle, action: primaryAction)
+                    Button(secondaryActionTitle, action: secondaryAction)
+                }
             }
+            .padding(10)
+            .liquidGlass(.row)
         }
     }
 }

@@ -68,31 +68,10 @@ struct MenuBarManagementView: View {
         PreferencesScrollView {
             SectionCard(
                 title: "Hide Menu Bar Icons",
-                subtitle: "Discover menu-bar items, pick what to review, and use app settings or macOS Command-drag for the actual change.",
+                subtitle: "Plan a safer menu bar without automatic third-party icon movement.",
                 symbolName: "menubar.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
-                    HStack(spacing: 14) {
-                        MendyAvatarView(mood: .thinking, size: MendyAvatarSize.prominent)
-
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text("Choose what to clean up. macMender will not drag third-party icons.")
-                                .font(.title3.weight(.semibold))
-                            Text("Use this page as a safe checklist. Turn off menu-bar icons in each app when possible, or hold Command and drag icons manually when macOS allows it.")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-
-                        Spacer(minLength: 12)
-                    }
-                    .padding(16)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(.white.opacity(0.10), lineWidth: 1)
-                    }
-
                     HStack {
                         CapabilityBadge(
                             title: appModel.menuBarScanner.lastScanDescription,
@@ -113,7 +92,7 @@ struct MenuBarManagementView: View {
                     }
 
                     HStack {
-                        Text("Automatic hide, reorder, restore, and show/tuck controls stay disabled in this build.")
+                        Text("Scan the current menu bar, mark icons to review, then use each app's setting or Command-drag manually when macOS allows it.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 12)
@@ -124,8 +103,15 @@ struct MenuBarManagementView: View {
                         }
                     }
 
-                    MenuBarSafeCommandDragGuide()
-                    MenuBarMovementDisabledBanner()
+                    DisclosureGroup("Why manual setup?") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            MenuBarSafeCommandDragGuide()
+                            MenuBarManualSetupTips()
+                            MenuBarMovementDisabledBanner()
+                        }
+                        .padding(.top, 6)
+                    }
+                    .font(.callout)
                 }
             }
 
