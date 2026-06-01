@@ -8,7 +8,7 @@ final class WindowSwitcherService: ObservableObject {
     @Published private(set) var isShowing = false
     @Published private(set) var windows: [WindowSummary] = []
     @Published private(set) var selectedIndex = 0
-    @Published private(set) var presentationStatus = "Ready"
+    @Published private(set) var presentationStatus = "Ready to scan"
     @Published private(set) var overlayTitle = "Window Switcher"
     @Published private(set) var overlaySubtitle = ""
     @Published private(set) var displayThumbnailSize = 160.0
@@ -16,6 +16,7 @@ final class WindowSwitcherService: ObservableObject {
     @Published private(set) var isDockPreview = false
     @Published private(set) var lastActivationDiagnostic = "No window activation attempted"
     @Published private(set) var lastDiscoveryReport = WindowDiscoveryReport.empty
+    @Published private(set) var hasRunWindowDiscovery = false
     @Published private(set) var lastThumbnailDiagnostic = "No thumbnail batch yet"
     @Published private var thumbnails: [WindowSummary.ID: NSImage] = [:]
 
@@ -52,6 +53,7 @@ final class WindowSwitcherService: ObservableObject {
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
         lastDiscoveryReport = catalog.lastDiscoveryReport
+        hasRunWindowDiscovery = true
 
         guard !discovered.isEmpty else {
             presentationStatus = "No switchable windows detected"
@@ -76,6 +78,7 @@ final class WindowSwitcherService: ObservableObject {
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
         lastDiscoveryReport = catalog.lastDiscoveryReport
+        hasRunWindowDiscovery = true
         presentationStatus = discovered.isEmpty ? "No switchable windows detected" : "\(discovered.count) windows available"
     }
 

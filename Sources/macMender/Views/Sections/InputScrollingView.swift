@@ -140,7 +140,7 @@ struct InputScrollingView: View {
     }
 
     private var middleClickView: some View {
-        SectionCard(title: "Middle Click", subtitle: "macMender can post middle clicks from mouse triggers or local three-finger tap detection.", symbolName: "hand.tap") {
+        SectionCard(title: "Middle Click", subtitle: middleClickSubtitle, symbolName: "hand.tap") {
             VStack(alignment: .leading, spacing: 14) {
                 Toggle("Enable Middle Click", isOn: binding(\.middleClick.enabled))
                 Picker("Trigger", selection: binding(\.middleClick.trigger)) {
@@ -163,6 +163,20 @@ struct InputScrollingView: View {
                 }
             }
         }
+    }
+
+    private var middleClickSubtitle: String {
+        let settings = appModel.activeProfile.middleClick
+        guard settings.enabled else {
+            return "Currently disabled. When enabled, macMender can help send middle-click actions from supported triggers."
+        }
+        guard appModel.permissions.accessibility == .granted else {
+            return "Waiting for Accessibility before middle-click actions can run."
+        }
+        guard !appModel.store.config.safeModeEnabled else {
+            return "Paused by Safe Mode."
+        }
+        return "Middle-click actions are set up for the selected trigger."
     }
 
     private var middleClickRuntimeTitle: String {

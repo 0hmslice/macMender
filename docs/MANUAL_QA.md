@@ -21,12 +21,14 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Settings > Menu Bar title reads `Hide Menu Bar Icons`.
 - Confirm Settings > Menu Bar shows Command-drag instructions, read-only discovery, session-only "Mark to review" planning controls, and clear disabled states for direct reorder/hide/reveal.
 - Confirm Settings > Menu Bar does not show `Safe Hiding Setup`, `Show/Tuck Hidden Area`, layout lanes, fake hidden sections, or automatic third-party icon movement controls.
+- Confirm normal Settings > Menu Bar copy does not mention Thaw, runtime transplants, or engine paths. Direct menu-bar icon movement should be described in general user terms as unavailable/disabled.
 - Confirm detected menu-bar rows show resolved app icons where possible and fall back gracefully for unresolved/system items.
 - Confirm "Mark to review" does not move, hide, persist, or imply any physical menu-bar operation.
 - Confirm no fake drag, reorder, move-to-hidden, Always Hidden, checkbox hide, or physical movement controls are reachable.
 - Inspect the menu bar status item and popover. Confirm it is compact, glass-like, shows accurate chips, and does not claim scroll, Dock, or hidden menu-bar syncing.
 - Confirm the popover stays slim: small Mendy mark, live status rows, short Settings/Permissions/Quit actions, no tutorial layout, no long Command-drag instructions, and no clipped text.
 - Inspect Option+Tab glass styling and verify keyboard selection, mouse hover selection, and mouse-click activation use the same selected highlight.
+- After a fresh launch, confirm Dock & Windows > Switcher says `Ready to scan` and diagnostics say `No scan yet` before discovery runs. After `Refresh Discovery`, confirm it shows the actual discovered window count.
 - Confirm Dock & Windows > Switcher discovery diagnostics list total discovered windows, app name, bundle ID, PID, AX window count, CG match status, included/dropped state, and drop/include reason.
 - Confirm switcher discovery includes Finder, Terminal, System Settings, Safari, browser windows, and other normal app windows when those apps are open.
 - Verify Option+Tab keyboard cycling and modifier-release confirm activate the highlighted card/window.
@@ -49,6 +51,9 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Hover the macMender Dock item while its Preferences window is visible. Expected result: either one real Preferences/Overview window preview appears, or the preview is suppressed with a clear diagnostic reason. Preview panels, switcher overlays, popovers, and transient windows must never appear.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
 - Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover.
+- Confirm granted Accessibility and Screen Recording cards on Privacy do not show a primary `Request Access` button, while missing permissions still do.
+- Confirm Middle Click copy reads as disabled/conditional when the feature is off and no runtime behavior is enabled by default.
+- Inspect Overview and Dock & Windows for reduced dark angular shell seams after the post-QA cleanup pass.
 
 ## Still Disabled
 

@@ -89,7 +89,11 @@ struct DockWindowsView: View {
                     }
                 }
 
-                WindowDiscoveryDiagnosticsView(report: appModel.windowSwitcher.lastDiscoveryReport, activationDiagnostic: appModel.windowSwitcher.lastActivationDiagnostic)
+                WindowDiscoveryDiagnosticsView(
+                    report: appModel.windowSwitcher.lastDiscoveryReport,
+                    hasRunDiscovery: appModel.windowSwitcher.hasRunWindowDiscovery,
+                    activationDiagnostic: appModel.windowSwitcher.lastActivationDiagnostic
+                )
             }
         }
     }
@@ -266,6 +270,7 @@ struct DockWindowsView: View {
 
 private struct WindowDiscoveryDiagnosticsView: View {
     var report: WindowDiscoveryReport
+    var hasRunDiscovery: Bool
     var activationDiagnostic: String
 
     var body: some View {
@@ -276,8 +281,12 @@ private struct WindowDiscoveryDiagnosticsView: View {
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
 
-                if report.appReports.isEmpty {
-                    Text("No discovery pass has run yet.")
+                if !hasRunDiscovery {
+                    Text("No scan yet. Run Refresh Discovery to list windows.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if report.appReports.isEmpty {
+                    Text("No switchable windows were found in the last scan.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -312,11 +321,15 @@ private struct WindowDiscoveryDiagnosticsView: View {
             }
             .padding(.top, 8)
         } label: {
-            Label("Discovery diagnostics: \(report.summary)", systemImage: "list.bullet.rectangle")
+            Label("Discovery diagnostics: \(diagnosticsSummary)", systemImage: "list.bullet.rectangle")
                 .font(.callout.weight(.semibold))
         }
         .padding(12)
         .liquidGlass(.card)
+    }
+
+    private var diagnosticsSummary: String {
+        hasRunDiscovery ? report.summary : "No scan yet"
     }
 
     private func shouldShowReport(_ report: WindowAppDiscoveryReport) -> Bool {

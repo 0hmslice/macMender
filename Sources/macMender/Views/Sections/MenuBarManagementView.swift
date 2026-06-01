@@ -386,7 +386,7 @@ private struct MenuBarMovementDisabledBanner: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Physical movement is disabled")
                     .font(.callout.weight(.semibold))
-                Text("This prevents visible cursor movement, accidental menus, and false success states. A future Thaw-style runtime must be transplanted and verified before macMender offers direct hide or reorder controls again.")
+                Text("This prevents visible cursor movement, accidental menus, and false success states. Direct icon movement will stay unavailable until it can be verified safely.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -679,7 +679,7 @@ private struct MenuBarMendyDiscoveryRow: View {
 
 private struct MenuBarSafetyBoundaryList: View {
     private let items = [
-        ("Direct movement remains off", "No app-facing UI calls the physical mover while the Thaw runtime transplant is unfinished."),
+        ("Direct movement remains off", "No app-facing UI moves third-party menu-bar icons automatically."),
         ("Planning is local to this screen", "Marked rows are a checklist for manual cleanup; they are not saved as hide or reorder intent."),
         ("Failures are not hidden", "macMender shows discovery and permission state instead of reporting success for disabled movement features.")
     ]
@@ -723,7 +723,7 @@ private struct LiveOrderingPermissionBanner: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Live menu-bar order needs Screen Recording")
                     .font(.headline)
-                Text("macMender uses this only to read menu-bar item windows and positions, like Ice and Thaw. It does not record, save, stream, or send your screen anywhere.")
+                Text("macMender uses this only to read menu-bar item windows and positions. It does not record, save, stream, or send your screen anywhere.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1394,7 +1394,7 @@ private struct MendyMenuBarStatusChip: View {
         }
         .animation(MenuBarLayoutMotion.hover(reduceMotion: reduceMotion), value: isHovered)
         .animation(MenuBarLayoutMotion.lane(reduceMotion: reduceMotion), value: insertionIndex)
-        .help(movementEnabled ? "Mendy stays Visible so you can open macMender, but you can drag it left or right." : "Mendy movement is disabled until the real Thaw runtime is transplanted.")
+        .help(movementEnabled ? "Mendy stays Visible so you can open macMender, but you can drag it left or right." : "Mendy movement is disabled until direct icon movement can be verified safely.")
     }
 
     private func handleGestureDrop(_ value: DragGesture.Value) {

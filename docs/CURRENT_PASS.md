@@ -8,6 +8,14 @@ Branch:
 
 ## UI Delight and Status Polish Pass
 
+### Post-QA Copy and State Cleanup
+
+1. Normal Menu Bar setup UI now uses general product copy for disabled direct movement. User-facing setup text no longer mentions a Thaw-style runtime or runtime transplant.
+2. Privacy permission cards are state-aware: granted Accessibility and Screen Recording permissions show their completed state without a primary `Request Access` button, while missing permissions keep the request action.
+3. Middle Click copy is conditional. When disabled, the page describes it as currently disabled and only explains what it can do after setup.
+4. Dock & Windows > Switcher now distinguishes the initial unscanned state from a completed empty scan. Before discovery runs, the status says `Ready to scan` and diagnostics say `No scan yet`.
+5. The shared preferences shell background received a small seam polish pass to reduce harsh angular dark shapes without changing layout, Dock preview identity, thumbnail capture, Option+Tab activation/discovery, menu-bar movement, MiddleClick runtime behavior, or Dock tuning.
+
 ### Dock Preview Animation Settings
 
 1. Dock preview settings now include presentation-only `Preview animation` and `Animation speed` controls.

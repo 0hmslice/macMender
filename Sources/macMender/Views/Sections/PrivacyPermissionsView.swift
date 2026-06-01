@@ -21,7 +21,7 @@ struct PrivacyPermissionsView: View {
                 symbolName: "accessibility",
                 state: appModel.permissions.accessibility,
                 primaryActionTitle: "Request Access",
-                secondaryActionTitle: "Open Settings",
+                secondaryActionTitle: "Open System Settings",
                 primaryAction: { appModel.permissions.requestAccessibility() },
                 secondaryAction: { appModel.permissions.openAccessibilitySettings() }
             )
@@ -32,7 +32,7 @@ struct PrivacyPermissionsView: View {
                 symbolName: "rectangle.on.rectangle",
                 state: appModel.permissions.screenRecording,
                 primaryActionTitle: "Request Access",
-                secondaryActionTitle: "Open Settings",
+                secondaryActionTitle: "Open System Settings",
                 primaryAction: { appModel.permissions.requestScreenRecording() },
                 secondaryAction: { appModel.permissions.openScreenRecordingSettings() }
             )
@@ -132,7 +132,9 @@ private struct PermissionCard: View {
                 )
                 Spacer()
                 HStack(spacing: 8) {
-                    Button(primaryActionTitle, action: primaryAction)
+                    if state != .granted {
+                        Button(primaryActionTitle, action: primaryAction)
+                    }
                     Button(secondaryActionTitle, action: secondaryAction)
                 }
             }

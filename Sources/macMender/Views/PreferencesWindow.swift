@@ -122,15 +122,19 @@ private struct PreferencesDetailShell: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .liquidGlass(.windowBackground)
         .background {
-            LinearGradient(
-                colors: [
-                    Color.accentColor.opacity(0.08),
-                    Color.primary.opacity(0.025),
-                    Color.clear
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            ZStack {
+                Color(nsColor: .windowBackgroundColor)
+                    .opacity(0.16)
+                LinearGradient(
+                    colors: [
+                        Color.accentColor.opacity(0.055),
+                        Color.secondary.opacity(0.035),
+                        Color.primary.opacity(0.018)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
             .ignoresSafeArea()
         }
     }
