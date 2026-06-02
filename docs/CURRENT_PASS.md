@@ -6,6 +6,45 @@ Most complete working copy:
 Branch:
 `codex/apple-ui-simplification-motion`
 
+## Mockup-Inspired UI Simplification Pass
+
+### Visual System and Shell
+
+1. Shared soft status/action tile components were added for Apple-style cards and friendly action rows.
+2. Liquid Glass card/panel highlights and shadows were softened to reduce the heavy dark diagnostics feel.
+3. The Preferences shell now uses a simpler layered background and a softer sidebar surface instead of stacked dark custom chrome.
+4. The sidebar top area now presents `macMender` with small Mendy and a short friendly status. A compact service summary sits near the bottom.
+5. Section labels were simplified: `Input`, `Dock & Windows`, `Privacy`, shorter subtitles, and less technical wording.
+
+### Overview Dashboard
+
+1. Overview was rebuilt around a stronger hero with large Mendy, `macMender is running`, a short health sentence, compact status chips, and a `Refresh Status` action.
+2. Equal-weight technical panels were replaced with four high-level cards: Accessibility, Screen Recording, Window Switcher, and Dock Previews.
+3. Quick Actions are now friendly tiles for refreshing windows, testing the preview animation, and opening permissions.
+4. Runtime/service details are moved into a `Services` disclosure using user-facing labels: Input monitoring, Dock previews, and Menu bar discovery.
+5. The Overview copy avoids claiming physical menu-bar movement or hidden-icon syncing.
+
+### Supporting Pages
+
+1. Dock & Windows keeps the existing controls and runtime behavior, including Preview animation, Animation duration, Preview linger, Test Preview Animation, and Window Switcher settings. Labels were shortened and diagnostics remain hidden by default.
+2. Menu Bar keeps the safe manual setup flow, detected icon list, and planning-only Mark to Review behavior. Default rows now use concise state labels such as `Ready to review`, `Planned for review`, and `System item`.
+3. Privacy now shows Accessibility, Screen Recording, and Input Monitoring as calm checklist cards. Granted permissions remain quiet; missing permissions keep clear actions.
+4. Advanced now uses Local Diagnostics, Recovery Tools, and Technical Status naming, with dense details in disclosures.
+5. The menu bar popover says `Running`, `Dock previews`, and `Menu Bar setup`, and avoids tutorial copy and `Local helpers` phrasing.
+
+### Verification Notes
+
+- `swift build` passed after the UI simplification changes.
+- `swift test` passed with 65 tests.
+- `script/build_and_run.sh --verify` passed and refreshed `dist/macMender.app`.
+- Launched `/Users/ryan/Documents/macMender/dist/macMender.app`.
+- A temporary screenshot of Dock & Windows confirmed the shortened Dock Preview labels, preserved animation duration slider, Test Preview Animation button, and hidden diagnostics disclosure.
+- Computer Use was not available after the context transition, and an AppleScript UI click attempt captured Codex instead of the app. Full page-by-page post-change visual QA remains manual.
+- No Dock preview identity/matching/title eligibility/discovery/capture/cache files were changed.
+- No Option+Tab activation/discovery files were changed.
+- No menu-bar movement runtime code or `MenuBarItemMover` files were changed.
+- `docs/qa/screenshots` was not modified.
+
 ## Apple UI Simplification and Dock Preview Motion Pass
 
 ### Dock Preview Motion

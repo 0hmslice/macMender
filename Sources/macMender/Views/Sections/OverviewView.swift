@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct OverviewView: View {
@@ -5,100 +6,237 @@ struct OverviewView: View {
 
     var body: some View {
         PreferencesScrollView {
-            SectionCard(
-                title: "macMender is \(appModel.runningStatusTitle.lowercased())",
-                subtitle: "Watching the parts of your Mac this profile manages.",
-                symbolName: appModel.activeProfile.symbolName
-            ) {
-                HStack(spacing: 16) {
-                    MendyAvatarView(mood: appModel.mendyMood, size: MendyAvatarSize.prominent)
+            OverviewHero(appModel: appModel)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(appModel.activeProfile.name)
-                            .font(.system(size: 34, weight: .semibold))
-                        Text(appModel.activeProfile.summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer()
-                    CapabilityBadge(
-                        title: appModel.store.config.safeModeEnabled ? "Safe Mode" : "Active",
-                        systemImage: appModel.store.config.safeModeEnabled ? "pause.circle.fill" : "checkmark.circle.fill",
-                        tone: appModel.store.config.safeModeEnabled ? .warning : .active
-                    )
-                }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
+                OverviewStatusCard(
+                    title: "Accessibility",
+                    subtitle: "System access",
+                    symbol: "display",
+                    status: appModel.permissions.accessibility.title,
+                    tone: appModel.permissions.accessibility == .granted ? .active : .warning
+                )
+                OverviewStatusCard(
+                    title: "Screen Recording",
+                    subtitle: "Window thumbnails",
+                    symbol: "record.circle",
+                    status: appModel.permissions.screenRecording.title,
+                    tone: appModel.permissions.screenRecording == .granted ? .active : .warning
+                )
+                OverviewStatusCard(
+                    title: "Window Switcher",
+                    subtitle: appModel.activeProfile.windowSwitcher.shortcut,
+                    symbol: "rectangle.3.group",
+                    status: windowSwitcherStatus,
+                    tone: windowSwitcherIsReady ? .active : .warning
+                )
+                OverviewStatusCard(
+                    title: "Dock Previews",
+                    subtitle: "Hover to preview",
+                    symbol: "dock.rectangle",
+                    status: appModel.dockHover.isRunning ? "Active" : "Paused",
+                    tone: appModel.dockHover.isRunning ? .active : .warning
+                )
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
-                FeatureTile(title: "Scrolling", symbol: "computermouse", enabled: appModel.store.config.featureToggles.scrolling)
-                FeatureTile(title: "Menu Bar", symbol: "menubar.rectangle", enabled: appModel.store.config.featureToggles.menuBarManagement)
-                FeatureTile(title: "Window Switcher", symbol: "rectangle.3.group", enabled: appModel.store.config.featureToggles.windowSwitcher)
-                FeatureTile(title: "Dock Profiles", symbol: "dock.rectangle", enabled: appModel.store.config.featureToggles.dockProfiles)
-            }
-
-            SectionCard(title: "Services", subtitle: "A quick view of what is ready right now.", symbolName: "dot.radiowaves.left.and.right") {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        CapabilityBadge(title: appModel.systemEvents.status.eventTapRunning ? "Input monitoring ready" : "Input monitoring paused", systemImage: "keyboard", tone: appModel.systemEvents.status.eventTapRunning ? .active : .warning)
-                        CapabilityBadge(title: appModel.dockHover.isRunning ? "Dock previews ready" : "Dock previews paused", systemImage: "dock.arrow.up.rectangle", tone: appModel.dockHover.isRunning ? .active : .warning)
-                        CapabilityBadge(title: appModel.menuBarScanner.detectedItems.isEmpty ? "Menu bar not scanned" : "Menu bar scanned", systemImage: "menubar.rectangle", tone: appModel.menuBarScanner.detectedItems.isEmpty ? .neutral : .active)
-                        Spacer()
-                    }
-
-                    DisclosureGroup("Service details") {
-                        VStack(alignment: .leading, spacing: 10) {
-                            RuntimeRow(title: "Input monitoring", detail: appModel.systemEvents.status.eventTapRunning ? "Ready for shortcuts and input adjustments" : "Waiting for permission or setup", running: appModel.systemEvents.status.eventTapRunning)
-                            RuntimeRow(
-                                title: "Dock previews",
-                                detail: appModel.dockHover.isRunning ? (appModel.dockHover.lastHoveredApp ?? "Watching Dock item hover") : "Paused until Accessibility is granted",
-                                running: appModel.dockHover.isRunning
-                            )
-                            RuntimeRow(
-                                title: "Menu bar discovery",
-                                detail: menuBarRuntimeDetail,
-                                running: !appModel.menuBarScanner.detectedItems.isEmpty
-                            )
+            HStack(alignment: .top, spacing: 14) {
+                SectionCard(title: "Quick Actions", subtitle: "Common tasks.", symbolName: "bolt") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+                        FriendlyActionTile(
+                            title: "Refresh windows",
+                            subtitle: "Find open windows now",
+                            systemImage: "arrow.clockwise"
+                        ) {
+                            appModel.windowSwitcher.refreshDiscovery(settings: appModel.activeProfile.windowSwitcher)
                         }
-                        .padding(.top, 6)
+                        FriendlyActionTile(
+                            title: "Test preview",
+                            subtitle: "See your animation",
+                            systemImage: "sparkles"
+                        ) {
+                            showPreviewAnimationSample()
+                        }
+                        FriendlyActionTile(
+                            title: "Open permissions",
+                            subtitle: "Review system access",
+                            systemImage: "shield"
+                        ) {
+                            appModel.selectedSection = .privacy
+                        }
                     }
-                    .font(.callout)
                 }
+
+                SectionCard(title: "Mendy is here to help", subtitle: "Need guidance? Mendy keeps the setup honest.", symbolName: "sparkles") {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Your Mac is set up with the features this profile manages.")
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Button("Check status") {
+                                appModel.refreshSystemState(force: true)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        MendyAvatarView(mood: appModel.mendyMood, size: MendyAvatarSize.panel)
+                    }
+                }
+                .frame(width: 360)
             }
 
-            SectionCard(title: "System Access", subtitle: "macMender only asks for access when a feature needs it.", symbolName: "lock.shield") {
-                VStack(alignment: .leading, spacing: 10) {
-                    PermissionRow(title: "Accessibility", detail: "Input tuning, middle-click posting, and window actions", state: appModel.permissions.accessibility)
-                    PermissionRow(title: "Screen Recording", detail: "Optional window thumbnails for switcher previews", state: appModel.permissions.screenRecording)
-                    HStack {
-                        Text("Launch at Login")
-                        Spacer()
-                        Text(appModel.loginItems.statusDescription)
-                            .foregroundStyle(.secondary)
+            SectionCard(title: "Services", subtitle: "Technical details stay here when you need them.", symbolName: "dot.radiowaves.left.and.right") {
+                DisclosureGroup("Service details") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        RuntimeRow(title: "Input monitoring", detail: appModel.systemEvents.status.eventTapRunning ? "Ready for shortcuts and input adjustments" : "Waiting for permission or setup", running: appModel.systemEvents.status.eventTapRunning)
+                        RuntimeRow(
+                            title: "Dock previews",
+                            detail: appModel.dockHover.isRunning ? (appModel.dockHover.lastHoveredApp ?? "Watching Dock item hover") : "Paused until Accessibility is granted",
+                            running: appModel.dockHover.isRunning
+                        )
+                        RuntimeRow(
+                            title: "Menu bar discovery",
+                            detail: menuBarRuntimeDetail,
+                            running: !appModel.menuBarScanner.detectedItems.isEmpty
+                        )
                     }
+                    .padding(.top, 8)
                 }
-            }
-
-            SectionCard(title: "Quick Actions", subtitle: "High-confidence recovery actions stay one click away.", symbolName: "bolt") {
-                HStack {
-                    Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
-                        appModel.toggleSafeMode()
-                    }
-                    Button("Refresh Permissions") {
-                        appModel.refreshSystemState(force: true)
-                    }
-                    Button("Export Configuration") {
-                        appModel.exportConfiguration()
-                    }
-                }
+                .font(.callout)
             }
         }
     }
 
+    private var windowSwitcherIsReady: Bool {
+        appModel.store.config.featureToggles.windowSwitcher &&
+        !appModel.store.config.safeModeEnabled &&
+        appModel.permissions.accessibility == .granted
+    }
+
+    private var windowSwitcherStatus: String {
+        if !appModel.store.config.featureToggles.windowSwitcher { return "Off" }
+        if appModel.store.config.safeModeEnabled { return "Paused" }
+        if appModel.permissions.accessibility != .granted { return "Needs access" }
+        return "Ready"
+    }
+
     private var menuBarRuntimeDetail: String {
         guard appModel.menuBarScanner.shelfEnabled else { return "Paused" }
-        if appModel.hiddenMenuBarItemCount == 0 { return "No icons selected to hide" }
+        if appModel.hiddenMenuBarItemCount == 0 { return "Manual setup guide active" }
         return appModel.menuBarScanner.overflowStatusDescription
+    }
+
+    private func showPreviewAnimationSample() {
+        let screenFrame = NSApp.keyWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let anchor = CGRect(x: screenFrame.midX - 30, y: screenFrame.minY + 8, width: 60, height: 60)
+        appModel.windowSwitcher.showDockPreviewAnimationSample(
+            settings: appModel.activeProfile.dockPreviews.overlaySettings(using: appModel.activeProfile.windowSwitcher),
+            anchorFrame: anchor
+        )
+    }
+}
+
+private struct OverviewHero: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        HStack(spacing: 26) {
+            MendyAvatarView(mood: heroMood, size: MendyAvatarSize.prominent)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("macMender is \(appModel.runningStatusTitle.lowercased())")
+                    .font(.system(size: 34, weight: .semibold))
+                    .lineLimit(1)
+                Text(heroSubtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    CapabilityBadge(title: permissionsChipTitle, systemImage: "checkmark.circle.fill", tone: appModel.permissions.needsAttention ? .warning : .active)
+                    CapabilityBadge(title: appModel.dockHover.isRunning ? "Dock previews active" : "Dock previews paused", systemImage: "dock.rectangle", tone: appModel.dockHover.isRunning ? .active : .warning)
+                    CapabilityBadge(title: windowSwitcherChipTitle, systemImage: "rectangle.3.group", tone: windowSwitcherIsReady ? .active : .warning)
+                    CapabilityBadge(title: menuBarChipTitle, systemImage: "menubar.rectangle", tone: appModel.menuBarScanner.detectedItems.isEmpty ? .neutral : .active)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button("Refresh Status") {
+                appModel.refreshSystemState(force: true)
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, minHeight: 220, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.thinMaterial)
+                .overlay {
+                    LinearGradient(
+                        colors: [
+                            Color.blue.opacity(0.16),
+                            Color.cyan.opacity(0.07),
+                            Color.clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
+                .overlay(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(.white.opacity(0.22), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.10), radius: 18, y: 8)
+        }
+    }
+
+    private var heroMood: MendyMood {
+        if appModel.permissions.needsAttention { return .thinking }
+        if appModel.store.config.safeModeEnabled { return .idle }
+        return .success
+    }
+
+    private var heroSubtitle: String {
+        if appModel.permissions.needsAttention {
+            return "A permission needs review before every feature can run."
+        }
+        if appModel.store.config.safeModeEnabled {
+            return "Safe Mode is on, so active system changes are paused."
+        }
+        return "Your Mac is set up and the main helpers are ready."
+    }
+
+    private var permissionsChipTitle: String {
+        appModel.permissions.needsAttention ? "Permissions need review" : "Permissions granted"
+    }
+
+    private var windowSwitcherIsReady: Bool {
+        appModel.store.config.featureToggles.windowSwitcher &&
+        !appModel.store.config.safeModeEnabled &&
+        appModel.permissions.accessibility == .granted
+    }
+
+    private var windowSwitcherChipTitle: String {
+        windowSwitcherIsReady ? "Window switcher ready" : "Window switcher paused"
+    }
+
+    private var menuBarChipTitle: String {
+        appModel.menuBarScanner.detectedItems.isEmpty ? "Menu bar guide ready" : "Menu bar monitored"
+    }
+}
+
+private struct OverviewStatusCard: View {
+    var title: String
+    var subtitle: String
+    var symbol: String
+    var status: String
+    var tone: CapabilityBadge.Tone
+
+    var body: some View {
+        SoftStatusCard(title: title, subtitle: subtitle, systemImage: symbol, tone: tone) {
+            Label(status, systemImage: tone == .active ? "checkmark.circle.fill" : "exclamationmark.circle")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(tone == .active ? .green : .orange)
+        }
     }
 }
 
@@ -118,55 +256,6 @@ private struct RuntimeRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .liquidGlass(.row)
-    }
-}
-
-private struct FeatureTile: View {
-    var title: String
-    var symbol: String
-    var enabled: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol)
-                .font(.title2)
-                .foregroundStyle(enabled ? .green : .secondary)
-                .frame(width: 30)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                Text(enabled ? "Enabled" : "Paused")
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-        .liquidGlass(.row)
-    }
-}
-
-private struct PermissionRow: View {
-    var title: String
-    var detail: String
-    var state: PermissionState
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.callout.weight(.medium))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Text(state.title)
-                .foregroundStyle(state == .granted ? .green : .orange)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

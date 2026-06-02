@@ -14,24 +14,24 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .overview: "Overview"
-        case .input: "Input and Scrolling"
+        case .input: "Input"
         case .menuBar: "Menu Bar"
-        case .dockWindows: "Dock and Windows"
+        case .dockWindows: "Dock & Windows"
         case .profiles: "Profiles"
-        case .privacy: "Privacy and Permissions"
+        case .privacy: "Privacy"
         case .advanced: "Advanced"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .overview: "Status and quick actions"
-        case .input: "Mouse, trackpad, scrolling"
-        case .menuBar: "Safe setup guide"
-        case .dockWindows: "Switcher, previews, Dock"
+        case .overview: "At a glance"
+        case .input: "Mouse and trackpad"
+        case .menuBar: "Clean up with confidence"
+        case .dockWindows: "Previews and switching"
         case .profiles: "Saved setups"
-        case .privacy: "Local data and access"
-        case .advanced: "Diagnostics and recovery"
+        case .privacy: "Access and settings"
+        case .advanced: "Diagnostics"
         }
     }
 

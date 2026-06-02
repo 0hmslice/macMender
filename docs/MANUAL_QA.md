@@ -58,10 +58,16 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Inspect Overview and Dock & Windows for reduced dark angular shell seams after the post-QA cleanup pass.
 - Inspect Overview, Menu Bar, Dock & Windows, Privacy, Profiles, and Advanced for concise user-facing text, aligned content, and no clipped copy.
 - Confirm Overview uses `Services`, `Input monitoring`, `Dock previews`, and `Menu bar discovery` instead of raw runtime labels.
+- Confirm the mockup-inspired Overview reads clearly within five seconds: strong hero, large Mendy, `macMender is running`, compact health chips, four high-level cards, friendly Quick Actions, and service details tucked into disclosure.
+- Confirm the sidebar top identity says `macMender`, uses small Mendy, has concise section names, a softer selected state, and a calm bottom service summary.
+- Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation, with raw diagnostics hidden by default.
 - Confirm Menu Bar hides repeated `Visible now` labels, bundle IDs, and long planning explanations in the normal row list.
+- Confirm Menu Bar rows remain planning-only and use concise states such as `Ready to review`, `Planned for review`, and `System item`.
 - Confirm Privacy keeps local config path/details under `Local details`.
+- Confirm Privacy shows Accessibility, Screen Recording, and Input Monitoring as calm checklist cards, with granted states quiet and missing states actionable.
 - Confirm Advanced keeps dense implementation notes under disclosures.
 - Confirm the menu bar popover says `Dock previews`, avoids `Dock Hover` and `Local helpers`, and remains a slim live status dashboard.
+- Confirm the menu bar popover says `Menu Bar setup`, uses a small Mendy, avoids tutorial text, and does not claim hidden icon syncing.
 
 ## Still Disabled
 
@@ -72,6 +78,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 ## Not Verified by This Agent Run
 
 - Full Dock hover over adjacent Dock icons using the user's actual pointer path after the thumbnail/cache changes.
+- Full post-change visual inspection of Overview, Sidebar, Menu Bar, Privacy, Advanced, and popover after the mockup-inspired UI simplification pass. Computer Use was unavailable during this agent run, and an AppleScript click attempt did not capture the app page reliably.
 - Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
 - Feel and correctness of the Dock preview linger setting on the user's Dock.
 - Visual comparison of all Dock preview animation styles and duration values with an actual preview panel.

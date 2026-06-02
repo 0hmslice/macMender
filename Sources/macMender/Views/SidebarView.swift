@@ -5,7 +5,7 @@ struct SidebarView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             ForEach(SettingsSection.allCases) { section in
                 Button {
                     selection = section
@@ -31,21 +31,21 @@ struct SidebarView: View {
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background {
                         if isSelected {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(.ultraThinMaterial)
+                                .fill(.thinMaterial)
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .fill(Color.accentColor.opacity(0.14))
+                                        .fill(Color.accentColor.opacity(0.075))
                                 }
                                 .overlay(alignment: .topLeading) {
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                        .stroke(.white.opacity(0.18), lineWidth: 1)
+                                        .stroke(.white.opacity(0.22), lineWidth: 1)
                                 }
-                                .shadow(color: Color.accentColor.opacity(0.10), radius: 8, y: 3)
+                                .shadow(color: Color.black.opacity(0.08), radius: 10, y: 4)
                         }
                     }
                     .animation(reduceMotion ? nil : .easeOut(duration: 0.11), value: isSelected)
@@ -58,7 +58,7 @@ struct SidebarView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 12)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

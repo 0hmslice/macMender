@@ -26,7 +26,7 @@ struct MenuBarPopover: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("macMender")
                         .font(.headline)
-                    Text(appModel.runningStatusTitle)
+                    Text(popoverStatusTitle)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(statusTone)
                 }
@@ -42,7 +42,7 @@ struct MenuBarPopover: View {
                 PopoverStatusRow(title: "Screen Recording", value: appModel.permissions.screenRecording.title, isActive: appModel.permissions.screenRecording == .granted)
                 PopoverStatusRow(title: "Window Switcher", value: windowSwitcherStatus, isActive: windowSwitcherIsReady)
                 PopoverStatusRow(title: "Dock previews", value: appModel.dockHover.isRunning ? "Ready" : "Paused", isActive: appModel.dockHover.isRunning)
-                PopoverStatusRow(title: "Menu Bar", value: menuBarStatus, isActive: appModel.menuBarScanner.shelfEnabled)
+                PopoverStatusRow(title: "Menu Bar setup", value: menuBarStatus, isActive: appModel.menuBarScanner.shelfEnabled)
             }
 
             HStack(spacing: 8) {
@@ -57,7 +57,7 @@ struct MenuBarPopover: View {
                     appModel.selectedSection = .privacy
                     openSettings()
                 } label: {
-                    Label("Permissions", systemImage: "lock.shield")
+                    Label("Check Permissions", systemImage: "lock.shield")
                 }
                 .buttonStyle(LiquidGlassButtonStyle())
             }
@@ -96,6 +96,12 @@ struct MenuBarPopover: View {
             return "Accessibility is required."
         }
         return "macMender is running locally."
+    }
+
+    private var popoverStatusTitle: String {
+        if appModel.store.config.safeModeEnabled { return "Paused" }
+        if appModel.permissions.needsAttention { return "Needs attention" }
+        return "Running"
     }
 
     private var menuBarStatus: String {

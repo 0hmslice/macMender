@@ -8,10 +8,24 @@ struct PreferencesWindow: View {
             NavigationSplitView {
                 VStack(spacing: 0) {
                     MendySidebarHeader(appModel: appModel)
-                    Divider()
+                        .padding(.bottom, 4)
                     SidebarView(selection: $appModel.selectedSection)
+                    SidebarStatusSummary(appModel: appModel)
                 }
-                    .liquidGlass(.sidebar)
+                    .background {
+                        ZStack {
+                            Color(nsColor: .windowBackgroundColor).opacity(0.18)
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.08),
+                                    Color.accentColor.opacity(0.035),
+                                    Color.clear
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        }
+                    }
                     .navigationSplitViewColumnWidth(min: 230, ideal: 260)
             } detail: {
                 PreferencesDetailShell(appModel: appModel)
@@ -51,7 +65,7 @@ private struct MendySidebarHeader: View {
             MendyAvatarView(mood: appModel.mendyMood, size: MendyAvatarSize.sidebar)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("Mendy")
+                Text("macMender")
                     .font(.headline)
                 Text(headerDetail)
                     .font(.caption)
@@ -62,27 +76,66 @@ private struct MendySidebarHeader: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .padding(.top, 18)
+        .padding(.bottom, 10)
     }
 
     private var headerDetail: String {
         switch appModel.selectedSection {
         case .overview:
-            "Watching the whole setup"
+            "Keeping your Mac working beautifully."
         case .input:
-            "Tuning input feel"
+            "Mouse and trackpad tools."
         case .menuBar:
-            "Organizing menu extras"
+            "Plan a cleaner menu bar."
         case .dockWindows:
-            "Watching Dock and windows"
+            "Previews and switching."
         case .profiles:
-            "Managing saved setups"
+            "Saved setups."
         case .privacy:
-            appModel.permissions.needsAttention ? "Needs one permission" : "Privacy checks look good"
+            appModel.permissions.needsAttention ? "Needs one permission." : "Access looks good."
         case .advanced:
-            "Ready for recovery tools"
+            "Diagnostics and recovery."
         }
+    }
+}
+
+private struct SidebarStatusSummary: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                    .shadow(color: statusColor.opacity(0.45), radius: 4)
+                Text(statusTitle)
+                    .font(.caption.weight(.medium))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .liquidGlass(.row, radius: 12)
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 14)
+    }
+
+    private var statusTitle: String {
+        if appModel.store.config.safeModeEnabled { return "Safe Mode on" }
+        if appModel.permissions.needsAttention { return "Needs attention" }
+        return "All services running"
+    }
+
+    private var statusColor: Color {
+        if appModel.store.config.safeModeEnabled { return .orange }
+        if appModel.permissions.needsAttention { return .orange }
+        return .green
     }
 }
 
@@ -109,8 +162,9 @@ private struct PreferencesDetailShell: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 14)
-            .background(.ultraThinMaterial)
+            .padding(.top, 20)
+            .padding(.bottom, 12)
+            .background(.thinMaterial)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(.white.opacity(0.08))
@@ -123,11 +177,11 @@ private struct PreferencesDetailShell: View {
         .background {
             ZStack {
                 Color(nsColor: .windowBackgroundColor)
-                    .opacity(0.34)
+                    .opacity(0.22)
                 LinearGradient(
                     colors: [
-                        Color.accentColor.opacity(0.035),
-                        Color.secondary.opacity(0.024),
+                        Color.white.opacity(0.075),
+                        Color.accentColor.opacity(0.055),
                         Color.clear
                     ],
                     startPoint: .topLeading,

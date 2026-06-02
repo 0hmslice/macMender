@@ -26,45 +26,31 @@ struct PrivacyPermissionsView: View {
                 }
             }
 
-            PermissionCard(
-                title: "Accessibility",
-                subtitle: "Required for global shortcuts, input handling, and selecting windows.",
-                symbolName: "accessibility",
-                state: appModel.permissions.accessibility,
-                primaryActionTitle: "Request Access",
-                secondaryActionTitle: "Open System Settings",
-                primaryAction: { appModel.permissions.requestAccessibility() },
-                secondaryAction: { appModel.permissions.openAccessibilitySettings() }
-            )
+            PreferencesSectionGrid(minimumColumnWidth: 280) {
+                PermissionCard(
+                    title: "Accessibility",
+                    subtitle: "Shortcuts and window actions",
+                    symbolName: "accessibility",
+                    state: appModel.permissions.accessibility,
+                    primaryActionTitle: "Request Access",
+                    secondaryActionTitle: "Open Settings",
+                    primaryAction: { appModel.permissions.requestAccessibility() },
+                    secondaryAction: { appModel.permissions.openAccessibilitySettings() }
+                )
 
-            PermissionCard(
-                title: "Screen Recording",
-                subtitle: "Optional. Used only for live window thumbnails in previews.",
-                symbolName: "rectangle.on.rectangle",
-                state: appModel.permissions.screenRecording,
-                primaryActionTitle: "Request Access",
-                secondaryActionTitle: "Open System Settings",
-                primaryAction: { appModel.permissions.requestScreenRecording() },
-                secondaryAction: { appModel.permissions.openScreenRecordingSettings() }
-            )
+                PermissionCard(
+                    title: "Screen Recording",
+                    subtitle: "Window thumbnails",
+                    symbolName: "rectangle.on.rectangle",
+                    state: appModel.permissions.screenRecording,
+                    primaryActionTitle: "Request Access",
+                    secondaryActionTitle: "Open Settings",
+                    primaryAction: { appModel.permissions.requestScreenRecording() },
+                    secondaryAction: { appModel.permissions.openScreenRecordingSettings() }
+                )
 
-            SectionCard(
-                title: "Input Monitoring",
-                subtitle: "Open this only if macOS asks for it.",
-                symbolName: "keyboard"
-            ) {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        CapabilityBadge(title: "Open Settings if prompted", systemImage: "keyboard.badge.eye", tone: .neutral)
-                        Text("If macMender is missing, add it with + or drag in the app when macOS allows it.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer()
-                    Button("Open Input Monitoring") {
-                        appModel.permissions.openInputMonitoringSettings()
-                    }
+                InputMonitoringCard {
+                    appModel.permissions.openInputMonitoringSettings()
                 }
             }
 
@@ -134,23 +120,46 @@ private struct PermissionCard: View {
     var secondaryAction: () -> Void
 
     var body: some View {
-        SectionCard(title: title, subtitle: subtitle, symbolName: symbolName) {
-            HStack(alignment: .center, spacing: 12) {
+        SoftStatusCard(
+            title: title,
+            subtitle: subtitle,
+            systemImage: symbolName,
+            tone: state == .granted ? .active : .warning
+        ) {
+            HStack(spacing: 8) {
                 CapabilityBadge(
                     title: state.title,
                     systemImage: state == .granted ? "checkmark.circle.fill" : "exclamationmark.circle",
                     tone: state == .granted ? .active : .warning
                 )
                 Spacer()
-                HStack(spacing: 8) {
-                    if state != .granted {
-                        Button(primaryActionTitle, action: primaryAction)
-                    }
+                if state != .granted {
+                    Button(primaryActionTitle, action: primaryAction)
+                } else {
                     Button(secondaryActionTitle, action: secondaryAction)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(10)
-            .liquidGlass(.row)
+        }
+    }
+}
+
+private struct InputMonitoringCard: View {
+    var openSettings: () -> Void
+
+    var body: some View {
+        SoftStatusCard(
+            title: "Input Monitoring",
+            subtitle: "Only if macOS asks",
+            systemImage: "keyboard",
+            tone: .neutral
+        ) {
+            HStack(spacing: 8) {
+                CapabilityBadge(title: "Guided setup", systemImage: "keyboard.badge.eye", tone: .neutral)
+                Spacer()
+                Button("Open Settings", action: openSettings)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

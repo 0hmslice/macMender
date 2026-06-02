@@ -6,7 +6,7 @@ struct AdvancedView: View {
 
     var body: some View {
         PreferencesScrollView {
-            SectionCard(title: "Diagnostics", subtitle: "Local messages only. macMender does not upload diagnostics.", symbolName: "stethoscope") {
+            SectionCard(title: "Local Diagnostics", subtitle: "Messages stay on this Mac.", symbolName: "stethoscope") {
                 VStack(alignment: .leading, spacing: 8) {
                     if appModel.diagnostics.latestMessages.isEmpty {
                         Label("No recent diagnostics", systemImage: "checkmark.circle.fill")
@@ -26,7 +26,7 @@ struct AdvancedView: View {
                 }
             }
 
-            SectionCard(title: "Recovery", subtitle: "Fast exits and reversible changes matter for always-on utilities.", symbolName: "arrow.counterclockwise") {
+            SectionCard(title: "Recovery Tools", subtitle: "Safe, reversible actions for troubleshooting.", symbolName: "arrow.counterclockwise") {
                 HStack {
                     Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
                         appModel.toggleSafeMode()
@@ -43,7 +43,7 @@ struct AdvancedView: View {
                 }
             }
 
-            SectionCard(title: "Implementation Notes", subtitle: "Detailed boundaries are available when you need them.", symbolName: "lock.trianglebadge.exclamationmark") {
+            SectionCard(title: "Technical Status", subtitle: "Detailed boundaries are available when you need them.", symbolName: "lock.trianglebadge.exclamationmark") {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("Only verified controls are shown as available.", systemImage: "checkmark.shield")
                         .foregroundStyle(.secondary)

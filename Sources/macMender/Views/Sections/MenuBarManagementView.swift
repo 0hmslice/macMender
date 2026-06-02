@@ -68,7 +68,7 @@ struct MenuBarManagementView: View {
         PreferencesScrollView {
             SectionCard(
                 title: "Hide Menu Bar Icons",
-                subtitle: "Plan a cleaner menu bar with manual setup.",
+                subtitle: "Pick icons to review, then clean them up manually.",
                 symbolName: "menubar.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -92,7 +92,7 @@ struct MenuBarManagementView: View {
                     }
 
                     HStack {
-                        Text("Mark icons to review, then use each app's setting or Command-drag when macOS allows it.")
+                        Text("Use each app's setting first, or Command-drag manually when macOS allows it.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 12)
@@ -117,7 +117,7 @@ struct MenuBarManagementView: View {
 
             SectionCard(
                 title: "Detected Menu Bar Icons",
-                subtitle: "A planning checklist for manual cleanup.",
+                subtitle: "A lightweight checklist for manual cleanup.",
                 symbolName: "list.bullet.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -591,9 +591,9 @@ private struct MenuBarDiscoveryRow: View {
 
     private var detail: String {
         if item.isSystemManaged {
-            return "Managed by macOS; review in System Settings if needed."
+            return "System item"
         }
-        return isMarkedForManualCleanup ? "Marked for manual cleanup." : "Available for manual review."
+        return isMarkedForManualCleanup ? "Planned for review" : "Ready to review"
     }
 }
 

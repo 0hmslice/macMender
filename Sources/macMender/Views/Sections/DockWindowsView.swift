@@ -9,9 +9,9 @@ struct DockWindowsView: View {
 
     enum DockTab: String, CaseIterable, Identifiable {
         case switcher = "Switcher"
-        case previews = "Dock Previews"
-        case settings = "Dock Settings"
-        case profiles = "Dock Profiles"
+        case previews = "Previews"
+        case settings = "Dock"
+        case profiles = "Profiles"
         var id: String { rawValue }
     }
 
@@ -54,7 +54,7 @@ struct DockWindowsView: View {
     }
 
     private var switcherView: some View {
-        SectionCard(title: "Window Switcher", subtitle: "Choose how Option+Tab shows open windows.", symbolName: "rectangle.3.group") {
+        SectionCard(title: "Window Switcher", subtitle: "Choose how open windows appear in Option+Tab.", symbolName: "rectangle.3.group") {
             VStack(alignment: .leading, spacing: 14) {
                 Toggle("Enable Window Switcher", isOn: binding(\.windowSwitcher.enabled))
                 Picker("Shortcut", selection: binding(\.windowSwitcher.shortcut)) {
@@ -81,7 +81,7 @@ struct DockWindowsView: View {
                     CapabilityBadge(title: appModel.permissions.screenRecording == .granted ? "Thumbnails Available" : "Icon Fallback", systemImage: "rectangle.on.rectangle", tone: appModel.permissions.screenRecording == .granted ? .active : .warning)
                     CapabilityBadge(title: appModel.windowSwitcher.presentationStatus, systemImage: appModel.windowSwitcher.isShowing ? "rectangle.stack.fill" : "info.circle", tone: appModel.windowSwitcher.isShowing ? .active : .neutral)
                     Spacer()
-                    Button("Refresh Discovery") {
+                    Button("Refresh windows") {
                         appModel.windowSwitcher.refreshDiscovery(settings: appModel.activeProfile.windowSwitcher)
                     }
                     Button("Test Switcher") {
@@ -99,7 +99,7 @@ struct DockWindowsView: View {
     }
 
     private var previewsView: some View {
-        SectionCard(title: "Dock Previews", subtitle: "Preview an app's windows when you hover its Dock icon.", symbolName: "dock.arrow.up.rectangle") {
+        SectionCard(title: "Dock Previews", subtitle: "Show window previews from the Dock.", symbolName: "dock.arrow.up.rectangle") {
             VStack(alignment: .leading, spacing: 14) {
                 Toggle("Enable Dock Previews", isOn: binding(\.dockPreviews.enabled))
                 LabeledSlider(
@@ -110,7 +110,7 @@ struct DockWindowsView: View {
                     valueLabel: "\(appModel.activeProfile.dockPreviews.hoverDelay.sliderValueLabel)s"
                 )
                 LabeledSlider(
-                    title: "Preview linger after leaving Dock",
+                    title: "Preview linger",
                     value: binding(\.dockPreviews.previewIdleTimeout),
                     range: 0...10.0,
                     step: 0.1,
@@ -128,7 +128,7 @@ struct DockWindowsView: View {
                     step: 0.01,
                     valueLabel: "\(appModel.activeProfile.dockPreviews.animationDuration.sliderValueLabel)s"
                 )
-                Text("How long Dock preview animations take.")
+                Text("How long preview show and hide animations take.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Picker("Preview Layout", selection: binding(\.dockPreviews.layout)) {
@@ -156,7 +156,7 @@ struct DockWindowsView: View {
                     Spacer()
                 }
 
-                Text("Choose when previews appear, how long they linger, and how they move.")
+                Text("Choose when previews appear, how long they stay, and how they move.")
                     .foregroundStyle(.secondary)
 
                 DisclosureGroup("Preview diagnostics") {
