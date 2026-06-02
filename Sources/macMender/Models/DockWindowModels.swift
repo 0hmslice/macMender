@@ -111,7 +111,7 @@ struct DockPreviewSettings: Codable, Equatable {
     var hoverDelay: Double
     var previewIdleTimeout: Double
     var animationStyle: DockPreviewAnimationStyle
-    var animationSpeed: DockPreviewAnimationSpeed
+    var animationDuration: Double
     var layout: SwitcherLayout
     var thumbnailSize: Double
 
@@ -120,6 +120,7 @@ struct DockPreviewSettings: Codable, Equatable {
         case hoverDelay
         case previewIdleTimeout
         case animationStyle
+        case animationDuration
         case animationSpeed
         case layout
         case thumbnailSize
@@ -130,7 +131,7 @@ struct DockPreviewSettings: Codable, Equatable {
         hoverDelay: Double,
         previewIdleTimeout: Double,
         animationStyle: DockPreviewAnimationStyle = .system,
-        animationSpeed: DockPreviewAnimationSpeed = .balanced,
+        animationDuration: Double = Self.defaultAnimationDuration,
         layout: SwitcherLayout,
         thumbnailSize: Double
     ) {
@@ -138,7 +139,7 @@ struct DockPreviewSettings: Codable, Equatable {
         self.hoverDelay = hoverDelay
         self.previewIdleTimeout = Self.clampedPreviewIdleTimeout(previewIdleTimeout)
         self.animationStyle = animationStyle
-        self.animationSpeed = animationSpeed
+        self.animationDuration = Self.clampedAnimationDuration(animationDuration)
         self.layout = layout
         self.thumbnailSize = thumbnailSize
     }
@@ -152,9 +153,26 @@ struct DockPreviewSettings: Codable, Equatable {
             try container.decodeIfPresent(Double.self, forKey: .previewIdleTimeout) ?? fallback.previewIdleTimeout
         )
         animationStyle = try container.decodeIfPresent(DockPreviewAnimationStyle.self, forKey: .animationStyle) ?? fallback.animationStyle
-        animationSpeed = try container.decodeIfPresent(DockPreviewAnimationSpeed.self, forKey: .animationSpeed) ?? fallback.animationSpeed
+        if let duration = try container.decodeIfPresent(Double.self, forKey: .animationDuration) {
+            animationDuration = Self.clampedAnimationDuration(duration)
+        } else if let legacySpeed = try container.decodeIfPresent(DockPreviewAnimationSpeed.self, forKey: .animationSpeed) {
+            animationDuration = legacySpeed.duration
+        } else {
+            animationDuration = fallback.animationDuration
+        }
         layout = try container.decodeIfPresent(SwitcherLayout.self, forKey: .layout) ?? fallback.layout
         thumbnailSize = try container.decodeIfPresent(Double.self, forKey: .thumbnailSize) ?? fallback.thumbnailSize
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(enabled, forKey: .enabled)
+        try container.encode(hoverDelay, forKey: .hoverDelay)
+        try container.encode(previewIdleTimeout, forKey: .previewIdleTimeout)
+        try container.encode(animationStyle, forKey: .animationStyle)
+        try container.encode(animationDuration, forKey: .animationDuration)
+        try container.encode(layout, forKey: .layout)
+        try container.encode(thumbnailSize, forKey: .thumbnailSize)
     }
 
     static let `default` = DockPreviewSettings(
@@ -162,7 +180,7 @@ struct DockPreviewSettings: Codable, Equatable {
         hoverDelay: 0.35,
         previewIdleTimeout: 1.8,
         animationStyle: .system,
-        animationSpeed: .balanced,
+        animationDuration: defaultAnimationDuration,
         layout: .grid,
         thumbnailSize: 152
     )
@@ -172,7 +190,7 @@ struct DockPreviewSettings: Codable, Equatable {
         hoverDelay: 0.2,
         previewIdleTimeout: 1.5,
         animationStyle: .system,
-        animationSpeed: .balanced,
+        animationDuration: defaultAnimationDuration,
         layout: .grid,
         thumbnailSize: 132
     )
@@ -182,13 +200,19 @@ struct DockPreviewSettings: Codable, Equatable {
         hoverDelay: 0.45,
         previewIdleTimeout: 2.0,
         animationStyle: .system,
-        animationSpeed: .smooth,
+        animationDuration: 0.32,
         layout: .grid,
         thumbnailSize: 180
     )
 
+    static let defaultAnimationDuration = 0.22
+
     static func clampedPreviewIdleTimeout(_ value: Double) -> Double {
         min(max(value, 0), 10.0)
+    }
+
+    static func clampedAnimationDuration(_ value: Double) -> Double {
+        min(max(value, 0.05), 0.60)
     }
 
     func overlaySettings(using base: WindowSwitcherSettings) -> WindowSwitcherSettings {

@@ -4,7 +4,58 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/ui-delight-status-polish`
+`codex/apple-ui-simplification-motion`
+
+## Apple UI Simplification and Dock Preview Motion Pass
+
+### Dock Preview Motion
+
+1. Dock preview appear/dismiss motion now stabilizes the panel frame before presentation and animates the content layer instead of using frame animation as the primary motion path.
+2. `None` is immediate. `Fade` is opacity-only. `Scale`, `Slide Up`, `System`, `Glass Pop`, and `Genie` use layer opacity/transform states so the frame does not jitter during presentation.
+3. `Glass Pop` remains a one-shot keyframe effect with a short highlight fade. `Genie` is a private-API-free Dock-origin style expansion using a narrower/lower layer transform and elastic keyframes.
+4. Moving between previews cancels stale layer animations with the existing animation generation guard and removes old layer animations before starting a new one.
+5. Dismissal uses the matching reverse layer state for each style. Reduce Motion still simplifies the effective style to `Fade` or `None`.
+6. Thumbnail capture, thumbnail cache, Dock identity matching, Dock app/window discovery, title eligibility, Option+Tab discovery, and Option+Tab activation were not changed in this pass.
+
+### Animation Duration Setting
+
+1. The user-facing Snappy/Balanced/Smooth picker was replaced with an `Animation duration` slider.
+2. The slider range is 0.05s to 0.60s with 0.01s steps. Defaults clamp through `DockPreviewSettings.clampedAnimationDuration(_:)`; the built-in default is 0.22s.
+3. Existing persisted configs that still contain `animationSpeed` decode into the equivalent duration, preserving backward compatibility without showing the old picker.
+4. Duration changes use the existing profile/defaults path and update only visual presentation settings. They do not trigger preview discovery, thumbnail capture, or a full runtime restart.
+5. Tests now cover default duration, clamping, profile persistence, and legacy speed decoding.
+
+### Test Preview Animation
+
+1. `Test Preview Animation` remains a local sample only. It creates a synthetic local `Animation Test` preview and does not resolve Dock identity, run discovery, capture thumbnails, or touch the thumbnail cache.
+2. The sample uses the selected animation style and duration, then auto-dismisses after a short style-aware delay.
+3. A sticky sample status bug was fixed: after auto-dismiss, the Switcher status returns to `Ready to scan`, and diagnostics state that the animation sample did not request capture.
+
+### Sidebar, Shell, and Copy Cleanup
+
+1. The sidebar selected row now uses a softer Liquid Glass capsule instead of the bright blue matched-geometry treatment.
+2. Sidebar switching no longer wraps selection changes in explicit matched-geometry animation, reducing jerky movement and respecting Reduce Motion for the small row animation.
+3. The preferences shell background was simplified to one cleaner layered background with fewer angular dark seams and less stacked custom chrome while preserving adaptive centered content width.
+4. Overview now answers whether macMender is running and renames raw runtime labels to user-facing service names: Input monitoring, Dock previews, Menu bar discovery, and Services.
+5. Menu Bar setup reduces repeated `Visible now` labels, bundle IDs, and planning explanations; long rationale stays in `Why manual setup?`.
+6. Privacy hides config-path details under `Local details` and reads as a permission checklist.
+7. Advanced keeps dense implementation notes inside disclosures.
+8. The menu bar popover source now says `Dock previews` instead of `Dock Hover` and avoids `Local helpers` phrasing.
+
+### Verification Notes
+
+- `swift build` passed after the motion/status cleanup.
+- `swift test` passed with 65 tests.
+- `script/build_and_run.sh --verify` passed and refreshed `dist/macMender.app`.
+- Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` confirmed Dock & Windows > Dock Previews shows the `Animation duration` slider and all styles: System, Fade, Scale, Slide Up, Glass Pop, Genie, and None.
+- Computer Use confirmed the old Snappy/Balanced/Smooth speed picker is no longer visible.
+- Computer Use confirmed `Test Preview Animation` does not leave a visible sticky panel and, after the cleanup fix, the Switcher status returns to `Ready to scan`.
+- Computer Use confirmed repeated sidebar switching remained responsive and did not show the macOS loading cursor.
+- Computer Use confirmed Option+Tab discovery still reports 10 windows from 9 apps and lists normal apps including Finder, Terminal, System Settings, Brave, Xcode, Mail, Messages, ChatGPT, and Codex.
+- Computer Use confirmed Settings > Menu Bar remains a safe manual planning guide with no reachable physical movement controls.
+- Post-interaction idle sample for PID 49859 was 0.0% CPU across 10 one-second samples, with RSS about 163 MB.
+- `docs/qa/screenshots` was not modified.
+- Full human visual comparison of every animation style/duration on a real Dock hover remains manual QA.
 
 ## UI Delight and Status Polish Pass
 

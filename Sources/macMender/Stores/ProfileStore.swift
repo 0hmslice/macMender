@@ -181,6 +181,7 @@ final class ProfileStore: ObservableObject {
                 profile.middleClick.action = .middleClick
             }
             profile.dockPreviews.previewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(profile.dockPreviews.previewIdleTimeout)
+            profile.dockPreviews.animationDuration = DockPreviewSettings.clampedAnimationDuration(profile.dockPreviews.animationDuration)
             return profile
         }
         return sanitized

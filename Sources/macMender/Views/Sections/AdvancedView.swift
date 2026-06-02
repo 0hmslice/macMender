@@ -45,10 +45,10 @@ struct AdvancedView: View {
 
             SectionCard(title: "Implementation Notes", subtitle: "Detailed boundaries are available when you need them.", symbolName: "lock.trianglebadge.exclamationmark") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Label("Only verified runtime paths are exposed as working controls.", systemImage: "checkmark.shield")
+                    Label("Only verified controls are shown as available.", systemImage: "checkmark.shield")
                         .foregroundStyle(.secondary)
 
-                    DisclosureGroup("Runtime boundaries") {
+                    DisclosureGroup("Technical boundaries") {
                         VStack(alignment: .leading, spacing: 8) {
                             BoundaryRow(title: "Menu bar organization", detail: "Discovery and planning use the Thaw-port engine path. Physical third-party icon movement remains disabled.")
                             BoundaryRow(title: "Dock icon hover previews", detail: "Reads the Dock accessibility tree and disables itself when Accessibility is unavailable.")

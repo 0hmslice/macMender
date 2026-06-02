@@ -45,9 +45,10 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify first Dock/Option+Tab thumbnail batch timing in Dock & Windows > Dock Previews. A first warm batch on this run reported `requested=10 cached=0 captured=10 duration=382ms`; repeated preview reported `requested=1 cached=1 captured=0 duration=0ms`.
 - Verify preview panels appear immediately with placeholders if thumbnails are still loading, then progressively fill in.
 - Verify the Dock preview `Preview linger after leaving Dock` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
-- Verify Dock preview `Preview animation` and `Animation speed` settings are visible, persist after relaunch, and affect only panel presentation/dismissal.
+- Verify Dock preview `Preview animation` and `Animation duration` settings are visible, persist after relaunch, and affect only panel presentation/dismissal.
 - Use `Test Preview Animation` to compare System, Fade, Scale, Slide Up, Glass Pop, Genie, and None. The test button should show a local sample preview and must not resolve a real Dock item, capture thumbnails, or leave a sticky panel.
-- Confirm Snappy, Balanced, and Smooth are noticeably different durations. Expected configured durations are 0.08s, 0.22s, and 0.42s.
+- Confirm the Animation Duration slider has a practical range from 0.05s to 0.60s, shows the current value in seconds, and makes short values feel immediate while longer values remain smooth.
+- Confirm legacy profiles that previously used Snappy/Balanced/Smooth still open with an equivalent duration and do not show the old speed picker.
 - With Reduce Motion enabled in macOS, confirm Dock preview presentation simplifies to None or Fade.
 - Hover the macMender Dock item while its Preferences window is visible. Expected result: either one real Preferences/Overview window preview appears, or the preview is suppressed with a clear diagnostic reason. Preview panels, switcher overlays, popovers, and transient windows must never appear.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
@@ -55,6 +56,12 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm granted Accessibility and Screen Recording cards on Privacy do not show a primary `Request Access` button, while missing permissions still do.
 - Confirm Middle Click copy reads as disabled/conditional when the feature is off and no runtime behavior is enabled by default.
 - Inspect Overview and Dock & Windows for reduced dark angular shell seams after the post-QA cleanup pass.
+- Inspect Overview, Menu Bar, Dock & Windows, Privacy, Profiles, and Advanced for concise user-facing text, aligned content, and no clipped copy.
+- Confirm Overview uses `Services`, `Input monitoring`, `Dock previews`, and `Menu bar discovery` instead of raw runtime labels.
+- Confirm Menu Bar hides repeated `Visible now` labels, bundle IDs, and long planning explanations in the normal row list.
+- Confirm Privacy keeps local config path/details under `Local details`.
+- Confirm Advanced keeps dense implementation notes under disclosures.
+- Confirm the menu bar popover says `Dock previews`, avoids `Dock Hover` and `Local helpers`, and remains a slim live status dashboard.
 
 ## Still Disabled
 
@@ -67,8 +74,10 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Full Dock hover over adjacent Dock icons using the user's actual pointer path after the thumbnail/cache changes.
 - Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
 - Feel and correctness of the Dock preview linger setting on the user's Dock.
-- Visual comparison of all Dock preview animation styles and speeds with an actual preview panel.
-- Confirm the presentation-only animation feel pass: System has a small scale/drift, Fade is opacity-only, Scale grows from visibly smaller to normal, Slide Up travels clearly from the Dock direction, Glass Pop has a one-shot overshoot/highlight, Genie expands from a narrower Dock-origin frame, and None is instant.
+- Visual comparison of all Dock preview animation styles and duration values with an actual preview panel.
+- Confirm the presentation-only animation feel pass: System has a small scale/drift, Fade is opacity-only, Scale grows from visibly smaller to normal, Slide Up travels clearly from the Dock direction, Glass Pop has a one-shot overshoot/highlight, Genie expands elastically from a narrower Dock-origin layer transform, and None is instant.
+- Confirm moving quickly between Dock icons cancels stale animations cleanly without sticky previews or delayed panels.
+- Confirm Test Preview Animation uses the current style/duration, auto-dismisses, and returns status to `Ready to scan` after dismissal.
 - Reduce Motion behavior for Dock preview animations.
 - Adjacent Dock hover correctness on the user's Dock.
 - Browser multi-window thumbnail correctness.

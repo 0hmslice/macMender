@@ -410,7 +410,7 @@ final class AppModel: ObservableObject {
         windowSwitcher.updateDockPreviewIdleTimeout(activeProfile.dockPreviews.previewIdleTimeout)
         windowSwitcher.updateDockPreviewAnimation(
             style: activeProfile.dockPreviews.animationStyle,
-            speed: activeProfile.dockPreviews.animationSpeed
+            duration: activeProfile.dockPreviews.animationDuration
         )
 
         if permissions.accessibility == .granted,

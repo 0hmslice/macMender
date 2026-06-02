@@ -6,8 +6,8 @@ struct OverviewView: View {
     var body: some View {
         PreferencesScrollView {
             SectionCard(
-                title: "Current Profile",
-                subtitle: appModel.activeProfile.summary,
+                title: "macMender is \(appModel.runningStatusTitle.lowercased())",
+                subtitle: "Watching the parts of your Mac this profile manages.",
                 symbolName: appModel.activeProfile.symbolName
             ) {
                 HStack(spacing: 16) {
@@ -16,7 +16,7 @@ struct OverviewView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(appModel.activeProfile.name)
                             .font(.system(size: 34, weight: .semibold))
-                        Text("Mendy is watching for permission, Dock, input, and menu bar changes.")
+                        Text(appModel.activeProfile.summary)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -37,19 +37,32 @@ struct OverviewView: View {
                 FeatureTile(title: "Dock Profiles", symbol: "dock.rectangle", enabled: appModel.store.config.featureToggles.dockProfiles)
             }
 
-            SectionCard(title: "Runtime", subtitle: "Live local controllers that are currently attached to macOS.", symbolName: "dot.radiowaves.left.and.right") {
+            SectionCard(title: "Services", subtitle: "A quick view of what is ready right now.", symbolName: "dot.radiowaves.left.and.right") {
                 VStack(alignment: .leading, spacing: 10) {
-                    RuntimeRow(title: "Input Event Tap", detail: appModel.systemEvents.status.lastEventDescription, running: appModel.systemEvents.status.eventTapRunning)
-                    RuntimeRow(
-                        title: "Dock Hover Monitor",
-                        detail: appModel.dockHover.isRunning ? (appModel.dockHover.lastHoveredApp ?? "Watching Dock item hover") : "Paused until Accessibility is granted",
-                        running: appModel.dockHover.isRunning
-                    )
-                    RuntimeRow(
-                        title: "Menu Bar Scanner",
-                        detail: menuBarRuntimeDetail,
-                        running: appModel.menuBarScanner.shelfEnabled
-                    )
+                    HStack {
+                        CapabilityBadge(title: appModel.systemEvents.status.eventTapRunning ? "Input monitoring ready" : "Input monitoring paused", systemImage: "keyboard", tone: appModel.systemEvents.status.eventTapRunning ? .active : .warning)
+                        CapabilityBadge(title: appModel.dockHover.isRunning ? "Dock previews ready" : "Dock previews paused", systemImage: "dock.arrow.up.rectangle", tone: appModel.dockHover.isRunning ? .active : .warning)
+                        CapabilityBadge(title: appModel.menuBarScanner.detectedItems.isEmpty ? "Menu bar not scanned" : "Menu bar scanned", systemImage: "menubar.rectangle", tone: appModel.menuBarScanner.detectedItems.isEmpty ? .neutral : .active)
+                        Spacer()
+                    }
+
+                    DisclosureGroup("Service details") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            RuntimeRow(title: "Input monitoring", detail: appModel.systemEvents.status.eventTapRunning ? "Ready for shortcuts and input adjustments" : "Waiting for permission or setup", running: appModel.systemEvents.status.eventTapRunning)
+                            RuntimeRow(
+                                title: "Dock previews",
+                                detail: appModel.dockHover.isRunning ? (appModel.dockHover.lastHoveredApp ?? "Watching Dock item hover") : "Paused until Accessibility is granted",
+                                running: appModel.dockHover.isRunning
+                            )
+                            RuntimeRow(
+                                title: "Menu bar discovery",
+                                detail: menuBarRuntimeDetail,
+                                running: !appModel.menuBarScanner.detectedItems.isEmpty
+                            )
+                        }
+                        .padding(.top, 6)
+                    }
+                    .font(.callout)
                 }
             }
 

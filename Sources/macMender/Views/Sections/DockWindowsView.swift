@@ -54,7 +54,7 @@ struct DockWindowsView: View {
     }
 
     private var switcherView: some View {
-        SectionCard(title: "Enhanced Window Switcher", subtitle: "Option+Tab style switching with thumbnail fallback states.", symbolName: "rectangle.3.group") {
+        SectionCard(title: "Window Switcher", subtitle: "Choose how Option+Tab shows open windows.", symbolName: "rectangle.3.group") {
             VStack(alignment: .leading, spacing: 14) {
                 Toggle("Enable Window Switcher", isOn: binding(\.windowSwitcher.enabled))
                 Picker("Shortcut", selection: binding(\.windowSwitcher.shortcut)) {
@@ -121,11 +121,16 @@ struct DockWindowsView: View {
                         Text(style.title).tag(style)
                     }
                 }
-                Picker("Animation speed", selection: binding(\.dockPreviews.animationSpeed)) {
-                    ForEach(DockPreviewAnimationSpeed.allCases) { speed in
-                        Text(speed.title).tag(speed)
-                    }
-                }
+                LabeledSlider(
+                    title: "Animation duration",
+                    value: binding(\.dockPreviews.animationDuration),
+                    range: 0.05...0.60,
+                    step: 0.01,
+                    valueLabel: "\(appModel.activeProfile.dockPreviews.animationDuration.sliderValueLabel)s"
+                )
+                Text("How long Dock preview animations take.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("Preview Layout", selection: binding(\.dockPreviews.layout)) {
                     ForEach(SwitcherLayout.allCases) { layout in
                         Text(layout.title).tag(layout)
@@ -151,7 +156,7 @@ struct DockWindowsView: View {
                     Spacer()
                 }
 
-                Text("Pick how quickly previews appear, how long they linger after your pointer leaves, and how the panel animates.")
+                Text("Choose when previews appear, how long they linger, and how they move.")
                     .foregroundStyle(.secondary)
 
                 DisclosureGroup("Preview diagnostics") {

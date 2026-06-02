@@ -120,16 +120,15 @@ private struct PreferencesDetailShell: View {
             DetailRouter(appModel: appModel)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .liquidGlass(.windowBackground)
         .background {
             ZStack {
                 Color(nsColor: .windowBackgroundColor)
-                    .opacity(0.16)
+                    .opacity(0.34)
                 LinearGradient(
                     colors: [
-                        Color.accentColor.opacity(0.055),
-                        Color.secondary.opacity(0.035),
-                        Color.primary.opacity(0.018)
+                        Color.accentColor.opacity(0.035),
+                        Color.secondary.opacity(0.024),
+                        Color.clear
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing

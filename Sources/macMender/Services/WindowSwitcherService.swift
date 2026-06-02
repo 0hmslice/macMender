@@ -30,7 +30,7 @@ final class WindowSwitcherService: ObservableObject {
     private var thumbnailTask: Task<Void, Never>?
     private var dockPreviewIdleTimeout: TimeInterval = DockPreviewSettings.default.previewIdleTimeout
     private var dockPreviewAnimationStyle = DockPreviewSettings.default.animationStyle
-    private var dockPreviewAnimationSpeed = DockPreviewSettings.default.animationSpeed
+    private var dockPreviewAnimationDurationValue = DockPreviewSettings.default.animationDuration
     private var panelAnimationGeneration = 0
     private var thumbnailCache: [WindowSummary.ID: ThumbnailCacheEntry] = [:]
     private var thumbnailCacheOrder: [WindowSummary.ID] = []
@@ -157,7 +157,7 @@ final class WindowSwitcherService: ObservableObject {
         isShowing = true
         isDockPreview = true
         overlayTitle = "Animation Test"
-        overlaySubtitle = "\(dockPreviewAnimationStyle.title) • \(dockPreviewAnimationSpeed.title)"
+        overlaySubtitle = "\(dockPreviewAnimationStyle.title) • \(dockPreviewAnimationDuration.formatted(.number.precision(.fractionLength(2))))s"
         presentationStatus = "Previewing \(dockPreviewAnimationStyle.title)"
         lastThumbnailDiagnostic = "animation sample uses local placeholder; capture not requested"
         dockPreviewAnchorFrame = anchorFrame
@@ -176,6 +176,7 @@ final class WindowSwitcherService: ObservableObject {
 
     func cancel() {
         let shouldAnimateDockDismiss = isDockPreview && (panel?.isVisible == true)
+        let wasAnimationSample = overlayTitle == "Animation Test"
         isShowing = false
         dockPreviewAnchorFrame = nil
         thumbnailTask?.cancel()
@@ -194,6 +195,10 @@ final class WindowSwitcherService: ObservableObject {
             dismissPanel()
         } else {
             panel?.orderOut(nil)
+        }
+        if wasAnimationSample {
+            presentationStatus = "Ready to scan"
+            lastThumbnailDiagnostic = "animation sample dismissed; capture not requested"
         }
     }
 
@@ -240,9 +245,9 @@ final class WindowSwitcherService: ObservableObject {
         dockPreviewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(timeout)
     }
 
-    func updateDockPreviewAnimation(style: DockPreviewAnimationStyle, speed: DockPreviewAnimationSpeed) {
+    func updateDockPreviewAnimation(style: DockPreviewAnimationStyle, duration: Double) {
         dockPreviewAnimationStyle = style
-        dockPreviewAnimationSpeed = speed
+        dockPreviewAnimationDurationValue = DockPreviewSettings.clampedAnimationDuration(duration)
     }
 
     func scheduleDockPreviewDismiss() {
@@ -265,7 +270,9 @@ final class WindowSwitcherService: ObservableObject {
     private func scheduleAnimationSampleDismiss() {
         dockPreviewDismissTask?.cancel()
         dockPreviewDismissTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(1700))
+            let duration = self?.dockPreviewAnimationDuration ?? DockPreviewSettings.default.animationDuration
+            let delay = max(850, Int((duration + 0.72) * 1000))
+            try? await Task.sleep(for: .milliseconds(delay))
             guard let self, !Task.isCancelled, self.overlayTitle == "Animation Test" else { return }
             self.cancel()
         }
@@ -398,61 +405,78 @@ final class WindowSwitcherService: ObservableObject {
         let generation = panelAnimationGeneration
         let style = effectiveDockPreviewAnimationStyle
         let finalFrame = panel.frame
-        let startFrame = panelAnimationFrame(from: finalFrame, style: style, appearing: true)
 
         resetPanelHighlight()
-        if style != .none {
-            panel.alphaValue = 0
-            panel.setFrame(startFrame, display: false)
-        } else {
-            panel.alphaValue = 1
-            panel.setFrame(finalFrame, display: false)
-        }
+        panel.alphaValue = 1
+        panel.setFrame(finalFrame, display: false)
+        let layer = preparePanelAnimationLayer()
+        let startState = layerState(for: style, appearing: true)
+        setLayerState(startState, on: layer)
         panel.orderFrontRegardless()
 
-        guard style != .none else { return }
-        if style == .glassPop {
-            presentGlassPop(panel: panel, finalFrame: finalFrame, generation: generation)
+        guard style != .none else {
+            setLayerState(.identity, on: layer)
             return
         }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = dockPreviewAnimationDuration
-            context.timingFunction = timingFunction(for: style, appearing: true)
-            panel.animator().alphaValue = 1
-            panel.animator().setFrame(finalFrame, display: true)
-        } completionHandler: { [weak self, weak panel] in
-            Task { @MainActor in
-                guard let self, self.panelAnimationGeneration == generation else { return }
-                panel?.alphaValue = 1
-                panel?.setFrame(finalFrame, display: false)
-            }
+        if style == .glassPop {
+            presentGlassPop(layer: layer, generation: generation)
+            return
+        }
+        if style == .genie {
+            presentGenie(layer: layer, from: startState, generation: generation)
+            return
+        }
+        animateLayer(
+            layer,
+            from: startState,
+            to: .identity,
+            duration: dockPreviewAnimationDuration,
+            timingFunction: timingFunction(for: style, appearing: true),
+            key: "macmender.preview.appear"
+        ) { [weak self] in
+            guard let self, self.panelAnimationGeneration == generation else { return }
+            self.setLayerState(.identity, on: layer)
         }
     }
 
-    private func presentGlassPop(panel: NSPanel, finalFrame: CGRect, generation: Int) {
+    private func presentGlassPop(layer: CALayer, generation: Int) {
         applyPanelHighlight()
-        let overshootFrame = finalFrame.insetBy(dx: -finalFrame.width * 0.055, dy: -finalFrame.height * 0.055)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = max(dockPreviewAnimationDuration * 0.58, 0.07)
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.06, 0.92, 0.16, 1.34)
-            panel.animator().alphaValue = 1
-            panel.animator().setFrame(overshootFrame, display: true)
-        } completionHandler: { [weak self, weak panel] in
-            Task { @MainActor in
-                guard let self, let panel, self.panelAnimationGeneration == generation else { return }
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = max(self.dockPreviewAnimationDuration * 0.42, 0.08)
-                    context.timingFunction = CAMediaTimingFunction(controlPoints: 0.20, 0.72, 0.26, 1.0)
-                    panel.animator().setFrame(finalFrame, display: true)
-                } completionHandler: { [weak self, weak panel] in
-                    Task { @MainActor in
-                        guard let self, self.panelAnimationGeneration == generation else { return }
-                        panel?.alphaValue = 1
-                        panel?.setFrame(finalFrame, display: false)
-                        self.fadePanelHighlight()
-                    }
-                }
-            }
+        let start = layerState(for: .glassPop, appearing: true)
+        let overshoot = PanelLayerState(
+            opacity: 1,
+            transform: CATransform3DMakeScale(1.055, 1.055, 1)
+        )
+        animateLayerKeyframes(
+            layer,
+            transforms: [start.transform, overshoot.transform, PanelLayerState.identity.transform],
+            opacities: [start.opacity, 1, 1],
+            keyTimes: [0, 0.58, 1],
+            duration: dockPreviewAnimationDuration,
+            timingFunction: CAMediaTimingFunction(controlPoints: 0.08, 0.82, 0.16, 1.0),
+            key: "macmender.preview.glassPop"
+        ) { [weak self] in
+            guard let self, self.panelAnimationGeneration == generation else { return }
+            self.setLayerState(.identity, on: layer)
+            self.fadePanelHighlight()
+        }
+    }
+
+    private func presentGenie(layer: CALayer, from start: PanelLayerState, generation: Int) {
+        let stretch = PanelLayerState(
+            opacity: 1,
+            transform: transformed(scaleX: 1.035, scaleY: 1.015, y: -5)
+        )
+        animateLayerKeyframes(
+            layer,
+            transforms: [start.transform, stretch.transform, PanelLayerState.identity.transform],
+            opacities: [start.opacity, 1, 1],
+            keyTimes: [0, 0.72, 1],
+            duration: dockPreviewAnimationDuration,
+            timingFunction: timingFunction(for: .genie, appearing: true),
+            key: "macmender.preview.genie"
+        ) { [weak self] in
+            guard let self, self.panelAnimationGeneration == generation else { return }
+            self.setLayerState(.identity, on: layer)
         }
     }
 
@@ -461,29 +485,141 @@ final class WindowSwitcherService: ObservableObject {
         panelAnimationGeneration += 1
         let generation = panelAnimationGeneration
         let style = effectiveDockPreviewAnimationStyle
-        let finalFrame = panel.frame
-        let targetFrame = panelAnimationFrame(from: finalFrame, style: style, appearing: false)
+        let layer = preparePanelAnimationLayer()
+        let targetState = layerState(for: style, appearing: false)
 
         guard style != .none else {
             panel.alphaValue = 1
+            setLayerState(.identity, on: layer)
             panel.orderOut(nil)
             return
         }
 
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = dockPreviewDismissDuration
-            context.timingFunction = timingFunction(for: style, appearing: false)
-            panel.animator().alphaValue = 0
-            panel.animator().setFrame(targetFrame, display: true)
-        } completionHandler: { [weak self, weak panel] in
-            Task { @MainActor in
-                guard let self, self.panelAnimationGeneration == generation else { return }
-                panel?.orderOut(nil)
-                panel?.alphaValue = 1
-                panel?.setFrame(finalFrame, display: false)
-                self.resetPanelHighlight()
-            }
+        animateLayer(
+            layer,
+            from: .identity,
+            to: targetState,
+            duration: dockPreviewDismissDuration,
+            timingFunction: timingFunction(for: style, appearing: false),
+            key: "macmender.preview.dismiss"
+        ) { [weak self, weak panel] in
+            guard let self, self.panelAnimationGeneration == generation else { return }
+            panel?.orderOut(nil)
+            panel?.alphaValue = 1
+            self.setLayerState(.identity, on: layer)
+            self.resetPanelHighlight()
         }
+    }
+
+    private func preparePanelAnimationLayer() -> CALayer {
+        guard let contentView = panel?.contentView else {
+            return CALayer()
+        }
+        contentView.wantsLayer = true
+        let layer = contentView.layer ?? CALayer()
+        layer.removeAllAnimations()
+        layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer.masksToBounds = false
+        return layer
+    }
+
+    private func setLayerState(_ state: PanelLayerState, on layer: CALayer) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.opacity = state.opacity
+        layer.transform = state.transform
+        CATransaction.commit()
+    }
+
+    private func animateLayer(
+        _ layer: CALayer,
+        from start: PanelLayerState,
+        to end: PanelLayerState,
+        duration: TimeInterval,
+        timingFunction: CAMediaTimingFunction,
+        key: String,
+        completion: @escaping @MainActor () -> Void
+    ) {
+        setLayerState(end, on: layer)
+
+        let transform = CABasicAnimation(keyPath: "transform")
+        transform.fromValue = start.transform
+        transform.toValue = end.transform
+
+        let opacity = CABasicAnimation(keyPath: "opacity")
+        opacity.fromValue = start.opacity
+        opacity.toValue = end.opacity
+
+        let group = CAAnimationGroup()
+        group.animations = [transform, opacity]
+        group.duration = duration
+        group.timingFunction = timingFunction
+        group.isRemovedOnCompletion = true
+        layer.add(group, forKey: key)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(Int(max(duration, 0) * 1000)))
+            completion()
+        }
+    }
+
+    private func animateLayerKeyframes(
+        _ layer: CALayer,
+        transforms: [CATransform3D],
+        opacities: [Float],
+        keyTimes: [NSNumber],
+        duration: TimeInterval,
+        timingFunction: CAMediaTimingFunction,
+        key: String,
+        completion: @escaping @MainActor () -> Void
+    ) {
+        setLayerState(.identity, on: layer)
+
+        let transform = CAKeyframeAnimation(keyPath: "transform")
+        transform.values = transforms
+        transform.keyTimes = keyTimes
+
+        let opacity = CAKeyframeAnimation(keyPath: "opacity")
+        opacity.values = opacities
+        opacity.keyTimes = keyTimes
+
+        let group = CAAnimationGroup()
+        group.animations = [transform, opacity]
+        group.duration = duration
+        group.timingFunction = timingFunction
+        group.isRemovedOnCompletion = true
+        layer.add(group, forKey: key)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(Int(max(duration, 0) * 1000)))
+            completion()
+        }
+    }
+
+    private func layerState(for style: DockPreviewAnimationStyle, appearing: Bool) -> PanelLayerState {
+        switch style {
+        case .none:
+            return .identity
+        case .fade:
+            return PanelLayerState(opacity: 0, transform: PanelLayerState.identity.transform)
+        case .system:
+            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.965 : 0.975, scaleY: appearing ? 0.965 : 0.975, y: appearing ? 14 : 10))
+        case .scale:
+            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.82 : 0.88, scaleY: appearing ? 0.82 : 0.88, y: 0))
+        case .slideUp:
+            return PanelLayerState(opacity: 0, transform: transformed(scaleX: 1, scaleY: 1, y: appearing ? 72 : 58))
+        case .glassPop:
+            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.90 : 0.92, scaleY: appearing ? 0.90 : 0.92, y: appearing ? 12 : 8))
+        case .genie:
+            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.40 : 0.46, scaleY: appearing ? 0.18 : 0.20, y: appearing ? 96 : 84))
+        }
+    }
+
+    private func transformed(scaleX: CGFloat, scaleY: CGFloat, y: CGFloat) -> CATransform3D {
+        CATransform3DConcat(
+            CATransform3DMakeScale(scaleX, scaleY, 1),
+            CATransform3DMakeTranslation(0, y, 0)
+        )
     }
 
     private var effectiveDockPreviewAnimationStyle: DockPreviewAnimationStyle {
@@ -496,9 +632,9 @@ final class WindowSwitcherService: ObservableObject {
 
     private var dockPreviewAnimationDuration: TimeInterval {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            return min(dockPreviewAnimationSpeed.duration, 0.12)
+            return min(dockPreviewAnimationDurationValue, 0.12)
         }
-        return dockPreviewAnimationSpeed.duration
+        return dockPreviewAnimationDurationValue
     }
 
     private var dockPreviewDismissDuration: TimeInterval {
@@ -515,34 +651,6 @@ final class WindowSwitcherService: ObservableObject {
             max(dockPreviewAnimationDuration * 0.62, 0.06)
         case .genie:
             max(dockPreviewAnimationDuration * 0.82, 0.07)
-        }
-    }
-
-    private func panelAnimationFrame(from frame: CGRect, style: DockPreviewAnimationStyle, appearing: Bool) -> CGRect {
-        switch style {
-        case .none, .fade:
-            return frame
-        case .system:
-            let scaleInset = appearing ? 0.045 : 0.028
-            let offset = appearing ? -30.0 : -20.0
-            return frame
-                .insetBy(dx: frame.width * scaleInset, dy: frame.height * scaleInset)
-                .offsetBy(dx: 0, dy: offset)
-        case .scale:
-            let scaleInset = appearing ? 0.20 : 0.13
-            return frame.insetBy(dx: frame.width * scaleInset, dy: frame.height * scaleInset)
-        case .glassPop:
-            return frame.insetBy(dx: frame.width * 0.22, dy: frame.height * 0.16)
-        case .slideUp:
-            let offset = appearing ? -150.0 : -112.0
-            return frame.offsetBy(dx: 0, dy: offset)
-        case .genie:
-            let horizontalInset = frame.width * (appearing ? 0.36 : 0.30)
-            let verticalInset = frame.height * (appearing ? 0.45 : 0.36)
-            let offset = appearing ? -156.0 : -120.0
-            return frame
-                .insetBy(dx: horizontalInset, dy: verticalInset)
-                .offsetBy(dx: 0, dy: offset)
         }
     }
 
@@ -712,4 +820,11 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
 private struct ThumbnailCacheEntry {
     var image: NSImage
     var createdAt: Date
+}
+
+private struct PanelLayerState {
+    var opacity: Float
+    var transform: CATransform3D
+
+    static let identity = PanelLayerState(opacity: 1, transform: CATransform3DIdentity)
 }

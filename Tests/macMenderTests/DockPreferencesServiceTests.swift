@@ -31,11 +31,11 @@ struct DockPreferencesServiceTests {
     @Test("Dock preview animation defaults are persisted profile settings")
     func dockPreviewAnimationDefaultsArePersistedProfileSettings() {
         #expect(DockPreviewSettings.default.animationStyle == .system)
-        #expect(DockPreviewSettings.default.animationSpeed == .balanced)
+        #expect(DockPreviewSettings.default.animationDuration == 0.22)
         #expect(DockPreviewAnimationStyle.allCases.map(\.title) == ["System", "Fade", "Scale", "Slide Up", "Glass Pop", "Genie", "None"])
-        #expect(DockPreviewAnimationSpeed.allCases.map(\.title) == ["Snappy", "Balanced", "Smooth"])
-        #expect(DockPreviewAnimationSpeed.snappy.duration < DockPreviewAnimationSpeed.balanced.duration)
-        #expect(DockPreviewAnimationSpeed.balanced.duration < DockPreviewAnimationSpeed.smooth.duration)
+        #expect(DockPreviewSettings.clampedAnimationDuration(0.01) == 0.05)
+        #expect(DockPreviewSettings.clampedAnimationDuration(0.34) == 0.34)
+        #expect(DockPreviewSettings.clampedAnimationDuration(0.90) == 0.60)
     }
 
     @Test("Dock preview code does not use title-only display eligibility")

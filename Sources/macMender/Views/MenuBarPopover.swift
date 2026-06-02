@@ -41,7 +41,7 @@ struct MenuBarPopover: View {
                 PopoverStatusRow(title: "Accessibility", value: appModel.permissions.accessibility.title, isActive: appModel.permissions.accessibility == .granted)
                 PopoverStatusRow(title: "Screen Recording", value: appModel.permissions.screenRecording.title, isActive: appModel.permissions.screenRecording == .granted)
                 PopoverStatusRow(title: "Window Switcher", value: windowSwitcherStatus, isActive: windowSwitcherIsReady)
-                PopoverStatusRow(title: "Dock Hover", value: appModel.dockHover.isRunning ? "Watching" : "Paused", isActive: appModel.dockHover.isRunning)
+                PopoverStatusRow(title: "Dock previews", value: appModel.dockHover.isRunning ? "Ready" : "Paused", isActive: appModel.dockHover.isRunning)
                 PopoverStatusRow(title: "Menu Bar", value: menuBarStatus, isActive: appModel.menuBarScanner.shelfEnabled)
             }
 
@@ -95,7 +95,7 @@ struct MenuBarPopover: View {
         if appModel.permissions.accessibility != .granted {
             return "Accessibility is required."
         }
-        return "Local helpers are available."
+        return "macMender is running locally."
     }
 
     private var menuBarStatus: String {

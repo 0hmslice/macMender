@@ -6,12 +6,23 @@ struct PrivacyPermissionsView: View {
 
     var body: some View {
         PreferencesScrollView {
-            SectionCard(title: "Privacy Promise", subtitle: "macMender is designed to run without analytics, tracking, or remote APIs.", symbolName: "hand.raised") {
-                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                    PrivacyPromiseRow(title: "Analytics", value: "None")
-                    PrivacyPromiseRow(title: "Tracking", value: "None")
-                    PrivacyPromiseRow(title: "Remote APIs", value: "None by default")
-                    PrivacyPromiseRow(title: "Configuration", value: appModel.store.configURL.path)
+            SectionCard(title: "Privacy Promise", subtitle: "macMender runs locally and only asks for access a feature needs.", symbolName: "hand.raised") {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        CapabilityBadge(title: "No analytics", systemImage: "chart.bar.xaxis", tone: .active)
+                        CapabilityBadge(title: "No tracking", systemImage: "eye.slash", tone: .active)
+                        CapabilityBadge(title: "Local settings", systemImage: "externaldrive", tone: .neutral)
+                        Spacer()
+                    }
+
+                    DisclosureGroup("Local details") {
+                        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                            PrivacyPromiseRow(title: "Remote APIs", value: "None by default")
+                            PrivacyPromiseRow(title: "Configuration", value: appModel.store.configURL.path)
+                        }
+                        .padding(.top, 6)
+                    }
+                    .font(.callout)
                 }
             }
 
@@ -39,13 +50,13 @@ struct PrivacyPermissionsView: View {
 
             SectionCard(
                 title: "Input Monitoring",
-                subtitle: "Guidance only. macOS may request this for some global input observation.",
+                subtitle: "Open this only if macOS asks for it.",
                 symbolName: "keyboard"
             ) {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         CapabilityBadge(title: "Open Settings if prompted", systemImage: "keyboard.badge.eye", tone: .neutral)
-                        Text("If macMender is not listed, add the app with the + button or drag the app icon into the list when macOS accepts it.")
+                        Text("If macMender is missing, add it with + or drag in the app when macOS allows it.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -57,7 +68,7 @@ struct PrivacyPermissionsView: View {
                 }
             }
 
-            SectionCard(title: "Launch at Login", subtitle: "Starts macMender automatically using the best available per-user macOS login mechanism.", symbolName: "power") {
+            SectionCard(title: "Launch at Login", subtitle: "Start macMender automatically.", symbolName: "power") {
                 Toggle("Launch macMender at login", isOn: Binding(
                     get: { appModel.loginItems.launchAtLogin },
                     set: { appModel.loginItems.setLaunchAtLogin($0) }

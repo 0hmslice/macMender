@@ -76,14 +76,34 @@ struct AppConfigTests {
         var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         object.removeValue(forKey: "previewIdleTimeout")
         object.removeValue(forKey: "animationStyle")
-        object.removeValue(forKey: "animationSpeed")
+        object.removeValue(forKey: "animationDuration")
         let olderData = try JSONSerialization.data(withJSONObject: object)
 
         let settings = try JSONDecoder().decode(DockPreviewSettings.self, from: olderData)
 
         #expect(settings.previewIdleTimeout == DockPreviewSettings.default.previewIdleTimeout)
         #expect(settings.animationStyle == DockPreviewSettings.default.animationStyle)
-        #expect(settings.animationSpeed == DockPreviewSettings.default.animationSpeed)
+        #expect(settings.animationDuration == DockPreviewSettings.default.animationDuration)
+    }
+
+    @Test("decodes legacy Dock preview animation speed as duration")
+    func decodesLegacyDockPreviewAnimationSpeedAsDuration() throws {
+        let json = """
+        {
+          "enabled": true,
+          "hoverDelay": 0.35,
+          "previewIdleTimeout": 1.8,
+          "animationStyle": "scale",
+          "animationSpeed": "smooth",
+          "layout": "grid",
+          "thumbnailSize": 152
+        }
+        """
+
+        let settings = try JSONDecoder().decode(DockPreviewSettings.self, from: Data(json.utf8))
+
+        #expect(settings.animationStyle == .scale)
+        #expect(settings.animationDuration == DockPreviewAnimationSpeed.smooth.duration)
     }
 
     @Test("runtime middle-click actions only include implemented actions")

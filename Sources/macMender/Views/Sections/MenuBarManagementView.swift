@@ -68,7 +68,7 @@ struct MenuBarManagementView: View {
         PreferencesScrollView {
             SectionCard(
                 title: "Hide Menu Bar Icons",
-                subtitle: "Plan a safer menu bar without automatic third-party icon movement.",
+                subtitle: "Plan a cleaner menu bar with manual setup.",
                 symbolName: "menubar.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -92,7 +92,7 @@ struct MenuBarManagementView: View {
                     }
 
                     HStack {
-                        Text("Scan the current menu bar, mark icons to review, then use each app's setting or Command-drag manually when macOS allows it.")
+                        Text("Mark icons to review, then use each app's setting or Command-drag when macOS allows it.")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 12)
@@ -117,7 +117,7 @@ struct MenuBarManagementView: View {
 
             SectionCard(
                 title: "Detected Menu Bar Icons",
-                subtitle: "Planning-only list. Marked rows do not move, hide, or restore anything.",
+                subtitle: "A planning checklist for manual cleanup.",
                 symbolName: "list.bullet.rectangle"
             ) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -153,13 +153,6 @@ struct MenuBarManagementView: View {
                 }
             }
 
-            SectionCard(
-                title: "Safety Boundary",
-                subtitle: "The setup assistant is useful for discovery and planning, but it will not pretend physical movement is reliable.",
-                symbolName: "lock.shield"
-            ) {
-                MenuBarSafetyBoundaryList()
-            }
         }
         .onAppear {
             appModel.scanMenuBarItems()
@@ -579,13 +572,6 @@ private struct MenuBarDiscoveryRow: View {
             Spacer(minLength: 12)
 
             VStack(alignment: .trailing, spacing: 8) {
-                Text(item.actualSection == .pinned ? "Visible now" : "Seen in \(item.actualSection.shortTitle)")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.white.opacity(0.08), in: Capsule())
-
                 Button {
                     toggleManualCleanup()
                 } label: {
@@ -604,11 +590,10 @@ private struct MenuBarDiscoveryRow: View {
     }
 
     private var detail: String {
-        let source = item.sourceBundleIdentifier ?? item.ownerName
         if item.isSystemManaged {
-            return "\(source) · macOS-managed or not safely movable"
+            return "Managed by macOS; review in System Settings if needed."
         }
-        return "\(source) · discovered for manual setup guidance"
+        return isMarkedForManualCleanup ? "Marked for manual cleanup." : "Available for manual review."
     }
 }
 
