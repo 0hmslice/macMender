@@ -46,8 +46,8 @@ final class ProfileStore: ObservableObject {
 
     func updateActiveProfile(_ profile: MacMenderProfile) {
         guard let index = config.profiles.firstIndex(where: { $0.id == profile.id }) else { return }
+        guard config.profiles[index] != profile else { return }
         config.profiles[index] = profile
-        save()
     }
 
     func setMenuBarSection(itemKey: String, title: String, section: MenuBarSection, before beforeKey: String? = nil) {

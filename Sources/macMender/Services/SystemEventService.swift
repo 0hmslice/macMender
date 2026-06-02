@@ -25,7 +25,6 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
     private var switcherSessionActive = false
     private let posterQueue = DispatchQueue(label: "macMender.scroll.poster", qos: .userInteractive)
     private var lastPublishedStatus = RuntimeStatus()
-    private var lastStatusPublishTime: CFTimeInterval = 0
 
     deinit {
         stop()
@@ -49,7 +48,6 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
 
     func start() {
         guard eventTap == nil else {
-            publishStatus(eventTapRunning: true, description: "Event tap running")
             return
         }
 
@@ -330,12 +328,10 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
 
     private func publishStatus(eventTapRunning: Bool, description: String) {
         let nextStatus = RuntimeStatus(eventTapRunning: eventTapRunning, lastEventDescription: description)
-        let now = CFAbsoluteTimeGetCurrent()
-        if nextStatus == lastPublishedStatus, now - lastStatusPublishTime < 0.15 {
+        if nextStatus == lastPublishedStatus {
             return
         }
         lastPublishedStatus = nextStatus
-        lastStatusPublishTime = now
 
         DispatchQueue.main.async { [weak self] in
             self?.status = nextStatus

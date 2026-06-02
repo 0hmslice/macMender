@@ -19,13 +19,15 @@ Branch:
 ### Dock Preview Animation Settings
 
 1. Dock preview settings now include presentation-only `Preview animation` and `Animation speed` controls.
-2. `System`, `Fade`, `Scale`, `Slide Up`, `Glass Pop`, and `None` now use distinct presentation paths: opacity-only fade, visible frame scale, Dock-direction slide, one-shot glass pop highlight/overshoot, and immediate none.
-3. `Animation speed` now has clearer timing separation: Snappy 0.10s, Balanced 0.22s, Smooth 0.36s.
+2. `System`, `Fade`, `Scale`, `Slide Up`, `Glass Pop`, `Genie`, and `None` now use distinct presentation paths: small system-style scale/drift, opacity-only fade, visible frame scale, Dock-direction slide, one-shot glass pop highlight/overshoot, frame-based genie expansion from the Dock direction, and immediate none.
+3. `Animation speed` now has clearer timing separation: Snappy 0.08s, Balanced 0.22s, Smooth 0.42s.
 4. The setting is persisted per profile and decoded safely for older configs.
 5. The runtime animation changes only preview panel presentation and dismissal. It does not change Dock identity matching, title matching, thumbnail capture, caching, hover eligibility, or preview linger timing.
 6. Reduce Motion degrades the preview animation to a simpler presentation path.
 7. Packaged-app Computer Use inspection confirmed the settings are visible in Dock & Windows > Dock Previews and expose all animation styles plus Snappy/Balanced/Smooth speeds.
-8. `Test Preview Animation` remains wired to the resolved Dock-preview path, but the transient preview panel did not surface as a separate Computer Use-verifiable window in this run; visual comparison of each animation style remains manual QA.
+8. `Test Preview Animation` now uses a local animation sample preview, not real Dock preview discovery, title matching, thumbnail capture, or cache work. It auto-dismisses so repeated comparisons do not leave a sticky preview panel.
+9. Settings changes were tightened for responsiveness: active profile edits rely on debounced autosave instead of synchronous writes on every control tick, and profile changes now update only the affected runtime services instead of restarting/reconfiguring the full runtime and menu-bar controls for every Dock animation or slider change.
+10. Continuous Mendy repeat motion is now opt-in for explicit glass hero surfaces only. Normal sidebar/page Mendy images remain state-distinct without driving idle SwiftUI layout.
 
 ### App Shell Layout
 
@@ -58,7 +60,7 @@ Branch:
 - `script/build_and_run.sh --verify` passed after packaging.
 - Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` confirmed the animation settings, speed picker, centered shell/header alignment, simplified Menu Bar page, Privacy checklist, and Advanced disclosures.
 - Computer Use confirmed Option+Tab discovery still reports multiple normal apps after this UI pass: 12 windows from 11 apps in the packaged app.
-- Settled idle CPU after returning to Overview and waiting several seconds sampled at 0.0% with about 87 MB resident memory. A previous 28.6% sample happened while actively interacting with Dock & Windows controls and did not persist once idle.
+- Settled idle CPU after the latest animation/responsiveness update sampled at 0.0% on Overview with about 128 MB RSS, and 0.0% on Dock & Windows > Dock Previews with about 156 MB RSS. A pre-fix Dock Previews sample reproduced the reported issue at about 29-31% CPU.
 - Physical menu-bar movement remains disabled and was not re-enabled.
 - Option+Tab activation/discovery and Dock preview identity logic were not changed in the visual polish milestones.
 - `docs/qa/screenshots` was not modified.

@@ -135,6 +135,39 @@ final class WindowSwitcherService: ObservableObject {
         )
     }
 
+    func showDockPreviewAnimationSample(settings: WindowSwitcherSettings, anchorFrame: CGRect) {
+        thumbnailTask?.cancel()
+        thumbnailTask = nil
+        thumbnails = [:]
+        windows = [
+            WindowSummary(
+                id: "macmender-animation-sample",
+                windowID: nil,
+                appName: "Animation Test",
+                bundleIdentifier: Bundle.main.bundleIdentifier,
+                title: "\(dockPreviewAnimationStyle.title) preview",
+                processIdentifier: NSRunningApplication.current.processIdentifier,
+                frame: anchorFrame,
+                isMinimized: false,
+                stackIndex: 0,
+                axElement: nil
+            )
+        ]
+        selectedIndex = 0
+        isShowing = true
+        isDockPreview = true
+        overlayTitle = "Animation Test"
+        overlaySubtitle = "\(dockPreviewAnimationStyle.title) • \(dockPreviewAnimationSpeed.title)"
+        presentationStatus = "Previewing \(dockPreviewAnimationStyle.title)"
+        lastThumbnailDiagnostic = "animation sample uses local placeholder; capture not requested"
+        dockPreviewAnchorFrame = anchorFrame
+        if presentsPanel {
+            ensurePanel(settings: settings, anchorFrame: anchorFrame)
+            presentPanel()
+            scheduleAnimationSampleDismiss()
+        }
+    }
+
     func cycle() {
         guard !windows.isEmpty else { return }
         selectedIndex = (selectedIndex + 1) % windows.count
@@ -226,6 +259,15 @@ final class WindowSwitcherService: ObservableObject {
             if !self.isMouseInDockPreviewSafeArea() {
                 self.cancel()
             }
+        }
+    }
+
+    private func scheduleAnimationSampleDismiss() {
+        dockPreviewDismissTask?.cancel()
+        dockPreviewDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(1700))
+            guard let self, !Task.isCancelled, self.overlayTitle == "Animation Test" else { return }
+            self.cancel()
         }
     }
 
@@ -389,18 +431,18 @@ final class WindowSwitcherService: ObservableObject {
 
     private func presentGlassPop(panel: NSPanel, finalFrame: CGRect, generation: Int) {
         applyPanelHighlight()
-        let overshootFrame = finalFrame.insetBy(dx: -finalFrame.width * 0.035, dy: -finalFrame.height * 0.035)
+        let overshootFrame = finalFrame.insetBy(dx: -finalFrame.width * 0.055, dy: -finalFrame.height * 0.055)
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = max(dockPreviewAnimationDuration * 0.62, 0.06)
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.08, 0.88, 0.18, 1.25)
+            context.duration = max(dockPreviewAnimationDuration * 0.58, 0.07)
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.06, 0.92, 0.16, 1.34)
             panel.animator().alphaValue = 1
             panel.animator().setFrame(overshootFrame, display: true)
         } completionHandler: { [weak self, weak panel] in
             Task { @MainActor in
                 guard let self, let panel, self.panelAnimationGeneration == generation else { return }
                 NSAnimationContext.runAnimationGroup { context in
-                    context.duration = max(self.dockPreviewAnimationDuration * 0.38, 0.07)
-                    context.timingFunction = CAMediaTimingFunction(controlPoints: 0.18, 0.74, 0.22, 1.0)
+                    context.duration = max(self.dockPreviewAnimationDuration * 0.42, 0.08)
+                    context.timingFunction = CAMediaTimingFunction(controlPoints: 0.20, 0.72, 0.26, 1.0)
                     panel.animator().setFrame(finalFrame, display: true)
                 } completionHandler: { [weak self, weak panel] in
                     Task { @MainActor in
@@ -471,6 +513,8 @@ final class WindowSwitcherService: ObservableObject {
             max(dockPreviewAnimationDuration * 0.76, 0.06)
         case .glassPop:
             max(dockPreviewAnimationDuration * 0.62, 0.06)
+        case .genie:
+            max(dockPreviewAnimationDuration * 0.82, 0.07)
         }
     }
 
@@ -479,19 +523,26 @@ final class WindowSwitcherService: ObservableObject {
         case .none, .fade:
             return frame
         case .system:
-            let scaleInset = appearing ? 0.018 : 0.012
-            let offset = appearing ? -18.0 : -12.0
+            let scaleInset = appearing ? 0.045 : 0.028
+            let offset = appearing ? -30.0 : -20.0
             return frame
                 .insetBy(dx: frame.width * scaleInset, dy: frame.height * scaleInset)
                 .offsetBy(dx: 0, dy: offset)
         case .scale:
-            let scaleInset = appearing ? 0.115 : 0.075
+            let scaleInset = appearing ? 0.20 : 0.13
             return frame.insetBy(dx: frame.width * scaleInset, dy: frame.height * scaleInset)
         case .glassPop:
-            return frame.insetBy(dx: frame.width * 0.145, dy: frame.height * 0.145)
+            return frame.insetBy(dx: frame.width * 0.22, dy: frame.height * 0.16)
         case .slideUp:
-            let offset = appearing ? -96.0 : -72.0
+            let offset = appearing ? -150.0 : -112.0
             return frame.offsetBy(dx: 0, dy: offset)
+        case .genie:
+            let horizontalInset = frame.width * (appearing ? 0.36 : 0.30)
+            let verticalInset = frame.height * (appearing ? 0.45 : 0.36)
+            let offset = appearing ? -156.0 : -120.0
+            return frame
+                .insetBy(dx: horizontalInset, dy: verticalInset)
+                .offsetBy(dx: 0, dy: offset)
         }
     }
 
@@ -509,6 +560,10 @@ final class WindowSwitcherService: ObservableObject {
             CAMediaTimingFunction(controlPoints: 0.12, 0.86, 0.16, 1.0)
         case .glassPop:
             CAMediaTimingFunction(name: appearing ? .easeOut : .easeIn)
+        case .genie:
+            appearing
+                ? CAMediaTimingFunction(controlPoints: 0.08, 0.80, 0.16, 1.12)
+                : CAMediaTimingFunction(controlPoints: 0.34, 0.02, 0.78, 0.42)
         }
     }
 

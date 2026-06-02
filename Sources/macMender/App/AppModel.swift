@@ -226,8 +226,11 @@ final class AppModel: ObservableObject {
     }
 
     func updateActiveProfile(_ profile: MacMenderProfile) {
+        let previousProfile = activeProfile
         store.updateActiveProfile(profile)
-        updateRuntime()
+        let updatedProfile = activeProfile
+        guard previousProfile != updatedProfile else { return }
+        updateRuntimeAfterProfileChange(from: previousProfile, to: updatedProfile)
     }
 
     func setMenuBarSection(_ item: DetectedMenuBarItem, section: MenuBarSection) {
@@ -367,12 +370,49 @@ final class AppModel: ObservableObject {
             featureToggles: store.config.featureToggles
         )
 
+        applyDockPreviewRuntime(runtimePaused: runtimePaused)
+
+        menuBarScanner.configureControls(
+            enabled: store.config.featureToggles.menuBarManagement && !runtimePaused,
+            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
+            layout: store.config.menuBarLayout
+        )
+
+        applyMiddleClickRuntime(runtimePaused: runtimePaused)
+    }
+
+    private func updateRuntimeAfterProfileChange(from previousProfile: MacMenderProfile, to currentProfile: MacMenderProfile) {
+        let runtimePaused = store.config.safeModeEnabled || !store.config.hasCompletedOnboarding
+
+        if previousProfile.scroll != currentProfile.scroll ||
+            previousProfile.windowSwitcher != currentProfile.windowSwitcher ||
+            previousProfile.middleClick != currentProfile.middleClick {
+            systemEvents.update(
+                profile: currentProfile,
+                safeModeEnabled: runtimePaused,
+                accessibilityGranted: permissions.accessibility == .granted,
+                featureToggles: store.config.featureToggles
+            )
+        }
+
+        if previousProfile.dockPreviews != currentProfile.dockPreviews ||
+            previousProfile.windowSwitcher != currentProfile.windowSwitcher {
+            applyDockPreviewRuntime(runtimePaused: runtimePaused)
+        }
+
+        if previousProfile.middleClick != currentProfile.middleClick {
+            applyMiddleClickRuntime(runtimePaused: runtimePaused)
+        }
+    }
+
+    private func applyDockPreviewRuntime(runtimePaused: Bool) {
         dockHover.hoverDelay = activeProfile.dockPreviews.hoverDelay
         windowSwitcher.updateDockPreviewIdleTimeout(activeProfile.dockPreviews.previewIdleTimeout)
         windowSwitcher.updateDockPreviewAnimation(
             style: activeProfile.dockPreviews.animationStyle,
             speed: activeProfile.dockPreviews.animationSpeed
         )
+
         if permissions.accessibility == .granted,
            !runtimePaused,
            store.config.featureToggles.windowSwitcher,
@@ -381,13 +421,9 @@ final class AppModel: ObservableObject {
         } else {
             dockHover.stop()
         }
+    }
 
-        menuBarScanner.configureControls(
-            enabled: store.config.featureToggles.menuBarManagement && !runtimePaused,
-            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
-            layout: store.config.menuBarLayout
-        )
-
+    private func applyMiddleClickRuntime(runtimePaused: Bool) {
         if permissions.accessibility == .granted,
            !runtimePaused,
            activeProfile.middleClick.enabled,

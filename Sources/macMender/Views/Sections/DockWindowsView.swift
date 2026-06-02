@@ -178,7 +178,7 @@ struct DockWindowsView: View {
     private func testDockPreviewAnimation() {
         let screenFrame = NSApp.keyWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
         let anchor = CGRect(x: screenFrame.midX - 30, y: screenFrame.minY + 8, width: 60, height: 60)
-        appModel.windowSwitcher.showDockPreviewForMostRecentApp(
+        appModel.windowSwitcher.showDockPreviewAnimationSample(
             settings: appModel.activeProfile.dockPreviews.overlaySettings(using: appModel.activeProfile.windowSwitcher),
             anchorFrame: anchor
         )

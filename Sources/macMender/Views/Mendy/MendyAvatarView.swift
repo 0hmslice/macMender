@@ -289,7 +289,7 @@ struct MendyAvatarView: View {
     }
 
     private var permitsContinuousMotion: Bool {
-        !reduceMotion && scenePhase == .active && size >= MendyAvatarSize.panel
+        !reduceMotion && scenePhase == .active && showsGlass && size >= MendyAvatarSize.panel
     }
 }
 

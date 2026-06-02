@@ -28,6 +28,7 @@ enum DockPreviewAnimationStyle: String, CaseIterable, Codable, Identifiable {
     case scale
     case slideUp
     case glassPop
+    case genie
     case none
 
     var id: String { rawValue }
@@ -39,6 +40,7 @@ enum DockPreviewAnimationStyle: String, CaseIterable, Codable, Identifiable {
         case .scale: "Scale"
         case .slideUp: "Slide Up"
         case .glassPop: "Glass Pop"
+        case .genie: "Genie"
         case .none: "None"
         }
     }
@@ -61,9 +63,9 @@ enum DockPreviewAnimationSpeed: String, CaseIterable, Codable, Identifiable {
 
     var duration: TimeInterval {
         switch self {
-        case .snappy: 0.07
-        case .balanced: 0.16
-        case .smooth: 0.32
+        case .snappy: 0.08
+        case .balanced: 0.22
+        case .smooth: 0.42
         }
     }
 }

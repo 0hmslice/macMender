@@ -15,6 +15,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Launch `dist/macMender.app` and inspect onboarding, Preferences, Menu Bar, Dock & Windows, Privacy, and Profiles.
 - When using Computer Use, target `/Users/ryan/Documents/macMender/dist/macMender.app` explicitly. The generic app name can attach to stale cached bundles under `/var/folders/...`.
 - Confirm packaged-app idle CPU stays near 0% after the window is idle for several seconds. Recheck with `top -l 5 -s 1 -pid $(pgrep -x macMender | head -n1)` or Activity Monitor.
+- Confirm normal sidebar/page Mendy surfaces remain visually state-distinct without repeat-forever motion while idle.
 - Confirm onboarding shows Accessibility, Screen Recording, and guided Input Monitoring setup.
 - Confirm the drag-to-add guidance says to drag the macMender app icon if it is not listed, includes the fallback `+`/reopen instruction, and does not claim permissions are granted.
 - Confirm Settings > Menu Bar looks like a safe setup guide, not a broken layout manager.
@@ -45,12 +46,12 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Verify preview panels appear immediately with placeholders if thumbnails are still loading, then progressively fill in.
 - Verify the Dock preview `Preview linger after leaving Dock` slider changes how long the panel remains after the pointer leaves the Dock item and preview panel; record sticky preview or flicker cases.
 - Verify Dock preview `Preview animation` and `Animation speed` settings are visible, persist after relaunch, and affect only panel presentation/dismissal.
-- Use `Test Preview Animation` to compare System, Fade, Scale, Slide Up, Glass Pop, and None. In the 2026-05-31 agent run the controls were visible and selectable, but the transient test preview did not appear as a separate Computer Use-verifiable window.
-- Confirm Snappy, Balanced, and Smooth are noticeably different durations. Expected configured durations are 0.07s, 0.16s, and 0.32s.
+- Use `Test Preview Animation` to compare System, Fade, Scale, Slide Up, Glass Pop, Genie, and None. The test button should show a local sample preview and must not resolve a real Dock item, capture thumbnails, or leave a sticky panel.
+- Confirm Snappy, Balanced, and Smooth are noticeably different durations. Expected configured durations are 0.08s, 0.22s, and 0.42s.
 - With Reduce Motion enabled in macOS, confirm Dock preview presentation simplifies to None or Fade.
 - Hover the macMender Dock item while its Preferences window is visible. Expected result: either one real Preferences/Overview window preview appears, or the preview is suppressed with a clear diagnostic reason. Preview panels, switcher overlays, popovers, and transient windows must never appear.
 - Inspect Dock preview and Option+Tab panels for readable Liquid Glass in light and dark appearances.
-- Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover.
+- Confirm Mendy remains visible and state-driven in onboarding, overview, menu-bar setup, permissions, and popover. Continuous motion should not run on normal sidebar/page avatars while idle.
 - Confirm granted Accessibility and Screen Recording cards on Privacy do not show a primary `Request Access` button, while missing permissions still do.
 - Confirm Middle Click copy reads as disabled/conditional when the feature is off and no runtime behavior is enabled by default.
 - Inspect Overview and Dock & Windows for reduced dark angular shell seams after the post-QA cleanup pass.
@@ -67,7 +68,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
 - Feel and correctness of the Dock preview linger setting on the user's Dock.
 - Visual comparison of all Dock preview animation styles and speeds with an actual preview panel.
-- Confirm the presentation-only 2026-05-31 animation feel pass: System has a small scale/drift, Fade is opacity-only, Scale grows from visibly smaller to normal, Slide Up travels clearly from the Dock direction, Glass Pop has a one-shot overshoot/highlight, and None is instant.
+- Confirm the presentation-only animation feel pass: System has a small scale/drift, Fade is opacity-only, Scale grows from visibly smaller to normal, Slide Up travels clearly from the Dock direction, Glass Pop has a one-shot overshoot/highlight, Genie expands from a narrower Dock-origin frame, and None is instant.
 - Reduce Motion behavior for Dock preview animations.
 - Adjacent Dock hover correctness on the user's Dock.
 - Browser multi-window thumbnail correctness.
