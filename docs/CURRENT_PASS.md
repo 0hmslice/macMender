@@ -6,6 +6,47 @@ Most complete working copy:
 Branch:
 `codex/apple-ui-simplification-motion`
 
+## Apple UI Functional Cleanup Pass
+
+### Overview Audit and Action Cleanup
+
+1. Overview now keeps one primary hero surface with Mendy, `macMender is running`, a short health sentence, and compact live status chips.
+2. The duplicated Overview Quick Actions area was removed. `Refresh windows` and `Test preview` remain in Dock & Windows, where those actions have context and visible runtime feedback.
+3. The Mendy help/check-status card was removed. Its button only refreshed system state without visible page feedback, so keeping it made the dashboard feel broken.
+4. Overview status cards were consolidated into four high-level cards: Permissions, Window Switcher, Dock Previews, and Menu Bar setup.
+5. Accessibility and Screen Recording are grouped inside the Permissions card instead of appearing as two separate equal-weight cards.
+6. The hero only shows `Open Permissions` when permissions need attention. Otherwise, Overview avoids extra buttons.
+7. Services remain behind a collapsed disclosure with user-facing labels: Input monitoring, Dock previews, and Menu bar discovery.
+
+### Sidebar and Shell Investigation
+
+1. The current fully native `List(selection:)` sidebar path was tested in the packaged app and compiled cleanly, but the selected row rendered as a strong system-blue block in dark mode.
+2. Because that missed the requested quiet Liquid Glass selection feel, the implementation kept the custom sidebar but simplified it: no selected-row animation, no matched-geometry movement, and a softer material selected row.
+3. The sidebar status summary no longer shows a chevron, because it is a passive status row rather than a clickable action.
+4. The custom detail header band was removed from the preferences shell. Page titles now use the native navigation title, removing the visual clash where the old material band met the sidebar.
+
+### Normal-User Copy
+
+1. Menu Bar setup copy now says automatic movement is not available in plain product language.
+2. The manual checklist states that macMender will not move, hide, drag, or click menu-bar icons for the user.
+3. Technical menu-bar movement details remain in disclosures or Advanced. No physical movement controls were exposed.
+
+### Verification Notes
+
+- `swift build` passed after the cleanup changes.
+- `swift test` passed with 65 tests.
+- `script/build_and_run.sh --verify` passed and refreshed `dist/macMender.app`.
+- Launched `/Users/ryan/Documents/macMender/dist/macMender.app`.
+- Temporary screenshots outside the repo confirmed Overview no longer shows Quick Actions or the Mendy `Check status` button, the status cards are consolidated, and the custom header band is gone.
+- Packaged-app screenshot inspection confirmed Dock & Windows still shows Window Switcher controls and diagnostics collapsed; `Test Preview Animation` remains in Dock & Windows > Previews.
+- Sidebar section switching was inspected with repeated clicks. The selected row no longer animates or jumps; the selected surface is quieter than the native blue `List` selection.
+- Immediate post-click CPU sampling was transiently high after screenshots and page switching. After a 20 second quiet period, `top -l 5 -s 1 -pid $(pgrep -x macMender | head -n1)` sampled macMender at 0.0%, 2.6%, 0.0%, 3.4%, and 0.0% CPU with about 95 MB RSS.
+- Computer Use was not available in this session, so Dock hover, Option+Tab held-key interaction, and popover opening remain manual QA.
+- No Dock preview identity/matching/title eligibility/discovery/capture/cache files were changed.
+- No Option+Tab activation/discovery files were changed.
+- No menu-bar movement runtime code or `MenuBarItemMover` files were changed.
+- `docs/qa/screenshots` was not modified.
+
 ## Mockup-Inspired UI Simplification Pass
 
 ### Visual System and Shell
@@ -18,9 +59,9 @@ Branch:
 
 ### Overview Dashboard
 
-1. Overview was rebuilt around a stronger hero with large Mendy, `macMender is running`, a short health sentence, compact status chips, and a `Refresh Status` action.
-2. Equal-weight technical panels were replaced with four high-level cards: Accessibility, Screen Recording, Window Switcher, and Dock Previews.
-3. Quick Actions are now friendly tiles for refreshing windows, testing the preview animation, and opening permissions.
+1. Overview was rebuilt around a stronger hero with large Mendy, `macMender is running`, a short health sentence, and compact status chips.
+2. Equal-weight technical panels were replaced with high-level cards. The latest cleanup consolidates permissions into one card and keeps Window Switcher, Dock Previews, and Menu Bar setup.
+3. Quick Actions were removed from Overview in the latest cleanup pass; runtime-specific actions live on their matching settings pages.
 4. Runtime/service details are moved into a `Services` disclosure using user-facing labels: Input monitoring, Dock previews, and Menu bar discovery.
 5. The Overview copy avoids claiming physical menu-bar movement or hidden-icon syncing.
 

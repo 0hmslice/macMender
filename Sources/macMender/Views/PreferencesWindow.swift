@@ -29,7 +29,7 @@ struct PreferencesWindow: View {
                     .navigationSplitViewColumnWidth(min: 230, ideal: 260)
             } detail: {
                 PreferencesDetailShell(appModel: appModel)
-                    .navigationTitle("")
+                    .navigationTitle(appModel.selectedSection.title)
                     .toolbar {
                         ToolbarItemGroup {
                             if appModel.store.config.profiles.count > 1 {
@@ -114,9 +114,6 @@ private struct SidebarStatusSummary: View {
                 Text(statusTitle)
                     .font(.caption.weight(.medium))
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -144,33 +141,6 @@ private struct PreferencesDetailShell: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: appModel.selectedSection.symbolName)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.tint)
-                    .frame(width: 30, height: 30)
-                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(appModel.selectedSection.title)
-                        .font(.title3.weight(.semibold))
-                    Text(appModel.selectedSection.subtitle)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
-            .padding(.bottom, 12)
-            .background(.thinMaterial)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(.white.opacity(0.08))
-                    .frame(height: 1)
-            }
-
             DetailRouter(appModel: appModel)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -16,6 +16,11 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - When using Computer Use, target `/Users/ryan/Documents/macMender/dist/macMender.app` explicitly. The generic app name can attach to stale cached bundles under `/var/folders/...`.
 - Confirm packaged-app idle CPU stays near 0% after the window is idle for several seconds. Recheck with `top -l 5 -s 1 -pid $(pgrep -x macMender | head -n1)` or Activity Monitor.
 - Confirm normal sidebar/page Mendy surfaces remain visually state-distinct without repeat-forever motion while idle.
+- Confirm Overview has no `Refresh windows`, `Test preview`, or Mendy `Check status` button. Those controls should not appear on Overview.
+- Confirm Overview shows one hero, four high-level status cards, and a collapsed Services disclosure: Permissions, Window Switcher, Dock Previews, and Menu Bar setup.
+- Confirm Overview only shows `Open Permissions` when permissions need attention.
+- Confirm the sidebar selected row is quiet and does not animate or jump during repeated section switching.
+- Confirm the old custom detail header band is gone and the sidebar/content boundary no longer has a clashing top material strip.
 - Confirm onboarding shows Accessibility, Screen Recording, and guided Input Monitoring setup.
 - Confirm the drag-to-add guidance says to drag the macMender app icon if it is not listed, includes the fallback `+`/reopen instruction, and does not claim permissions are granted.
 - Confirm Settings > Menu Bar looks like a safe setup guide, not a broken layout manager.
@@ -58,7 +63,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Inspect Overview and Dock & Windows for reduced dark angular shell seams after the post-QA cleanup pass.
 - Inspect Overview, Menu Bar, Dock & Windows, Privacy, Profiles, and Advanced for concise user-facing text, aligned content, and no clipped copy.
 - Confirm Overview uses `Services`, `Input monitoring`, `Dock previews`, and `Menu bar discovery` instead of raw runtime labels.
-- Confirm the mockup-inspired Overview reads clearly within five seconds: strong hero, large Mendy, `macMender is running`, compact health chips, four high-level cards, friendly Quick Actions, and service details tucked into disclosure.
+- Confirm the Overview reads clearly within five seconds: strong hero, large Mendy, `macMender is running`, compact health chips, four high-level status cards, no filler action area, and service details tucked into disclosure.
 - Confirm the sidebar top identity says `macMender`, uses small Mendy, has concise section names, a softer selected state, and a calm bottom service summary.
 - Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation, with raw diagnostics hidden by default.
 - Confirm Menu Bar hides repeated `Visible now` labels, bundle IDs, and long planning explanations in the normal row list.
@@ -78,7 +83,8 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 ## Not Verified by This Agent Run
 
 - Full Dock hover over adjacent Dock icons using the user's actual pointer path after the thumbnail/cache changes.
-- Full post-change visual inspection of Overview, Sidebar, Menu Bar, Privacy, Advanced, and popover after the mockup-inspired UI simplification pass. Computer Use was unavailable during this agent run, and an AppleScript click attempt did not capture the app page reliably.
+- Popover inspection after the functional UI cleanup pass. Computer Use was unavailable during this agent run, and the menu-bar popover could not be opened reliably through the available tools.
+- Full human feel check of the sidebar selection after the native `List(selection:)` investigation fallback. The agent verified screenshots and repeated clicks, but native interaction feel still needs user review.
 - Full Option+Tab visual overlay testing via held keyboard shortcut. Computer Use can click the overlay panel and verify mouse activation, but did not deliver a held Option+Tab sequence to the event tap.
 - Feel and correctness of the Dock preview linger setting on the user's Dock.
 - Visual comparison of all Dock preview animation styles and duration values with an actual preview panel.

@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 struct OverviewView: View {
@@ -8,21 +7,26 @@ struct OverviewView: View {
         PreferencesScrollView {
             OverviewHero(appModel: appModel)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4), spacing: 14) {
-                OverviewStatusCard(
-                    title: "Accessibility",
-                    subtitle: "System access",
-                    symbol: "display",
-                    status: appModel.permissions.accessibility.title,
-                    tone: appModel.permissions.accessibility == .granted ? .active : .warning
-                )
-                OverviewStatusCard(
-                    title: "Screen Recording",
-                    subtitle: "Window thumbnails",
-                    symbol: "record.circle",
-                    status: appModel.permissions.screenRecording.title,
-                    tone: appModel.permissions.screenRecording == .granted ? .active : .warning
-                )
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 14)], spacing: 14) {
+                SoftStatusCard(
+                    title: "Permissions",
+                    subtitle: appModel.permissions.needsAttention ? "Needs review" : "Access looks good",
+                    systemImage: "lock.shield",
+                    tone: appModel.permissions.needsAttention ? .warning : .active
+                ) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        OverviewStatusLine(
+                            title: "Accessibility",
+                            status: appModel.permissions.accessibility.title,
+                            tone: appModel.permissions.accessibility == .granted ? .active : .warning
+                        )
+                        OverviewStatusLine(
+                            title: "Screen Recording",
+                            status: appModel.permissions.screenRecording.title,
+                            tone: appModel.permissions.screenRecording == .granted ? .active : .warning
+                        )
+                    }
+                }
                 OverviewStatusCard(
                     title: "Window Switcher",
                     subtitle: appModel.activeProfile.windowSwitcher.shortcut,
@@ -37,50 +41,13 @@ struct OverviewView: View {
                     status: appModel.dockHover.isRunning ? "Active" : "Paused",
                     tone: appModel.dockHover.isRunning ? .active : .warning
                 )
-            }
-
-            HStack(alignment: .top, spacing: 14) {
-                SectionCard(title: "Quick Actions", subtitle: "Common tasks.", symbolName: "bolt") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
-                        FriendlyActionTile(
-                            title: "Refresh windows",
-                            subtitle: "Find open windows now",
-                            systemImage: "arrow.clockwise"
-                        ) {
-                            appModel.windowSwitcher.refreshDiscovery(settings: appModel.activeProfile.windowSwitcher)
-                        }
-                        FriendlyActionTile(
-                            title: "Test preview",
-                            subtitle: "See your animation",
-                            systemImage: "sparkles"
-                        ) {
-                            showPreviewAnimationSample()
-                        }
-                        FriendlyActionTile(
-                            title: "Open permissions",
-                            subtitle: "Review system access",
-                            systemImage: "shield"
-                        ) {
-                            appModel.selectedSection = .privacy
-                        }
-                    }
-                }
-
-                SectionCard(title: "Mendy is here to help", subtitle: "Need guidance? Mendy keeps the setup honest.", symbolName: "sparkles") {
-                    HStack(alignment: .bottom, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Your Mac is set up with the features this profile manages.")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                            Button("Check status") {
-                                appModel.refreshSystemState(force: true)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                        MendyAvatarView(mood: appModel.mendyMood, size: MendyAvatarSize.panel)
-                    }
-                }
-                .frame(width: 360)
+                OverviewStatusCard(
+                    title: "Menu Bar setup",
+                    subtitle: "Manual cleanup guide",
+                    symbol: "menubar.rectangle",
+                    status: menuBarStatus,
+                    tone: appModel.menuBarScanner.detectedItems.isEmpty ? .neutral : .active
+                )
             }
 
             SectionCard(title: "Services", subtitle: "Technical details stay here when you need them.", symbolName: "dot.radiowaves.left.and.right") {
@@ -124,13 +91,11 @@ struct OverviewView: View {
         return appModel.menuBarScanner.overflowStatusDescription
     }
 
-    private func showPreviewAnimationSample() {
-        let screenFrame = NSApp.keyWindow?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
-        let anchor = CGRect(x: screenFrame.midX - 30, y: screenFrame.minY + 8, width: 60, height: 60)
-        appModel.windowSwitcher.showDockPreviewAnimationSample(
-            settings: appModel.activeProfile.dockPreviews.overlaySettings(using: appModel.activeProfile.windowSwitcher),
-            anchorFrame: anchor
-        )
+    private var menuBarStatus: String {
+        if appModel.store.config.featureToggles.menuBarManagement == false { return "Off" }
+        if appModel.permissions.screenRecording != .granted { return "Limited" }
+        if appModel.menuBarScanner.detectedItems.isEmpty { return "Guide ready" }
+        return "Icons detected"
     }
 }
 
@@ -159,10 +124,12 @@ private struct OverviewHero: View {
 
             Spacer(minLength: 0)
 
-            Button("Refresh Status") {
-                appModel.refreshSystemState(force: true)
+            if appModel.permissions.needsAttention {
+                Button("Open Permissions") {
+                    appModel.selectedSection = .privacy
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
         }
         .padding(28)
         .frame(maxWidth: .infinity, minHeight: 220, alignment: .leading)
@@ -237,6 +204,25 @@ private struct OverviewStatusCard: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(tone == .active ? .green : .orange)
         }
+    }
+}
+
+private struct OverviewStatusLine: View {
+    var title: String
+    var status: String
+    var tone: CapabilityBadge.Tone
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: tone == .active ? "checkmark.circle.fill" : "exclamationmark.circle")
+                .foregroundStyle(tone == .active ? .green : .orange)
+            Text(title)
+                .foregroundStyle(.primary)
+            Spacer(minLength: 8)
+            Text(status)
+                .foregroundStyle(tone == .active ? .green : .orange)
+        }
+        .font(.caption.weight(.semibold))
     }
 }
 

@@ -377,9 +377,9 @@ private struct MenuBarMovementDisabledBanner: View {
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("Physical movement is disabled")
+                Text("Automatic movement is not available")
                     .font(.callout.weight(.semibold))
-                Text("This prevents visible cursor movement, accidental menus, and false success states. Direct icon movement will stay unavailable until it can be verified safely.")
+                Text("macMender keeps setup manual so it never moves your cursor, opens accidental menus, or pretends an icon moved when it did not.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -419,7 +419,7 @@ private struct MenuBarSafeCommandDragGuide: View {
                 }
             }
 
-            Text("The checklist is planning-only. It never calls the physical mover, warps the cursor, synthesizes drags, or clicks menu-bar items.")
+            Text("The checklist is planning-only. macMender will not move, hide, drag, or click menu-bar icons for you.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
