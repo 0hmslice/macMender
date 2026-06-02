@@ -41,14 +41,9 @@ struct OverviewView: View {
                     status: appModel.dockHover.isRunning ? "Active" : "Paused",
                     tone: appModel.dockHover.isRunning ? .active : .warning
                 )
-                OverviewStatusCard(
-                    title: "Menu Bar setup",
-                    subtitle: "Manual cleanup guide",
-                    symbol: "menubar.rectangle",
-                    status: menuBarStatus,
-                    tone: appModel.menuBarScanner.detectedItems.isEmpty ? .neutral : .active
-                )
             }
+
+            OverviewRefreshCard(appModel: appModel)
 
             SectionCard(title: "Services", subtitle: "Technical details stay here when you need them.", symbolName: "dot.radiowaves.left.and.right") {
                 DisclosureGroup("Service details") {
@@ -58,11 +53,6 @@ struct OverviewView: View {
                             title: "Dock previews",
                             detail: appModel.dockHover.isRunning ? (appModel.dockHover.lastHoveredApp ?? "Watching Dock item hover") : "Paused until Accessibility is granted",
                             running: appModel.dockHover.isRunning
-                        )
-                        RuntimeRow(
-                            title: "Menu bar discovery",
-                            detail: menuBarRuntimeDetail,
-                            running: !appModel.menuBarScanner.detectedItems.isEmpty
                         )
                     }
                     .padding(.top, 8)
@@ -85,18 +75,6 @@ struct OverviewView: View {
         return "Ready"
     }
 
-    private var menuBarRuntimeDetail: String {
-        guard appModel.menuBarScanner.shelfEnabled else { return "Paused" }
-        if appModel.hiddenMenuBarItemCount == 0 { return "Manual setup guide active" }
-        return appModel.menuBarScanner.overflowStatusDescription
-    }
-
-    private var menuBarStatus: String {
-        if appModel.store.config.featureToggles.menuBarManagement == false { return "Off" }
-        if appModel.permissions.screenRecording != .granted { return "Limited" }
-        if appModel.menuBarScanner.detectedItems.isEmpty { return "Guide ready" }
-        return "Icons detected"
-    }
 }
 
 private struct OverviewHero: View {
@@ -118,7 +96,6 @@ private struct OverviewHero: View {
                     CapabilityBadge(title: permissionsChipTitle, systemImage: "checkmark.circle.fill", tone: appModel.permissions.needsAttention ? .warning : .active)
                     CapabilityBadge(title: appModel.dockHover.isRunning ? "Dock previews active" : "Dock previews paused", systemImage: "dock.rectangle", tone: appModel.dockHover.isRunning ? .active : .warning)
                     CapabilityBadge(title: windowSwitcherChipTitle, systemImage: "rectangle.3.group", tone: windowSwitcherIsReady ? .active : .warning)
-                    CapabilityBadge(title: menuBarChipTitle, systemImage: "menubar.rectangle", tone: appModel.menuBarScanner.detectedItems.isEmpty ? .neutral : .active)
                 }
             }
 
@@ -186,8 +163,55 @@ private struct OverviewHero: View {
         windowSwitcherIsReady ? "Window switcher ready" : "Window switcher paused"
     }
 
-    private var menuBarChipTitle: String {
-        appModel.menuBarScanner.detectedItems.isEmpty ? "Menu bar guide ready" : "Menu bar monitored"
+}
+
+private struct OverviewRefreshCard: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        SectionCard(
+            title: "Status Refresh",
+            subtitle: "Updates the health summary without scanning windows or capturing thumbnails.",
+            symbolName: "arrow.clockwise"
+        ) {
+            HStack(spacing: 14) {
+                if appModel.isRefreshingOverview {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: "clock.badge.checkmark")
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appModel.isRefreshingOverview ? "Updating status..." : lastUpdatedTitle)
+                        .font(.callout.weight(.semibold))
+                    Text(appModel.lastOverviewRefreshSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 12)
+
+                Button {
+                    appModel.refreshOverviewStatus()
+                } label: {
+                    Label(appModel.isRefreshingOverview ? "Refreshing" : "Refresh Status", systemImage: "arrow.clockwise")
+                }
+                .disabled(appModel.isRefreshingOverview)
+            }
+        }
+    }
+
+    private var lastUpdatedTitle: String {
+        guard let last = appModel.lastOverviewRefresh else {
+            return "Not refreshed yet"
+        }
+        if Date().timeIntervalSince(last) < 60 {
+            return "Updated just now"
+        }
+        return "Updated at \(last.formatted(date: .omitted, time: .shortened))"
     }
 }
 

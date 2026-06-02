@@ -2,28 +2,44 @@ import SwiftUI
 
 struct PrivacyPermissionsView: View {
     @ObservedObject var appModel: AppModel
-    @State private var showingResetConfirmation = false
 
     var body: some View {
         PreferencesScrollView {
-            SectionCard(title: "Privacy Promise", subtitle: "macMender runs locally and only asks for access a feature needs.", symbolName: "hand.raised") {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        CapabilityBadge(title: "No analytics", systemImage: "chart.bar.xaxis", tone: .active)
-                        CapabilityBadge(title: "No tracking", systemImage: "eye.slash", tone: .active)
-                        CapabilityBadge(title: "Local settings", systemImage: "externaldrive", tone: .neutral)
-                        Spacer()
+            SectionCard(title: "macMender runs locally.", subtitle: "No analytics. No tracking. No remote APIs by default.", symbolName: "hand.raised") {
+                HStack(alignment: .top, spacing: 16) {
+                    MendyAvatarView(
+                        mood: appModel.permissions.needsAttention ? .thinking : .success,
+                        size: MendyAvatarSize.panel
+                    )
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Permissions are only used for the features you enable. Window thumbnails stay on your Mac and configuration stays local.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        HStack {
+                            CapabilityBadge(title: "No analytics", systemImage: "chart.bar.xaxis", tone: .active)
+                            CapabilityBadge(title: "No tracking", systemImage: "eye.slash", tone: .active)
+                            CapabilityBadge(title: "Local settings", systemImage: "externaldrive", tone: .neutral)
+                            Spacer()
+                        }
                     }
 
-                    DisclosureGroup("Local details") {
-                        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                            PrivacyPromiseRow(title: "Remote APIs", value: "None by default")
-                            PrivacyPromiseRow(title: "Configuration", value: appModel.store.configURL.path)
-                        }
-                        .padding(.top, 6)
-                    }
-                    .font(.callout)
+                    Spacer(minLength: 0)
                 }
+            }
+
+            SectionCard(title: "Local Details", subtitle: "Technical privacy details are here when you need them.", symbolName: "externaldrive") {
+                DisclosureGroup("Show local paths and data use") {
+                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
+                        PrivacyPromiseRow(title: "Remote APIs", value: "None by default")
+                        PrivacyPromiseRow(title: "Configuration", value: appModel.store.configURL.path)
+                        PrivacyPromiseRow(title: "Window thumbnails", value: "Used locally for Dock previews")
+                    }
+                    .padding(.top, 6)
+                }
+                .font(.callout)
             }
 
             PreferencesSectionGrid(minimumColumnWidth: 280) {
@@ -53,44 +69,6 @@ struct PrivacyPermissionsView: View {
                     appModel.permissions.openInputMonitoringSettings()
                 }
             }
-
-            SectionCard(title: "Launch at Login", subtitle: "Start macMender automatically.", symbolName: "power") {
-                Toggle("Launch macMender at login", isOn: Binding(
-                    get: { appModel.loginItems.launchAtLogin },
-                    set: { appModel.loginItems.setLaunchAtLogin($0) }
-                ))
-                .disabled(!appModel.loginItems.canManageLaunchAtLogin)
-                Text(appModel.loginItems.statusDescription)
-                    .foregroundStyle(.secondary)
-            }
-
-            SectionCard(title: "Dock Icon", subtitle: "Keep macMender out of the Dock while it continues running from the menu bar.", symbolName: "dock.rectangle") {
-                Toggle("Hide Dock icon while running", isOn: Binding(
-                    get: { appModel.store.config.appBehavior.hideDockIcon },
-                    set: { appModel.setHideDockIcon($0) }
-                ))
-                Text("When hidden, use the macMender menu bar icon to open Settings or quit the app.")
-                    .foregroundStyle(.secondary)
-            }
-
-            SectionCard(title: "Start Over", subtitle: "Reset local settings and show onboarding again on next launch.", symbolName: "arrow.counterclockwise") {
-                HStack {
-                    Text("This clears macMender's local configuration and returns to the first-run setup flow.")
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Reset to Onboarding", role: .destructive) {
-                        showingResetConfirmation = true
-                    }
-                }
-            }
-        }
-        .confirmationDialog("Reset macMender?", isPresented: $showingResetConfirmation) {
-            Button("Reset to Onboarding", role: .destructive) {
-                appModel.resetToOnboarding()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This resets local macMender settings and returns the app to onboarding.")
         }
     }
 }

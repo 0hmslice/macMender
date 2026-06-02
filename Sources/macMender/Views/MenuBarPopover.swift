@@ -21,7 +21,7 @@ struct MenuBarPopover: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 9) {
-                MendyAvatarView(mood: appModel.menuBarMendyMood, size: MendyAvatarSize.compact)
+                MendyAvatarView(mood: appModel.statusItemMendyMood, size: MendyAvatarSize.compact)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("macMender")
@@ -42,7 +42,6 @@ struct MenuBarPopover: View {
                 PopoverStatusRow(title: "Screen Recording", value: appModel.permissions.screenRecording.title, isActive: appModel.permissions.screenRecording == .granted)
                 PopoverStatusRow(title: "Window Switcher", value: windowSwitcherStatus, isActive: windowSwitcherIsReady)
                 PopoverStatusRow(title: "Dock previews", value: appModel.dockHover.isRunning ? "Ready" : "Paused", isActive: appModel.dockHover.isRunning)
-                PopoverStatusRow(title: "Menu Bar setup", value: menuBarStatus, isActive: appModel.menuBarScanner.shelfEnabled)
             }
 
             HStack(spacing: 8) {
@@ -102,12 +101,6 @@ struct MenuBarPopover: View {
         if appModel.store.config.safeModeEnabled { return "Paused" }
         if appModel.permissions.needsAttention { return "Needs attention" }
         return "Running"
-    }
-
-    private var menuBarStatus: String {
-        if appModel.store.config.featureToggles.menuBarManagement == false { return "Off" }
-        if appModel.permissions.screenRecording != .granted { return "Limited" }
-        return appModel.menuBarScanner.shelfEnabled ? "Discovery" : "Guide"
     }
 
     private var windowSwitcherIsReady: Bool {

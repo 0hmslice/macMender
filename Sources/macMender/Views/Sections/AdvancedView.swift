@@ -27,18 +27,41 @@ struct AdvancedView: View {
             }
 
             SectionCard(title: "Recovery Tools", subtitle: "Safe, reversible actions for troubleshooting.", symbolName: "arrow.counterclockwise") {
-                HStack {
-                    Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
-                        appModel.toggleSafeMode()
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Safe Mode")
+                                .font(.callout.weight(.semibold))
+                            Text("Pauses active input monitoring, Dock previews, Window Switcher shortcuts, and experimental input features. App settings and this window stay available.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer(minLength: 12)
+
+                        Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
+                            appModel.toggleSafeMode()
+                        }
                     }
-                    Button("Read Dock Defaults") {
-                        appModel.dock.refresh()
-                    }
-                    Button("Save Configuration") {
-                        appModel.store.save()
-                    }
-                    Button("Reset to Onboarding", role: .destructive) {
-                        showingResetConfirmation = true
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .liquidGlass(.row)
+
+                    HStack {
+                        Button("Read Dock Defaults") {
+                            appModel.dock.refresh()
+                        }
+                        Button("Save Configuration") {
+                            appModel.store.save()
+                        }
+                        Button("Export Configuration") {
+                            appModel.exportConfiguration()
+                        }
+                        Spacer()
+                        Button("Reset to Onboarding", role: .destructive) {
+                            showingResetConfirmation = true
+                        }
                     }
                 }
             }
@@ -50,7 +73,7 @@ struct AdvancedView: View {
 
                     DisclosureGroup("Technical boundaries") {
                         VStack(alignment: .leading, spacing: 8) {
-                            BoundaryRow(title: "Menu bar organization", detail: "Discovery and planning use the Thaw-port engine path. Physical third-party icon movement remains disabled.")
+                            BoundaryRow(title: "Launch timing", detail: launchTimingDetail)
                             BoundaryRow(title: "Dock icon hover previews", detail: "Reads the Dock accessibility tree and disables itself when Accessibility is unavailable.")
                             BoundaryRow(title: "Three-finger global gestures", detail: "Uses local multitouch callbacks where available and falls back to mouse-button triggers otherwise.")
                             BoundaryRow(title: "Spaces movement", detail: "Only actions with a reliable local runtime path are exposed in the UI.")
@@ -68,6 +91,12 @@ struct AdvancedView: View {
         } message: {
             Text("This clears local settings and shows onboarding again.")
         }
+    }
+
+    private var launchTimingDetail: String {
+        let firstWindow = appModel.firstWindowReadyAt.map { "first window marked \($0.formatted(date: .omitted, time: .standard))" } ?? "first window not marked yet"
+        let runtime = appModel.runtimeStartedAt.map { "runtime started \($0.formatted(date: .omitted, time: .standard))" } ?? "runtime not started yet"
+        return "\(firstWindow); \(runtime). Heavier helpers start after the first window appears."
     }
 }
 

@@ -8,7 +8,6 @@ struct AppConfig: Codable, Equatable {
     var featureToggles: FeatureToggles
     var appBehavior: AppBehavior
     var profiles: [MacMenderProfile]
-    var menuBarLayout: MenuBarLayout
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion
@@ -18,7 +17,6 @@ struct AppConfig: Codable, Equatable {
         case featureToggles
         case appBehavior
         case profiles
-        case menuBarLayout
     }
 
     init(
@@ -28,8 +26,7 @@ struct AppConfig: Codable, Equatable {
         safeModeEnabled: Bool,
         featureToggles: FeatureToggles,
         appBehavior: AppBehavior,
-        profiles: [MacMenderProfile],
-        menuBarLayout: MenuBarLayout
+        profiles: [MacMenderProfile]
     ) {
         self.schemaVersion = schemaVersion
         self.hasCompletedOnboarding = hasCompletedOnboarding
@@ -38,7 +35,6 @@ struct AppConfig: Codable, Equatable {
         self.featureToggles = featureToggles
         self.appBehavior = appBehavior
         self.profiles = profiles
-        self.menuBarLayout = menuBarLayout
     }
 
     init(from decoder: Decoder) throws {
@@ -51,7 +47,6 @@ struct AppConfig: Codable, Equatable {
         featureToggles = try container.decodeIfPresent(FeatureToggles.self, forKey: .featureToggles) ?? fallback.featureToggles
         appBehavior = try container.decodeIfPresent(AppBehavior.self, forKey: .appBehavior) ?? fallback.appBehavior
         profiles = try container.decodeIfPresent([MacMenderProfile].self, forKey: .profiles) ?? fallback.profiles
-        menuBarLayout = try container.decodeIfPresent(MenuBarLayout.self, forKey: .menuBarLayout) ?? fallback.menuBarLayout
     }
 
     static var `default`: AppConfig {
@@ -63,8 +58,7 @@ struct AppConfig: Codable, Equatable {
             safeModeEnabled: false,
             featureToggles: .default,
             appBehavior: .default,
-            profiles: [defaultProfile],
-            menuBarLayout: .default
+            profiles: [defaultProfile]
         )
     }
 }
@@ -77,13 +71,11 @@ struct AppBehavior: Codable, Equatable {
 
 struct FeatureToggles: Codable, Equatable {
     var scrolling: Bool
-    var menuBarManagement: Bool
     var windowSwitcher: Bool
     var dockProfiles: Bool
 
     static let `default` = FeatureToggles(
         scrolling: true,
-        menuBarManagement: true,
         windowSwitcher: true,
         dockProfiles: true
     )

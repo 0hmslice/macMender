@@ -11,10 +11,10 @@ It also now contains a working SwiftPM macOS app with:
 - Menu bar extra and preferences window
 - First-launch onboarding with guided permission setup
 - Local JSON profile storage
-- Permission center for Accessibility, Screen Recording, and launch-at-login
+- Privacy and Permissions center for Accessibility, Screen Recording, Input Monitoring guidance, and local privacy details
+- General app settings for launch-at-login and Dock icon behavior
 - Runtime input event tap for scroll direction/gain/smoothing transforms
 - Middle-click emulation from event-tap triggers and private MultitouchSupport three-finger taps
-- Live menu-bar item scanning with user-selected hidden icons that reveal when hovering over Mendy
 - Option+Tab window switcher controller with a native preview overlay
 - Dock hover preview monitor driven by the Dock accessibility tree
 - Reset-to-onboarding recovery action
@@ -27,9 +27,10 @@ It also now contains a working SwiftPM macOS app with:
 macMender combines a focused set of macOS quality-of-life tools:
 
 - Input and scrolling tuning for mice, trackpads, apps, and profiles
-- Menu bar hiding with accurate status-item detection, local choices, and hover-to-reveal behavior where macOS allows safe observation
 - Dock and window enhancements, including a keyboard window switcher, Dock hover previews, and configurable Dock behavior
 - A simple default profile, with optional user-created profiles for separate setups
+
+Menu Bar management is intentionally removed from the current app. The app still keeps its own macMender menu bar status item and popover as the control center.
 
 The product is explicitly privacy-forward:
 
@@ -49,7 +50,7 @@ The primary distribution path is direct download or Homebrew with Developer ID s
 
 ## License
 
-macMender is GPL-3.0 licensed. Menu bar management includes implementation patterns and adapted event-routing code from [Ice for macOS](https://github.com/jordanbaird/Ice); see `docs/THIRD_PARTY_NOTICES.md`.
+macMender is GPL-3.0 licensed. See `THIRD_PARTY_NOTICES.md` and `docs/THIRD_PARTY_NOTICES.md` for current third-party notes.
 
 ## Build and Run
 

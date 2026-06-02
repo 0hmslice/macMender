@@ -50,33 +50,6 @@ final class ProfileStore: ObservableObject {
         config.profiles[index] = profile
     }
 
-    func setMenuBarSection(itemKey: String, title: String, section: MenuBarSection, before beforeKey: String? = nil) {
-        config.menuBarLayout.setMenuBarItemSection(itemKey: itemKey, title: title, section: section, before: beforeKey)
-        save()
-    }
-
-    func rememberMenuBarItems(_ items: [DetectedMenuBarItem], resolvesVisibleConflicts: Bool) {
-        let previousLayout = config.menuBarLayout
-        let liveOrderItems = items
-            .filter(\.isHideCandidate)
-            .map { item in
-                MenuBarLiveOrderItem(
-                    key: item.sectionKey,
-                    title: item.displayTitle,
-                    section: config.menuBarLayout.resolvedSectionForLiveSync(
-                        itemKey: item.sectionKey,
-                        actualSection: item.actualSection,
-                        resolvesVisibleConflicts: resolvesVisibleConflicts
-                    )
-                )
-            }
-        config.menuBarLayout.syncLiveMenuBarItems(liveOrderItems)
-
-        if config.menuBarLayout != previousLayout {
-            save()
-        }
-    }
-
     func completeOnboarding() {
         config.hasCompletedOnboarding = true
         save()
@@ -163,18 +136,12 @@ final class ProfileStore: ObservableObject {
                 return profile
             }
         }
-        if loaded.schemaVersion < 4 {
-            migrated.menuBarLayout.showSectionDividers = false
-        }
         migrated.schemaVersion = AppConfig.default.schemaVersion
         return migrated
     }
 
     private func sanitize(_ loaded: AppConfig) -> AppConfig {
         var sanitized = loaded
-        sanitized.menuBarLayout.items.removeAll {
-            $0.bundleIdentifier == "com.example.utility" || $0.title == "Example Utility"
-        }
         sanitized.profiles = sanitized.profiles.map { profile in
             var profile = profile
             if profile.middleClick.action == .customShortcut {

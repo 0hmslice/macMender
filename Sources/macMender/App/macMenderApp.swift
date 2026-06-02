@@ -14,13 +14,17 @@ struct MacMenderApp: App {
             PreferencesWindow(appModel: appModel)
                 .frame(minWidth: 980, minHeight: 680)
                 .onAppear {
+                    appModel.markFirstWindowReady()
                     statusItemController.install(appModel: appModel) {
                         if !appModel.focusPreferencesWindow() {
                             openWindow(id: "preferences")
                         }
                         appModel.activateApp()
                     }
-                    appModel.startRuntimeIfNeeded()
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(250))
+                        appModel.startRuntimeIfNeeded()
+                    }
                 }
         }
         .commands {
@@ -69,10 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let bundle = Bundle.main
         let bundlePath = bundle.bundlePath
         let isAppBundle = bundlePath.hasSuffix(".app")
-        let helperURL = bundle.bundleURL
-            .appendingPathComponent("Contents/XPCServices/MacMenderMenuBarItemService.xpc", isDirectory: true)
-        let helperExists = FileManager.default.fileExists(atPath: helperURL.path)
-        logger.info("Launch identity bundleIdentifier=\(bundle.bundleIdentifier ?? "nil", privacy: .public) bundlePath=\(bundlePath, privacy: .public) isAppBundle=\(isAppBundle, privacy: .public) xpcHelperExists=\(helperExists, privacy: .public)")
+        logger.info("Launch identity bundleIdentifier=\(bundle.bundleIdentifier ?? "nil", privacy: .public) bundlePath=\(bundlePath, privacy: .public) isAppBundle=\(isAppBundle, privacy: .public)")
     }
 }
 

@@ -8,23 +8,12 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library(name: "MacMenderMenuBarEngine", targets: ["MacMenderMenuBarEngine"]),
-        .executable(name: "MacMenderMenuBarItemService", targets: ["MacMenderMenuBarItemService"]),
         .executable(name: "macMender", targets: ["macMender"])
     ],
     targets: [
-        .target(
-            name: "MacMenderMenuBarEngine",
-            dependencies: []
-        ),
-        .executableTarget(
-            name: "MacMenderMenuBarItemService",
-            dependencies: []
-        ),
         .executableTarget(
             name: "macMender",
             dependencies: [
-                "MacMenderMenuBarEngine",
                 "MultitouchSupport"
             ],
             resources: [
@@ -42,8 +31,7 @@ let package = Package(
         .testTarget(
             name: "macMenderTests",
             dependencies: [
-                "macMender",
-                "MacMenderMenuBarEngine"
+                "macMender"
             ]
         )
     ]

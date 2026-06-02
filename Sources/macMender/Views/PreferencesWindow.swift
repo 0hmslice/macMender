@@ -35,19 +35,6 @@ struct PreferencesWindow: View {
                             if appModel.store.config.profiles.count > 1 {
                                 ProfilePicker(appModel: appModel)
                             }
-
-                            Button {
-                                appModel.toggleSafeMode()
-                            } label: {
-                                Label("Safe Mode", systemImage: appModel.store.config.safeModeEnabled ? "pause.circle.fill" : "pause.circle")
-                            }
-                            .help("Disable all active system modifications")
-
-                            Button {
-                                appModel.refreshSystemState(force: true)
-                            } label: {
-                                Label("Refresh", systemImage: "arrow.clockwise")
-                            }
                         }
                     }
             }
@@ -85,10 +72,10 @@ private struct MendySidebarHeader: View {
         switch appModel.selectedSection {
         case .overview:
             "Keeping your Mac working beautifully."
+        case .general:
+            "Launch and app behavior."
         case .input:
             "Mouse and trackpad tools."
-        case .menuBar:
-            "Plan a cleaner menu bar."
         case .dockWindows:
             "Previews and switching."
         case .profiles:
@@ -170,10 +157,10 @@ private struct DetailRouter: View {
         switch appModel.selectedSection {
         case .overview:
             OverviewView(appModel: appModel)
+        case .general:
+            GeneralSettingsView(appModel: appModel)
         case .input:
             InputScrollingView(appModel: appModel)
-        case .menuBar:
-            MenuBarManagementView(appModel: appModel)
         case .dockWindows:
             DockWindowsView(appModel: appModel)
         case .profiles:

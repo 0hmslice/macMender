@@ -17,7 +17,7 @@ final class PermissionService: ObservableObject {
 
     func refresh() {
         accessibility = AXIsProcessTrusted() ? .granted : .missing
-        if CGPreflightScreenCaptureAccess() || MenuBarPrivateBridge.hasMenuBarWindowTitleAccess() {
+        if CGPreflightScreenCaptureAccess() {
             screenRecordingProbeTask?.cancel()
             screenRecording = .granted
         } else {

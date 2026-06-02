@@ -1,11 +1,15 @@
 import AppKit
 import Combine
 import Foundation
-import MacMenderMenuBarEngine
 
 @MainActor
 final class AppModel: ObservableObject {
     @Published var selectedSection: SettingsSection = .overview
+    @Published private(set) var isRefreshingOverview = false
+    @Published private(set) var lastOverviewRefresh: Date?
+    @Published private(set) var lastOverviewRefreshSummary = "Not refreshed yet"
+    @Published private(set) var firstWindowReadyAt: Date?
+    @Published private(set) var runtimeStartedAt: Date?
 
     let store: ProfileStore
     let permissions: PermissionService
@@ -14,13 +18,13 @@ final class AppModel: ObservableObject {
     let diagnostics: DiagnosticsService
     let systemEvents: SystemEventService
     let windowSwitcher: WindowSwitcherService
-    let menuBarScanner: MenuBarScannerService
     let dockHover: DockHoverService
     let multitouchMiddleClick: MultitouchMiddleClickService
 
     private var cancellables = Set<AnyCancellable>()
     private var lastFullRefresh: Date?
     private var hasStartedRuntime = false
+    private let modelCreatedAt = Date()
 
     init(
         store: ProfileStore = ProfileStore(),
@@ -30,7 +34,6 @@ final class AppModel: ObservableObject {
         diagnostics: DiagnosticsService = DiagnosticsService(),
         systemEvents: SystemEventService = SystemEventService(),
         windowSwitcher: WindowSwitcherService = WindowSwitcherService(),
-        menuBarScanner: MenuBarScannerService = MenuBarScannerService(),
         dockHover: DockHoverService = DockHoverService(),
         multitouchMiddleClick: MultitouchMiddleClickService = MultitouchMiddleClickService()
     ) {
@@ -41,24 +44,14 @@ final class AppModel: ObservableObject {
         self.diagnostics = diagnostics
         self.systemEvents = systemEvents
         self.windowSwitcher = windowSwitcher
-        self.menuBarScanner = menuBarScanner
         self.dockHover = dockHover
         self.multitouchMiddleClick = multitouchMiddleClick
-        self.menuBarScanner.onRequestSectionChange = { [weak self] item, section in
-            self?.setMenuBarSection(item, section: section)
-        }
         bindChildChanges()
         wireRuntimeHandlers()
     }
 
     var activeProfile: MacMenderProfile {
         store.activeProfile
-    }
-
-    var menuBarSymbol: String {
-        if store.config.safeModeEnabled { return "wrench.and.screwdriver.fill" }
-        if permissions.needsAttention { return "wrench.and.screwdriver" }
-        return "wrench.and.screwdriver"
     }
 
     var runningStatusTitle: String {
@@ -97,10 +90,10 @@ final class AppModel: ObservableObject {
         switch selectedSection {
         case .overview:
             return .success
+        case .general:
+            return .idle
         case .input:
             return .scanning
-        case .menuBar:
-            return .thinking
         case .dockWindows:
             return .scanning
         case .profiles:
@@ -112,7 +105,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    var menuBarMendyMood: MendyMood {
+    var statusItemMendyMood: MendyMood {
         if !store.config.hasCompletedOnboarding || store.config.safeModeEnabled || permissions.needsAttention {
             return .error
         }
@@ -120,33 +113,6 @@ final class AppModel: ObservableObject {
             return .scanning
         }
         return .success
-    }
-
-    var hasMenuBarOverflowItems: Bool {
-        !hiddenMenuBarSelections.isEmpty
-    }
-
-    private var hasConfiguredMenuBarOverflowItems: Bool {
-        let visibleSystemManagedKeys = Set(menuBarScanner.detectedItems.filter(\.isSystemManaged).map(\.sectionKey))
-        return store.config.menuBarLayout.items.contains {
-            $0.section != .pinned && !visibleSystemManagedKeys.contains($0.bundleIdentifier)
-        }
-    }
-
-    var hiddenMenuBarSelections: [MenuBarItemModel] {
-        let visibleSystemManagedKeys = Set(menuBarScanner.detectedItems.filter(\.isSystemManaged).map(\.sectionKey))
-        let physicallyVisibleKeys = Set(menuBarScanner.detectedItems.filter { item in
-            item.isHideCandidate && item.actualSection == .pinned
-        }.map(\.sectionKey))
-        return store.config.menuBarLayout.items.filter {
-            $0.section != .pinned &&
-                !visibleSystemManagedKeys.contains($0.bundleIdentifier) &&
-                !physicallyVisibleKeys.contains($0.bundleIdentifier)
-        }
-    }
-
-    var hiddenMenuBarItemCount: Int {
-        hiddenMenuBarSelections.count
     }
 
     func refreshSystemState(force: Bool = false) {
@@ -160,9 +126,25 @@ final class AppModel: ObservableObject {
         permissions.refresh()
         dock.refresh()
         loginItems.refresh()
-        menuBarScanner.refresh(force: force)
-        rememberDetectedMenuBarItems()
         updateRuntime()
+    }
+
+    func refreshOverviewStatus() {
+        guard !isRefreshingOverview else { return }
+        isRefreshingOverview = true
+        lastOverviewRefreshSummary = "Updating status..."
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.permissions.refresh()
+            self.dock.refresh()
+            self.loginItems.refresh()
+            self.updateRuntime()
+            self.lastOverviewRefresh = Date()
+            self.lastOverviewRefreshSummary = self.overviewRefreshSummary()
+            try? await Task.sleep(for: .milliseconds(300))
+            self.isRefreshingOverview = false
+        }
     }
 
     func startRuntimeIfNeeded() {
@@ -171,6 +153,7 @@ final class AppModel: ObservableObject {
             return
         }
         hasStartedRuntime = true
+        runtimeStartedAt = Date()
         refreshSystemState(force: true)
     }
 
@@ -178,8 +161,12 @@ final class AppModel: ObservableObject {
         permissions.refresh()
         dock.refresh()
         loginItems.refresh()
-        menuBarScanner.refresh(force: false)
-        rememberDetectedMenuBarItems()
+    }
+
+    func markFirstWindowReady() {
+        if firstWindowReadyAt == nil {
+            firstWindowReadyAt = Date()
+        }
     }
 
     func toggleSafeMode() {
@@ -233,99 +220,6 @@ final class AppModel: ObservableObject {
         updateRuntimeAfterProfileChange(from: previousProfile, to: updatedProfile)
     }
 
-    func setMenuBarSection(_ item: DetectedMenuBarItem, section: MenuBarSection) {
-        moveMenuBarItem(item, to: section, before: nil)
-    }
-
-    func moveMenuBarItem(_ item: DetectedMenuBarItem, to section: MenuBarSection, before target: DetectedMenuBarItem?) {
-        guard item.isHideCandidate else { return }
-        guard menuBarScanner.physicalMovementEnabled else { return }
-        store.setMenuBarSection(itemKey: item.sectionKey, title: item.displayTitle, section: section, before: target?.sectionKey)
-        let physicalTarget = target ?? nextDetectedMenuBarItem(after: item.sectionKey, in: section)
-        let menuBarShelfEnabled = store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding
-        guard menuBarShelfEnabled else { return }
-        menuBarScanner.configureControls(
-            enabled: menuBarShelfEnabled,
-            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
-            layout: store.config.menuBarLayout
-        )
-        menuBarScanner.move(item, to: section, before: physicalTarget)
-    }
-
-    func moveMendyStatusItem(before target: DetectedMenuBarItem?) {
-        guard menuBarScanner.physicalMovementEnabled else { return }
-        let menuBarShelfEnabled = store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding
-        guard menuBarShelfEnabled else { return }
-        menuBarScanner.configureControls(
-            enabled: menuBarShelfEnabled,
-            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
-            layout: store.config.menuBarLayout
-        )
-        menuBarScanner.moveVisibleControl(before: target)
-    }
-
-    func menuBarSection(for item: DetectedMenuBarItem) -> MenuBarSection {
-        MenuBarLayoutSectionSource.displayedSection(for: item)
-    }
-
-    func isMenuBarItemHidden(_ item: DetectedMenuBarItem) -> Bool {
-        MenuBarLayoutSectionSource.isHiddenInLiveLayout(item)
-    }
-
-    func setMenuBarItemHidden(_ item: DetectedMenuBarItem, hidden: Bool) {
-        guard item.isHideCandidate else { return }
-        setMenuBarSection(item, section: hidden ? .overflow : .pinned)
-    }
-
-    func setStoredMenuBarItemVisible(_ item: MenuBarItemModel) {
-        store.setMenuBarSection(itemKey: item.bundleIdentifier, title: item.title, section: .pinned, before: nil)
-        updateRuntime()
-    }
-
-    func updateMenuBarLayout(_ update: (inout MenuBarLayout) -> Void) {
-        update(&store.config.menuBarLayout)
-        store.save()
-        menuBarScanner.configureControls(
-            enabled: store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding,
-            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
-            layout: store.config.menuBarLayout
-        )
-    }
-
-    func resetMenuBarLayout() {
-        let visibleCandidates = menuBarScanner.detectedItems.filter { item in
-            item.isHideCandidate && menuBarSection(for: item) != .pinned
-        }
-        for item in visibleCandidates {
-            moveMenuBarItem(item, to: .pinned, before: nil)
-        }
-        store.config.menuBarLayout.items.removeAll()
-        store.save()
-        menuBarScanner.configureControls(
-            enabled: store.config.featureToggles.menuBarManagement && !store.config.safeModeEnabled && store.config.hasCompletedOnboarding,
-            hasConcealableItems: false,
-            layout: store.config.menuBarLayout
-        )
-    }
-
-    func applyMenuBarSpacing() {
-        menuBarScanner.applySpacingOffset(store.config.menuBarLayout.itemSpacingOffset)
-    }
-
-    func scanMenuBarItems() {
-        menuBarScanner.refresh(force: true)
-        rememberDetectedMenuBarItems()
-        updateRuntime()
-    }
-
-    func syncMenuBarLayoutLive() {
-        if permissions.screenRecording != .granted {
-            permissions.refresh()
-        }
-        menuBarScanner.refresh(force: true)
-        rememberDetectedMenuBarItems()
-    }
-
     func activateApp() {
         if !store.config.appBehavior.hideDockIcon {
             setActivationPolicyIfNeeded(.regular)
@@ -371,12 +265,6 @@ final class AppModel: ObservableObject {
         )
 
         applyDockPreviewRuntime(runtimePaused: runtimePaused)
-
-        menuBarScanner.configureControls(
-            enabled: store.config.featureToggles.menuBarManagement && !runtimePaused,
-            hasConcealableItems: hasConfiguredMenuBarOverflowItems,
-            layout: store.config.menuBarLayout
-        )
 
         applyMiddleClickRuntime(runtimePaused: runtimePaused)
     }
@@ -439,29 +327,6 @@ final class AppModel: ObservableObject {
         setActivationPolicyIfNeeded(shouldHideDockIcon ? .accessory : .regular)
     }
 
-    private func rememberDetectedMenuBarItems() {
-        store.rememberMenuBarItems(
-            menuBarScanner.detectedItems,
-            resolvesVisibleConflicts: false
-        )
-    }
-
-    private func nextDetectedMenuBarItem(after itemKey: String, in section: MenuBarSection) -> DetectedMenuBarItem? {
-        let layoutItems = store.config.menuBarLayout.items
-        guard let currentIndex = layoutItems.firstIndex(where: { $0.bundleIdentifier == itemKey }) else {
-            return nil
-        }
-        let followingKeys = layoutItems[layoutItems.index(after: currentIndex)...]
-            .filter { $0.section == section }
-            .map(\.bundleIdentifier)
-        for key in followingKeys {
-            if let item = menuBarScanner.detectedItems.first(where: { $0.sectionKey == key }) {
-                return item
-            }
-        }
-        return nil
-    }
-
     private func setActivationPolicyIfNeeded(_ policy: NSApplication.ActivationPolicy) {
         guard NSApp.activationPolicy() != policy else { return }
         NSApp.setActivationPolicy(policy)
@@ -486,7 +351,6 @@ final class AppModel: ObservableObject {
             diagnostics.objectWillChange.eraseToAnyPublisher(),
             systemEvents.objectWillChange.eraseToAnyPublisher(),
             windowSwitcher.objectWillChange.eraseToAnyPublisher(),
-            menuBarScanner.objectWillChange.eraseToAnyPublisher(),
             dockHover.objectWillChange.eraseToAnyPublisher(),
             multitouchMiddleClick.objectWillChange.eraseToAnyPublisher()
         ]
@@ -526,5 +390,15 @@ final class AppModel: ObservableObject {
         dockHover.onExitDock = { [weak self] in
             self?.windowSwitcher.scheduleDockPreviewDismiss()
         }
+    }
+
+    private func overviewRefreshSummary() -> String {
+        if permissions.needsAttention {
+            return "Updated permissions and service status. A permission still needs review."
+        }
+        if store.config.safeModeEnabled {
+            return "Updated permissions and service status. Safe Mode is on."
+        }
+        return "Updated permissions, login item status, Dock defaults, and active helpers."
     }
 }

@@ -4,8 +4,6 @@ set -euo pipefail
 MODE="${1:-run}"
 APP_NAME="macMender"
 BUNDLE_ID="com.ryan.macMender"
-XPC_SERVICE_NAME="MacMenderMenuBarItemService"
-XPC_SERVICE_BUNDLE_ID="$BUNDLE_ID.MenuBarItemService"
 MIN_SYSTEM_VERSION="14.0"
 ICON_NAME="AppIcon.icns"
 ICON_BUNDLE_NAME="AppIcon"
@@ -17,14 +15,8 @@ APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
-APP_XPC_SERVICES="$APP_CONTENTS/XPCServices"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
-XPC_BUNDLE="$APP_XPC_SERVICES/$XPC_SERVICE_NAME.xpc"
-XPC_CONTENTS="$XPC_BUNDLE/Contents"
-XPC_MACOS="$XPC_CONTENTS/MacOS"
-XPC_BINARY="$XPC_MACOS/$XPC_SERVICE_NAME"
-XPC_INFO_PLIST="$XPC_CONTENTS/Info.plist"
 
 SWIFT_BUILD_ARGS=""
 if [[ "$BUILD_CONFIGURATION" == "release" ]]; then
@@ -35,19 +27,15 @@ elif [[ "$BUILD_CONFIGURATION" != "debug" ]]; then
 fi
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-pkill -x "$XPC_SERVICE_NAME" >/dev/null 2>&1 || true
 
 swift build $SWIFT_BUILD_ARGS
 BUILD_BINARY="$(swift build $SWIFT_BUILD_ARGS --show-bin-path)/$APP_NAME"
-BUILD_XPC_BINARY="$(swift build $SWIFT_BUILD_ARGS --show-bin-path)/$XPC_SERVICE_NAME"
 BUILD_PRODUCTS_DIR="$(swift build $SWIFT_BUILD_ARGS --show-bin-path)"
 
 rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$XPC_MACOS"
+mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
-cp "$BUILD_XPC_BINARY" "$XPC_BINARY"
-chmod +x "$XPC_BINARY"
 
 while IFS= read -r -d '' resource_bundle; do
   cp -R "$resource_bundle" "$APP_RESOURCES/"
@@ -88,38 +76,6 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$MIN_SYSTEM_VERSION</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
-</dict>
-</plist>
-PLIST
-
-cat >"$XPC_INFO_PLIST" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleExecutable</key>
-  <string>$XPC_SERVICE_NAME</string>
-  <key>CFBundleIdentifier</key>
-  <string>$XPC_SERVICE_BUNDLE_ID</string>
-  <key>CFBundleName</key>
-  <string>$XPC_SERVICE_NAME</string>
-  <key>CFBundlePackageType</key>
-  <string>XPC!</string>
-  <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
-  <key>CFBundleVersion</key>
-  <string>1</string>
-  <key>LSMinimumSystemVersion</key>
-  <string>$MIN_SYSTEM_VERSION</string>
-  <key>XPCService</key>
-  <dict>
-    <key>JoinExistingSession</key>
-    <true/>
-    <key>RunLoopType</key>
-    <string>NSRunLoop</string>
-    <key>ServiceType</key>
-    <string>Application</string>
-  </dict>
 </dict>
 </plist>
 PLIST

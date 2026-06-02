@@ -4,327 +4,41 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/apple-ui-simplification-motion`
+`codex/remove-menubar-and-polish-settings`
 
-## Apple UI Functional Cleanup Pass
+## Focus
 
-### Overview Audit and Action Cleanup
+This pass removes Menu Bar management from the current product, investigates packaged-app launch responsiveness, and reorganizes settings around normal user expectations.
 
-1. Overview now keeps one primary hero surface with Mendy, `macMender is running`, a short health sentence, and compact live status chips.
-2. The duplicated Overview Quick Actions area was removed. `Refresh windows` and `Test preview` remain in Dock & Windows, where those actions have context and visible runtime feedback.
-3. The Mendy help/check-status card was removed. Its button only refreshed system state without visible page feedback, so keeping it made the dashboard feel broken.
-4. Overview status cards were consolidated into four high-level cards: Permissions, Window Switcher, Dock Previews, and Menu Bar setup.
-5. Accessibility and Screen Recording are grouped inside the Permissions card instead of appearing as two separate equal-weight cards.
-6. The hero only shows `Open Permissions` when permissions need attention. Otherwise, Overview avoids extra buttons.
-7. Services remain behind a collapsed disclosure with user-facing labels: Input monitoring, Dock previews, and Menu bar discovery.
+Menu Bar management is deferred for a future rebuild from scratch. The app still has its own macMender menu bar status item and popover for Settings, Permissions, and Quit.
 
-### Sidebar and Shell Investigation
+## Implemented
 
-1. The current fully native `List(selection:)` sidebar path was tested in the packaged app and compiled cleanly, but the selected row rendered as a strong system-blue block in dark mode.
-2. Because that missed the requested quiet Liquid Glass selection feel, the implementation kept the custom sidebar but simplified it: no selected-row animation, no matched-geometry movement, and a softer material selected row.
-3. The sidebar status summary no longer shows a chevron, because it is a passive status row rather than a clickable action.
-4. The custom detail header band was removed from the preferences shell. Page titles now use the native navigation title, removing the visual clash where the old material band met the sidebar.
+1. Removed the Menu Bar settings section, Overview setup card/chip, Overview service row, onboarding Menu Bar card, popover Menu Bar setup row, scanner service, menu-bar management source, Thaw-port engine target, menu-bar XPC helper target, and menu-bar feature tests.
+2. Removed menu-bar scanner startup work from `AppModel`.
+3. Removed the shell toolbar pause/refresh controls.
+4. Added Overview `Status Refresh`, which updates permissions, login item status, Dock defaults, and active helper state without window discovery or thumbnail capture.
+5. Added `General` for Launch at Login and Dock icon behavior.
+6. Refocused Privacy around the local privacy promise, permissions, Mendy guidance, and technical local details.
+7. Kept reset/onboarding, Safe Mode, export, and technical status in Advanced.
+8. Deferred runtime startup briefly until after the first preferences window appears.
 
-### Normal-User Copy
+## Launch Notes
 
-1. Menu Bar setup copy now says automatic movement is not available in plain product language.
-2. The manual checklist states that macMender will not move, hide, drag, or click menu-bar icons for the user.
-3. Technical menu-bar movement details remain in disclosures or Advanced. No physical movement controls were exposed.
+Baseline packaged launch before edits observed process start at about 0.14s and first accessibility-visible window at about 7.8s in one shell/UI-scripting run. The visible UI still showed Menu Bar management and floating pause/refresh controls.
 
-### Verification Notes
+The suspected launch blockers were synchronous first-appear runtime refresh plus menu-bar scanner work. This pass removes menu-bar scanning and defers runtime startup after the first window render path.
 
-- `swift build` passed after the cleanup changes.
-- `swift test` passed with 65 tests.
-- `script/build_and_run.sh --verify` passed and refreshed `dist/macMender.app`.
-- Launched `/Users/ryan/Documents/macMender/dist/macMender.app`.
-- Temporary screenshots outside the repo confirmed Overview no longer shows Quick Actions or the Mendy `Check status` button, the status cards are consolidated, and the custom header band is gone.
-- Packaged-app screenshot inspection confirmed Dock & Windows still shows Window Switcher controls and diagnostics collapsed; `Test Preview Animation` remains in Dock & Windows > Previews.
-- Sidebar section switching was inspected with repeated clicks. The selected row no longer animates or jumps; the selected surface is quieter than the native blue `List` selection.
-- Immediate post-click CPU sampling was transiently high after screenshots and page switching. After a 20 second quiet period, `top -l 5 -s 1 -pid $(pgrep -x macMender | head -n1)` sampled macMender at 0.0%, 2.6%, 0.0%, 3.4%, and 0.0% CPU with about 95 MB RSS.
-- Computer Use was not available in this session, so Dock hover, Option+Tab held-key interaction, and popover opening remain manual QA.
-- No Dock preview identity/matching/title eligibility/discovery/capture/cache files were changed.
-- No Option+Tab activation/discovery files were changed.
-- No menu-bar movement runtime code or `MenuBarItemMover` files were changed.
+## Boundaries Preserved
+
+- Dock preview identity matching was not changed.
+- Title-only Dock preview eligibility was not reintroduced.
+- Dock thumbnail capture/cache logic was not changed.
+- Option+Tab activation/discovery logic was not changed.
+- Scrolling and MiddleClick runtime behavior were not changed.
+- Bundle identifier, signing identity selection, and entitlements were not changed.
 - `docs/qa/screenshots` was not modified.
 
-## Mockup-Inspired UI Simplification Pass
+## Manual QA Required
 
-### Visual System and Shell
-
-1. Shared soft status/action tile components were added for Apple-style cards and friendly action rows.
-2. Liquid Glass card/panel highlights and shadows were softened to reduce the heavy dark diagnostics feel.
-3. The Preferences shell now uses a simpler layered background and a softer sidebar surface instead of stacked dark custom chrome.
-4. The sidebar top area now presents `macMender` with small Mendy and a short friendly status. A compact service summary sits near the bottom.
-5. Section labels were simplified: `Input`, `Dock & Windows`, `Privacy`, shorter subtitles, and less technical wording.
-
-### Overview Dashboard
-
-1. Overview was rebuilt around a stronger hero with large Mendy, `macMender is running`, a short health sentence, and compact status chips.
-2. Equal-weight technical panels were replaced with high-level cards. The latest cleanup consolidates permissions into one card and keeps Window Switcher, Dock Previews, and Menu Bar setup.
-3. Quick Actions were removed from Overview in the latest cleanup pass; runtime-specific actions live on their matching settings pages.
-4. Runtime/service details are moved into a `Services` disclosure using user-facing labels: Input monitoring, Dock previews, and Menu bar discovery.
-5. The Overview copy avoids claiming physical menu-bar movement or hidden-icon syncing.
-
-### Supporting Pages
-
-1. Dock & Windows keeps the existing controls and runtime behavior, including Preview animation, Animation duration, Preview linger, Test Preview Animation, and Window Switcher settings. Labels were shortened and diagnostics remain hidden by default.
-2. Menu Bar keeps the safe manual setup flow, detected icon list, and planning-only Mark to Review behavior. Default rows now use concise state labels such as `Ready to review`, `Planned for review`, and `System item`.
-3. Privacy now shows Accessibility, Screen Recording, and Input Monitoring as calm checklist cards. Granted permissions remain quiet; missing permissions keep clear actions.
-4. Advanced now uses Local Diagnostics, Recovery Tools, and Technical Status naming, with dense details in disclosures.
-5. The menu bar popover says `Running`, `Dock previews`, and `Menu Bar setup`, and avoids tutorial copy and `Local helpers` phrasing.
-
-### Verification Notes
-
-- `swift build` passed after the UI simplification changes.
-- `swift test` passed with 65 tests.
-- `script/build_and_run.sh --verify` passed and refreshed `dist/macMender.app`.
-- Launched `/Users/ryan/Documents/macMender/dist/macMender.app`.
-- A temporary screenshot of Dock & Windows confirmed the shortened Dock Preview labels, preserved animation duration slider, Test Preview Animation button, and hidden diagnostics disclosure.
-- Computer Use was not available after the context transition, and an AppleScript UI click attempt captured Codex instead of the app. Full page-by-page post-change visual QA remains manual.
-- No Dock preview identity/matching/title eligibility/discovery/capture/cache files were changed.
-- No Option+Tab activation/discovery files were changed.
-- No menu-bar movement runtime code or `MenuBarItemMover` files were changed.
-- `docs/qa/screenshots` was not modified.
-
-## Apple UI Simplification and Dock Preview Motion Pass
-
-### Dock Preview Motion
-
-1. Dock preview appear/dismiss motion now stabilizes the panel frame before presentation and animates the content layer instead of using frame animation as the primary motion path.
-2. `None` is immediate. `Fade` is opacity-only. `Scale`, `Slide Up`, `System`, `Glass Pop`, and `Genie` use layer opacity/transform states so the frame does not jitter during presentation.
-3. `Glass Pop` remains a one-shot keyframe effect with a short highlight fade. `Genie` is a private-API-free Dock-origin style expansion using a narrower/lower layer transform and elastic keyframes.
-4. Moving between previews cancels stale layer animations with the existing animation generation guard and removes old layer animations before starting a new one.
-5. Dismissal uses the matching reverse layer state for each style. Reduce Motion still simplifies the effective style to `Fade` or `None`.
-6. Thumbnail capture, thumbnail cache, Dock identity matching, Dock app/window discovery, title eligibility, Option+Tab discovery, and Option+Tab activation were not changed in this pass.
-
-### Animation Duration Setting
-
-1. The user-facing Snappy/Balanced/Smooth picker was replaced with an `Animation duration` slider.
-2. The slider range is 0.05s to 0.60s with 0.01s steps. Defaults clamp through `DockPreviewSettings.clampedAnimationDuration(_:)`; the built-in default is 0.22s.
-3. Existing persisted configs that still contain `animationSpeed` decode into the equivalent duration, preserving backward compatibility without showing the old picker.
-4. Duration changes use the existing profile/defaults path and update only visual presentation settings. They do not trigger preview discovery, thumbnail capture, or a full runtime restart.
-5. Tests now cover default duration, clamping, profile persistence, and legacy speed decoding.
-
-### Test Preview Animation
-
-1. `Test Preview Animation` remains a local sample only. It creates a synthetic local `Animation Test` preview and does not resolve Dock identity, run discovery, capture thumbnails, or touch the thumbnail cache.
-2. The sample uses the selected animation style and duration, then auto-dismisses after a short style-aware delay.
-3. A sticky sample status bug was fixed: after auto-dismiss, the Switcher status returns to `Ready to scan`, and diagnostics state that the animation sample did not request capture.
-
-### Sidebar, Shell, and Copy Cleanup
-
-1. The sidebar selected row now uses a softer Liquid Glass capsule instead of the bright blue matched-geometry treatment.
-2. Sidebar switching no longer wraps selection changes in explicit matched-geometry animation, reducing jerky movement and respecting Reduce Motion for the small row animation.
-3. The preferences shell background was simplified to one cleaner layered background with fewer angular dark seams and less stacked custom chrome while preserving adaptive centered content width.
-4. Overview now answers whether macMender is running and renames raw runtime labels to user-facing service names: Input monitoring, Dock previews, Menu bar discovery, and Services.
-5. Menu Bar setup reduces repeated `Visible now` labels, bundle IDs, and planning explanations; long rationale stays in `Why manual setup?`.
-6. Privacy hides config-path details under `Local details` and reads as a permission checklist.
-7. Advanced keeps dense implementation notes inside disclosures.
-8. The menu bar popover source now says `Dock previews` instead of `Dock Hover` and avoids `Local helpers` phrasing.
-
-### Verification Notes
-
-- `swift build` passed after the motion/status cleanup.
-- `swift test` passed with 65 tests.
-- `script/build_and_run.sh --verify` passed and refreshed `dist/macMender.app`.
-- Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` confirmed Dock & Windows > Dock Previews shows the `Animation duration` slider and all styles: System, Fade, Scale, Slide Up, Glass Pop, Genie, and None.
-- Computer Use confirmed the old Snappy/Balanced/Smooth speed picker is no longer visible.
-- Computer Use confirmed `Test Preview Animation` does not leave a visible sticky panel and, after the cleanup fix, the Switcher status returns to `Ready to scan`.
-- Computer Use confirmed repeated sidebar switching remained responsive and did not show the macOS loading cursor.
-- Computer Use confirmed Option+Tab discovery still reports 10 windows from 9 apps and lists normal apps including Finder, Terminal, System Settings, Brave, Xcode, Mail, Messages, ChatGPT, and Codex.
-- Computer Use confirmed Settings > Menu Bar remains a safe manual planning guide with no reachable physical movement controls.
-- Post-interaction idle sample for PID 49859 was 0.0% CPU across 10 one-second samples, with RSS about 163 MB.
-- `docs/qa/screenshots` was not modified.
-- Full human visual comparison of every animation style/duration on a real Dock hover remains manual QA.
-
-## UI Delight and Status Polish Pass
-
-### Post-QA Copy and State Cleanup
-
-1. Normal Menu Bar setup UI now uses general product copy for disabled direct movement. User-facing setup text no longer mentions a Thaw-style runtime or runtime transplant.
-2. Privacy permission cards are state-aware: granted Accessibility and Screen Recording permissions show their completed state without a primary `Request Access` button, while missing permissions keep the request action.
-3. Middle Click copy is conditional. When disabled, the page describes it as currently disabled and only explains what it can do after setup.
-4. Dock & Windows > Switcher now distinguishes the initial unscanned state from a completed empty scan. Before discovery runs, the status says `Ready to scan` and diagnostics say `No scan yet`.
-5. The shared preferences shell background received a small seam polish pass to reduce harsh angular dark shapes without changing layout, Dock preview identity, thumbnail capture, Option+Tab activation/discovery, menu-bar movement, MiddleClick runtime behavior, or Dock tuning.
-
-### Dock Preview Animation Settings
-
-1. Dock preview settings now include presentation-only `Preview animation` and `Animation speed` controls.
-2. `System`, `Fade`, `Scale`, `Slide Up`, `Glass Pop`, `Genie`, and `None` now use distinct presentation paths: small system-style scale/drift, opacity-only fade, visible frame scale, Dock-direction slide, one-shot glass pop highlight/overshoot, frame-based genie expansion from the Dock direction, and immediate none.
-3. `Animation speed` now has clearer timing separation: Snappy 0.08s, Balanced 0.22s, Smooth 0.42s.
-4. The setting is persisted per profile and decoded safely for older configs.
-5. The runtime animation changes only preview panel presentation and dismissal. It does not change Dock identity matching, title matching, thumbnail capture, caching, hover eligibility, or preview linger timing.
-6. Reduce Motion degrades the preview animation to a simpler presentation path.
-7. Packaged-app Computer Use inspection confirmed the settings are visible in Dock & Windows > Dock Previews and expose all animation styles plus Snappy/Balanced/Smooth speeds.
-8. `Test Preview Animation` now uses a local animation sample preview, not real Dock preview discovery, title matching, thumbnail capture, or cache work. It auto-dismisses so repeated comparisons do not leave a sticky preview panel.
-9. Settings changes were tightened for responsiveness: active profile edits rely on debounced autosave instead of synchronous writes on every control tick, and profile changes now update only the affected runtime services instead of restarting/reconfiguring the full runtime and menu-bar controls for every Dock animation or slider change.
-10. Continuous Mendy repeat motion is now opt-in for explicit glass hero surfaces only. Normal sidebar/page Mendy images remain state-distinct without driving idle SwiftUI layout.
-
-### App Shell Layout
-
-1. Preferences now use a shared detail shell with a connected section header instead of relying on the detached window title area.
-2. The sidebar uses one glass surface instead of nested sidebar glass, reducing the visible rectangle seam between sidebar and content.
-3. Shared Preferences scroll content now centers within an adaptive width instead of pinning a max-width column to the left.
-4. Overview, Menu Bar, Dock & Windows, Privacy, Profiles, and Advanced inherit the same header, content alignment, and window background rules.
-
-### macMender Dock Self-Preview
-
-1. Option+Tab discovery still excludes the current macMender process.
-2. Dock preview uses a separate resolved-identity catalog path that can include the current process only for Dock preview display.
-3. Self-preview filtering excludes blank, tiny, non-window, system-dialog, preview-panel, overlay, popover, and transient-style windows from display.
-4. Packaged-app verification against `dist/macMender.app` confirmed hovering the macMender Dock icon showed one real `Overview` preferences window and did not recursively show preview panels, overlays, or the menu bar popover.
-5. Dock preview identity rules were preserved: display still requires a resolved bundle identifier or process identifier. Title/name-only display eligibility was not reintroduced.
-
-### Popover and Glass Polish
-
-1. The menu bar popover is now a slim live status dashboard: small Mendy mark, app status, Accessibility, Screen Recording, Window Switcher, Dock Hover, and Menu Bar status rows, plus short Settings, Permissions, and Quit actions.
-2. The popover no longer uses a tutorial layout, large Mendy hero, long Command-drag instructions, or hidden menu-bar syncing claims.
-3. Settings surfaces received a light Liquid Glass tuning pass: lighter glass cards/rows, subtle layered background, overview runtime rows, and clearer Advanced implementation notes.
-4. The Advanced notes now explicitly state that physical third-party menu-bar icon movement remains disabled.
-5. Menu Bar setup now leads with live discovery status and a compact planning explanation; long manual setup rationale is under `Why manual setup?`.
-6. Dock & Windows keeps raw preview diagnostics behind disclosure, Privacy presents permission status as calm checklist rows, and Advanced keeps dense implementation details in disclosures.
-
-### Verification Notes
-
-- `swift build` passed after each milestone in this pass.
-- `swift test` passed after each milestone; final milestone runs passed 64 tests.
-- `script/build_and_run.sh --verify` passed after packaging.
-- Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` confirmed the animation settings, speed picker, centered shell/header alignment, simplified Menu Bar page, Privacy checklist, and Advanced disclosures.
-- Computer Use confirmed Option+Tab discovery still reports multiple normal apps after this UI pass: 12 windows from 11 apps in the packaged app.
-- Settled idle CPU after the latest animation/responsiveness update sampled at 0.0% on Overview with about 128 MB RSS, and 0.0% on Dock & Windows > Dock Previews with about 156 MB RSS. A pre-fix Dock Previews sample reproduced the reported issue at about 29-31% CPU.
-- Physical menu-bar movement remains disabled and was not re-enabled.
-- Option+Tab activation/discovery and Dock preview identity logic were not changed in the visual polish milestones.
-- `docs/qa/screenshots` was not modified.
-
-## Performance Preview Cleanup Pass
-
-### Idle CPU Reduction
-
-1. Packaged-app baseline from `dist/macMender.app` showed reproducible idle CPU around 19-28% with the preferences window open, RSS around 134 MB, and a `sample` dominated by SwiftUI/AppKit layout/render (`NSHostingView.layout`, `ViewGraphRootValueUpdater.render`, and Core Animation transaction commits).
-2. The active idle source was continuous SwiftUI animation/layout churn, especially small/sidebar Mendy instances using repeat-forever state motion while idle. Dock hover fallback polling and per-mouse-move diagnostics were also tightened so idle runtime does not perform unnecessary AX Dock reads or publish/log repeated diagnostics.
-3. `MendyAvatarView` now limits continuous motion to active, panel-sized-or-larger Mendy surfaces and honors Reduce Motion. Sidebar/compact Mendy remains visible and state-specific without constantly driving layout.
-4. `DockHoverService` fallback polling now returns immediately when no hover, pending preview, or displayed preview exists, and diagnostics are throttled.
-5. Packaged-app after measurement showed idle CPU at 0-0.1% in the same `top` sampling window, RSS around 112 MB immediately after relaunch and around 170 MB after thumbnail capture/cache warmup.
-
-### Dock Preview Thumbnail Latency
-
-1. The previous thumbnail path called `SCShareableContent.current` once per missing thumbnail. The new path adds a batch thumbnail API that resolves `SCShareableContent.current` once per preview batch and captures thumbnails for the requested windows from that shared content snapshot.
-2. `WindowSwitcherService` now orders the preview/switcher panel before thumbnail capture starts, so the UI can appear with placeholders and progressively fill thumbnails.
-3. Thumbnails are cached by stable `WindowSummary.ID`, with a 20 second TTL and an 80 image bound. Expired entries are pruned before each prefetch.
-4. `WindowCatalogService.visibleWindows()` now uses a short 0.35 second discovery cache to avoid repeated full AX/CG scans during immediate show/refresh paths without weakening Dock preview identity rules.
-5. `Test Dock Preview` now uses the most recent discovered window's resolved bundle/PID identity. The dead title-only `showDockPreview(appName:)` path was removed.
-6. Computer Use against `/Users/ryan/Documents/macMender/dist/macMender.app` verified switcher discovery still found 10 windows from 9 apps. First thumbnail batch reported `requested=10 cached=0 captured=10 duration=382ms`; repeated Test Dock Preview reported `requested=1 cached=1 captured=0 duration=0ms`.
-7. Dock preview identity matching was preserved: preview display still requires a resolved bundle identifier or process identifier, and title/name matching is not a final eligibility reason.
-
-### Verification Notes
-
-- `swift build` passed after each milestone in this pass.
-- `swift test` passed after each milestone; final run passed 62 tests.
-- `script/build_and_run.sh --verify` passed after packaging.
-- Computer Use initially attached to a stale cached `local.macmender.app` from `/var/folders/...`; verification was repeated by targeting `/Users/ryan/Documents/macMender/dist/macMender.app` explicitly.
-- Computer Use confirmed Option+Tab discovery still reports multiple normal apps from the packaged app.
-- Computer Use confirmed Dock & Windows > Dock Previews shows the thumbnail runtime diagnostic and cache hit/miss behavior.
-- Menu Bar safe setup was opened previously in this branch and no menu-bar movement code was changed in this pass.
-
-## Implemented in This Pass
-
-### Runtime Switcher Discovery and Activation Repair
-
-1. `WindowCatalogService` now records a structured discovery report for each scanned app: app name, bundle ID, PID, AX window count, CG-only fallback count, included/dropped counts, per-window CG match status, and drop/include reason.
-2. Option+Tab discovery now includes AX windows even when there is no strong CG match, and falls back to CG-only windows when AX is unavailable. This prevents normal non-browser app windows from disappearing from the switcher.
-3. Dock & Windows > Switcher includes a diagnostics disclosure with total discovered windows, app/window details, and the last activation diagnostic.
-4. Packaged-app Computer Use verification confirmed discovery of 10 windows from 9 apps, including Finder, Terminal, System Settings, Safari, Brave, Xcode, Mail, Messages, and Codex.
-5. The final activation path still uses the exact highlighted/clicked `WindowSummary`. It now activates the owning app through `NSWorkspace.OpenConfiguration`, calls `activateAllWindows`, then repeats AX raise/main/focus before verifying frontmost app and focused window identity.
-6. Computer Use verified mouse-click activation of a non-browser Terminal switcher card from `dist/macMender.app`.
-7. Computer Use did not successfully deliver a held Option+Tab sequence to the event tap, so keyboard modifier-release verification remains manual QA.
-
-### Menu Bar Hide Planning Repair
-
-1. Settings > Menu Bar is now titled `Hide Menu Bar Icons` and presents a simple safe checklist instead of a layout-manager-like hidden-area workflow.
-2. `Safe Hiding Setup` and Show/Tuck UI were removed from the page body. Direct hide, reorder, restore, reveal, and third-party icon movement remain disabled.
-3. Detected menu-bar rows now show resolved app icons where possible through bundle/running-app lookup, with symbols only as fallback.
-4. "Mark to review" remains session-only planning state and does not persist, move, hide, restore, synthesize drags, warp the cursor, or call `MenuBarItemMover`.
-5. Packaged-app Computer Use inspection confirmed the simpler page, detected icon list, real icon slots, planning-only controls, and explicit disabled physical movement messaging.
-
-### Dock Preview Linger Clarification
-
-1. Dock Previews now labels the setting `Preview linger after leaving Dock`.
-2. The setting copy now states that it controls how long previews stay visible after the pointer leaves the Dock icon or preview safe area.
-3. The setting remains wired only to `WindowSwitcherService.scheduleDockPreviewDismiss()` and does not change Dock preview identity matching.
-4. New/default profiles use a 1.8s linger. Existing saved profile values are preserved and clamped to 0...10 seconds.
-
-### Previous Option+Tab Activation and Safe Hiding Update
-
-1. Option+Tab activation now snapshots the highlighted `WindowSummary` into an explicit activation intent before the overlay is dismissed.
-2. Keyboard confirm, hover-selected keyboard confirm, and mouse-click activation all use the same final activation function.
-3. Mouse click activation passes the captured card/window object directly and no longer relies on re-reading mutable `selectedIndex` after click handling.
-4. Window activation diagnostics now include source, selected/highlighted indexes, selected title, CG window ID, PID, bundle ID, AX match status, frontmost app/PID, focused window ID/title, and attempted steps.
-5. Activation success no longer treats owning-app activation alone as enough when the selected window has a resolvable CG window ID.
-6. Settings > Menu Bar previously included `Safe Hiding Setup`; this pass replaced it with simpler hide-planning guidance.
-7. No synthetic cursor movement, synthetic dragging, simulated clicks, `MenuBarItemMover` changes, package changes, signing changes, entitlements changes, scrolling changes, MiddleClick changes, or Dock tuning changes were made.
-
-### Safe Setup and Preview Timeout Update
-
-1. Settings > Menu Bar now presents as `Hide Menu Bar Icons`, with Command-drag steps, read-only discovery, and a session-only "mark to review" checklist for manual cleanup planning.
-2. The Menu Bar page no longer leads with a broken layout-manager frame. Physical hide/reorder/reveal remains disabled and the visible safety boundary states that planning does not save hidden/reorder intent.
-3. Dock preview settings now include `Preview linger after leaving Dock`, stored per profile as `DockPreviewSettings.previewIdleTimeout` and applied by `WindowSwitcherService.scheduleDockPreviewDismiss()`.
-4. Existing profile decoding remains compatible when `dockPreviews` or `previewIdleTimeout` is missing.
-5. Dock preview identity matching, Dock hover eligibility, Option+Tab activation, WindowCatalog matching, bundle identifiers, signing, entitlements, package structure, and `MenuBarItemMover` were not changed in this update.
-
-### Previous Dock/Menu Safety Pass
-
-1. Dock preview display eligibility no longer uses title/name-only matching. A Dock item must resolve to a bundle identifier or process identifier, and ambiguous neighboring Dock hits are suppressed.
-2. Dock preview diagnostics now log mouse location, Dock item frame/title, resolved bundle ID/PID, suppression reason, and preview show/no-window outcomes.
-3. Window discovery now prefers AX window ID and CG window ID matching, then frame overlap. Title matching is only a weak tie-breaker and is not enough to assign a CG window.
-4. Option+Tab mouse hover, mouse click, and keyboard selection now share the same selected index state. Mouse click commits through the same final activation path as keyboard confirm.
-5. Selected-window activation now re-resolves the AX window where possible, unminimizes, raises, sets main/focused, activates the owning app, repeats focus/raise, and logs verification details.
-6. Settings > Menu Bar is now a safe setup guide with Command-drag instructions and read-only discovery. Fake lanes, drag/drop, reveal toggles, reset layout, and hide/reorder controls are no longer reachable from the page body.
-7. Onboarding and Privacy settings now include guided Input Monitoring setup and a visual drag-to-add panel for adding the macMender app icon to Privacy & Security lists when macOS requires it.
-8. The menu bar popover is now a compact control center with accurate status chips, permission/menu-bar setup actions, and no claims about hidden icon syncing.
-9. Startup diagnostics log `Bundle.main.bundleIdentifier`, bundle path, whether the process is running from a `.app`, and whether the bundled menu-bar XPC helper exists.
-
-## Upstream DockDoor Comparison
-
-Inspected upstream:
-`/tmp/DockDoor` at `63e14c998ac78ca04f193caa2eda3df7a3c748f9`
-
-Relevant upstream files:
-
-- `DockDoor/Utilities/DockObserver.swift`
-- `DockDoor/Utilities/DockObserver+CmdTab.swift`
-- `DockDoor/Utilities/Window Management/WindowUtil.swift`
-- `DockDoor/Utilities/Window Management/WindowInfo.swift`
-- `DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift`
-- `DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift`
-
-Key behavior adapted conservatively:
-
-- Prefer Dock AX selected-item identity and validate before display.
-- Suppress previews instead of relying on app-name fallbacks.
-- Resolve windows through PID, bundle ID, AX window ID, CG window ID, and frame before title.
-- Use a single selected-window activation path for keyboard and mouse selection.
-
-DockDoor parity is not claimed. macMender still does not include DockDoor's full cache, observer, animation, live preview, gesture, or private front-process stack.
-
-## Known or Unverified
-
-1. Real menu-bar physical movement remains disabled. No direct hide/reorder/reveal path should be reachable from the UI.
-2. Safe hidden-area Show/Tuck is not exposed. It stays deferred until a macMender-owned divider/spacer flow can be verified without synthetic movement.
-3. Option+Tab discovery and mouse-click non-browser activation were verified against `dist/macMender.app`; Computer Use could not deliver a held Option+Tab key sequence, so keyboard-cycle and modifier-release confirm still require manual human QA.
-4. The Dock preview linger setting is build/test verified and visible in the packaged app, but actual Dock-hover linger feel still requires manual desktop QA with pointer movement over the Dock.
-5. Dock preview adjacent-icon correctness, browser multi-window matching, non-running Dock items, and sticky/flicker behavior still require manual desktop QA.
-6. Option+Tab exact activation still requires manual comparison across duplicate/blank titled windows, minimized windows, multiple windows from one app, and keyboard confirm.
-7. The `com.apple.linkd.autoShortcut` warnings appear consistent with harmless system/Xcode launch noise unless the app intentionally adopts App Intents/Shortcuts. macMender does not.
-8. `Cannot index window tabs due to missing main bundle identifier` should be treated as SwiftPM/Xcode raw executable launch noise when not running the packaged `dist/macMender.app`.
-9. Permissions and XPC behavior should be trusted from `dist/macMender.app`, not the raw SwiftPM executable.
-
-## Verification Run
-
-- `swift build` passed after each milestone.
-- `swift test` passed after each milestone; final run passed 61 tests.
-- `script/build_and_run.sh --verify` passed after each milestone.
-- Computer Use inspection of `dist/macMender.app` confirmed switcher discovery finds non-browser apps, diagnostics show 10 windows from 9 apps, and mouse-click activation can activate the Terminal window.
-- Computer Use inspection of `dist/macMender.app` confirmed the Menu Bar page now uses `Hide Menu Bar Icons`, resolved icon rows, and no exposed physical movement controls.
-- Computer Use inspection of `dist/macMender.app` confirmed the Dock preview setting is labeled `Preview linger after leaving Dock` and remains in Dock Previews.
-
-Manual launch and visual verification should follow `docs/MANUAL_QA.md` before release claims.
+Use `docs/MANUAL_QA.md`. Confirm no Menu Bar management UI is visible, while the app’s own status item/popover still works.

@@ -3,6 +3,8 @@ import SwiftUI
 
 @MainActor
 final class MacMenderStatusItemController: NSObject {
+    private static let statusItemAutosaveName = "macMender.StatusItem"
+
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private weak var appModel: AppModel?
@@ -13,9 +15,9 @@ final class MacMenderStatusItemController: NSObject {
         self.openPreferences = openPreferences
 
         if statusItem == nil {
-            migrateLegacyHardLeftPositionIfNeeded(autosaveName: MenuBarControlIdentifier.visible)
+            migrateLegacyHardLeftPositionIfNeeded(autosaveName: Self.statusItemAutosaveName)
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-            item.autosaveName = MenuBarControlIdentifier.visible
+            item.autosaveName = Self.statusItemAutosaveName
             item.button?.target = self
             item.button?.action = #selector(togglePopover)
             item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])

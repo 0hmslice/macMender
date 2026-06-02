@@ -168,13 +168,13 @@ private struct OnboardingMendyIntro: View {
     var body: some View {
         SectionCard(
             title: "Meet Mendy",
-            subtitle: "A quiet local helper for smoothing input, tidying the menu bar, and making Dock windows easier to reach.",
+            subtitle: "A quiet local helper for smoothing input and making Dock windows easier to reach.",
             symbolName: "sparkles"
         ) {
             HStack(alignment: .top, spacing: 12) {
                 MendyIntroCard(mood: .scanning, title: "Input", detail: "Smooth scroll and mouse fixes")
-                MendyIntroCard(mood: .thinking, title: "Menu Bar", detail: "Scan icons and learn safe setup")
                 MendyIntroCard(mood: .success, title: "Dock", detail: "Window previews and safer defaults")
+                MendyIntroCard(mood: .thinking, title: "Privacy", detail: "Clear local permission guidance")
             }
         }
     }
