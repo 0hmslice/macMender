@@ -8,7 +8,7 @@ Branch:
 
 ## Focus
 
-This pass repairs Dock preview animation feel and redesigns onboarding into a concise Mendy-guided setup flow.
+This pass polishes the redesigned onboarding flow and replaces the crowded status-item popover with a compact control-center layout.
 
 Menu Bar management is deferred for a future rebuild from scratch. The app still has its own macMender menu bar status item and popover for Settings, Permissions, and Quit.
 
@@ -24,6 +24,10 @@ Menu Bar management is deferred for a future rebuild from scratch. The app still
 8. Input Monitoring uses CoreGraphics listen-event access status and stays separate from gesture runtime state.
 9. The drag-to-add Privacy & Security guide is retained with a one-shot, Reduce Motion-safe nudge.
 10. Onboarding uses section-specific Mendy assets for Overview, Input, Dock & Windows, and Privacy steps.
+11. Onboarding header height is reduced so the step content has more room.
+12. The permission drag-to-add guide now uses an adaptive layout with stable fixed visual pieces and a compact fallback.
+13. The macMender status-item popover shows a glanceable running state, one Permissions summary row, Three-Finger Tap, Dock previews, Window Switcher, Open macMender, and a low-priority Quit control.
+14. The popover shows a Permissions action only when setup or permission review is useful.
 
 ## Asset Folders
 
@@ -48,4 +52,4 @@ The suspected launch blockers were synchronous first-appear runtime refresh plus
 
 ## Manual QA Required
 
-Use `docs/MANUAL_QA.md`. Confirm onboarding is multi-step, Dock preview animations feel stable, and no Menu Bar management UI is visible while the app’s own status item/popover still works.
+Use `docs/MANUAL_QA.md`. Confirm onboarding is compact and stable, the status-item popover is glanceable with no clipped text, and no Menu Bar management UI is visible while the app’s own status item/popover still works.

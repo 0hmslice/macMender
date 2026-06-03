@@ -13,11 +13,13 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 
 - Launch `dist/macMender.app` and inspect onboarding, Overview, General, Input, Dock & Windows, Profiles, Privacy, and Advanced.
 - Confirm onboarding is a multi-step flow with Welcome, Input and Three-Finger Tap, Dock and Windows, Permissions, Local Privacy, and Finish.
+- Confirm the onboarding header is compact and does not crowd the step content.
 - Confirm onboarding has no Menu Bar management content.
 - Confirm onboarding reports Accessibility, Screen Recording, and Input Monitoring from real permission status.
 - Confirm Input Monitoring is separate from three-finger gesture runtime state.
 - Confirm onboarding `Recheck Permissions` refreshes permission status without running window discovery or thumbnail capture.
 - Confirm drag-to-add Privacy & Security guidance is present and phrases drag-to-add as conditional guidance, with + button fallback.
+- Confirm the Permissions drag-to-add guide stays stable at the intended packaged-app window size and when resized slightly smaller; it must not overlap or clip the app tile, arrow, mock permission list, or numbered guidance.
 - Confirm onboarding uses section-specific Mendy assets: Overview for Welcome/Finish, Input for Three-Finger Tap, Dock & Windows for Dock/Window setup, and Privacy for permissions/privacy.
 - Confirm onboarding can be skipped or finished even when permissions are deferred.
 - Confirm Advanced `Reset to Onboarding` still returns to the multi-step flow.
@@ -25,7 +27,11 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Overview has no Menu Bar setup card, chip, status row, scanner status, hidden-area language, Command-drag tutorial, Mark to Review checklist, or menu-bar icon hiding claim.
 - Confirm Overview shows Permissions, Three-Finger Tap, Window Switcher, and Dock Previews as key status cards.
 - Confirm Overview does not show `Status Refresh` or a `Services` technical disclosure.
-- Confirm the app still has its own macMender status item in the macOS menu bar and that its popover opens Settings/Permissions/Quit without Menu Bar management rows.
+- Confirm the app still has its own macMender status item in the macOS menu bar.
+- Confirm the status-item popover is compact, opens quickly, has no clipped text, and shows only: running state, Permissions summary, Three-Finger Tap, Dock previews, Window Switcher, Open macMender, an as-needed Permissions button, and low-priority Quit.
+- Confirm the popover does not show separate Accessibility and Screen Recording rows when permissions are healthy.
+- Confirm the popover has no Menu Bar management rows, setup copy, Command-drag copy, Mark to Review, hidden icon language, Show/Tuck, scanner/discovery language, diagnostics, or thumbnail/discovery work.
+- Confirm popover actions work: Open macMender focuses the settings window, Permissions opens Privacy when shown, and Quit exits the app.
 - Confirm Privacy contains only the privacy promise, local data details, Accessibility, Screen Recording, and Input Monitoring permission/runtime status.
 - Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Off, or Needs Permission.
 - Confirm Launch at Login is in General.

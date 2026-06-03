@@ -48,21 +48,23 @@ struct OnboardingView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 18) {
-            MendySectionImageView(section: mendySection, size: 108)
+        HStack(spacing: 14) {
+            MendySectionImageView(section: mendySection, size: 72)
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(step.title)
-                    .font(.largeTitle.bold())
+                    .font(.title2.bold())
                 Text(step.subtitle)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(28)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 14)
     }
 
     private var stepRail: some View {
@@ -688,33 +690,69 @@ private struct PermissionDragToAddGuide: View {
     @State private var animateArrow = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: 18) {
-            MendySectionImageView(section: .privacy, size: MendyAvatarSize.panel)
-
-            DraggableAppTile()
-
-            Image(systemName: "arrow.right")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .offset(x: reduceMotion ? 0 : (animateArrow ? 0 : -8))
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.55), value: animateArrow)
-                .onAppear { animateArrow = true }
-
-            PrivacyListMockup()
-
-            VStack(alignment: .leading, spacing: 10) {
-                NumberedInstruction(number: 1, title: "Open the right Privacy & Security pane from macMender.")
-                NumberedInstruction(number: 2, title: "Look for macMender in the permission list.")
-                NumberedInstruction(number: 3, title: "If macMender is not listed, use the + button or drag the app in if macOS allows it.")
-                NumberedInstruction(number: 4, title: "Turn the toggle on, then return here and recheck.")
-                Text("If macOS asks you to reopen macMender, reopen it and continue setup from this step.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        ViewThatFits(in: .horizontal) {
+            wideLayout
+            compactLayout
         }
         .padding(16)
         .liquidGlass(.card)
+        .onAppear {
+            guard !reduceMotion else { return }
+            animateArrow = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                animateArrow = true
+            }
+        }
+    }
+
+    private var wideLayout: some View {
+        HStack(alignment: .center, spacing: 16) {
+            guideVisuals
+                .frame(minWidth: 438)
+
+            instructions
+                .frame(minWidth: 230, maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var compactLayout: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            guideVisuals
+            instructions
+        }
+    }
+
+    private var guideVisuals: some View {
+        HStack(alignment: .center, spacing: 12) {
+            MendySectionImageView(section: .privacy, size: 62)
+                .layoutPriority(1)
+            DraggableAppTile()
+            arrow
+            PrivacyListMockup()
+        }
+        .frame(maxWidth: .infinity, minHeight: 146, alignment: .center)
+    }
+
+    private var arrow: some View {
+        Image(systemName: "arrow.right")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(Color.accentColor)
+            .frame(width: 24)
+            .offset(x: reduceMotion ? 0 : (animateArrow ? 0 : -8))
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.55), value: animateArrow)
+    }
+
+    private var instructions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            NumberedInstruction(number: 1, title: "Open the right Privacy & Security pane from macMender.")
+            NumberedInstruction(number: 2, title: "Look for macMender in the permission list.")
+            NumberedInstruction(number: 3, title: "If macMender is not listed, use the + button or drag the app in if macOS allows it.")
+            NumberedInstruction(number: 4, title: "Turn the toggle on, then return here and recheck.")
+            Text("If macOS asks you to reopen macMender, reopen it and continue setup from this step.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -740,7 +778,7 @@ private struct DraggableAppTile: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 180, height: 154)
+        .frame(width: 166, height: 142)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -767,7 +805,7 @@ private struct PrivacyListMockup: View {
                 .padding(.top, 2)
         }
         .padding(12)
-        .frame(width: 180)
+        .frame(width: 166)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
