@@ -12,21 +12,12 @@ struct PreferencesWindow: View {
                     SidebarView(selection: $appModel.selectedSection)
                     SidebarStatusSummary(appModel: appModel)
                 }
-                    .background {
-                        ZStack {
-                            Color(nsColor: .windowBackgroundColor).opacity(0.18)
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.08),
-                                    Color.accentColor.opacity(0.035),
-                                    Color.clear
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        }
-                    }
-                    .navigationSplitViewColumnWidth(min: 230, ideal: 260)
+                .background {
+                    Rectangle()
+                        .fill(.thinMaterial)
+                        .ignoresSafeArea(edges: .top)
+                }
+                .navigationSplitViewColumnWidth(min: 230, ideal: 260)
             } detail: {
                 PreferencesDetailShell(appModel: appModel)
                     .navigationTitle(appModel.selectedSection.title)
@@ -64,8 +55,8 @@ private struct MendySidebarHeader: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 18)
-        .padding(.bottom, 10)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 
     private var headerDetail: String {
