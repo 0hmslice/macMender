@@ -27,6 +27,12 @@ struct OverviewView: View {
                         )
                     }
                 }
+                Button {
+                    appModel.selectedSection = .input
+                } label: {
+                    OverviewMiddleClickCard(appModel: appModel)
+                }
+                .buttonStyle(.plain)
                 OverviewStatusCard(
                     title: "Window Switcher",
                     subtitle: appModel.activeProfile.windowSwitcher.shortcut,
@@ -41,23 +47,6 @@ struct OverviewView: View {
                     status: appModel.dockHover.isRunning ? "Active" : "Paused",
                     tone: appModel.dockHover.isRunning ? .active : .warning
                 )
-            }
-
-            OverviewRefreshCard(appModel: appModel)
-
-            SectionCard(title: "Services", subtitle: "Technical details stay here when you need them.", symbolName: "dot.radiowaves.left.and.right") {
-                DisclosureGroup("Service details") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        RuntimeRow(title: "Input monitoring", detail: appModel.systemEvents.status.eventTapRunning ? "Ready for shortcuts and input adjustments" : "Waiting for permission or setup", running: appModel.systemEvents.status.eventTapRunning)
-                        RuntimeRow(
-                            title: "Dock previews",
-                            detail: appModel.dockHover.isRunning ? (appModel.dockHover.lastHoveredApp ?? "Watching Dock item hover") : "Paused until Accessibility is granted",
-                            running: appModel.dockHover.isRunning
-                        )
-                    }
-                    .padding(.top, 8)
-                }
-                .font(.callout)
             }
         }
     }
@@ -82,7 +71,7 @@ private struct OverviewHero: View {
 
     var body: some View {
         HStack(spacing: 26) {
-            MendyAvatarView(mood: heroMood, size: MendyAvatarSize.prominent)
+            MendySectionImageView(section: .overview, size: MendyAvatarSize.prominent)
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("macMender is \(appModel.runningStatusTitle.lowercased())")
@@ -133,12 +122,6 @@ private struct OverviewHero: View {
         }
     }
 
-    private var heroMood: MendyMood {
-        if appModel.permissions.needsAttention { return .thinking }
-        if appModel.store.config.safeModeEnabled { return .idle }
-        return .success
-    }
-
     private var heroSubtitle: String {
         if appModel.permissions.needsAttention {
             return "A permission needs review before every feature can run."
@@ -165,53 +148,73 @@ private struct OverviewHero: View {
 
 }
 
-private struct OverviewRefreshCard: View {
+private struct OverviewMiddleClickCard: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
-        SectionCard(
-            title: "Status Refresh",
-            subtitle: "Updates the health summary without scanning windows or capturing thumbnails.",
-            symbolName: "arrow.clockwise"
+        SoftStatusCard(
+            title: "Three-Finger Tap",
+            subtitle: "Middle-click tabs, links, and more",
+            systemImage: "hand.tap",
+            tone: tone
         ) {
-            HStack(spacing: 14) {
-                if appModel.isRefreshingOverview {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Image(systemName: "clock.badge.checkmark")
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(appModel.isRefreshingOverview ? "Updating status..." : lastUpdatedTitle)
-                        .font(.callout.weight(.semibold))
-                    Text(appModel.lastOverviewRefreshSummary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 12)
-
-                Button {
-                    appModel.refreshOverviewStatus()
-                } label: {
-                    Label(appModel.isRefreshingOverview ? "Refreshing" : "Refresh Status", systemImage: "arrow.clockwise")
-                }
-                .disabled(appModel.isRefreshingOverview)
+            VStack(alignment: .leading, spacing: 8) {
+                Label(statusTitle, systemImage: statusSymbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(statusColor)
+                Text("Tap with three fingers to act like a middle mouse button.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
-    private var lastUpdatedTitle: String {
-        guard let last = appModel.lastOverviewRefresh else {
-            return "Not refreshed yet"
+    private var statusTitle: String {
+        let settings = appModel.activeProfile.middleClick
+        guard settings.enabled, settings.trigger == .experimentalThreeFinger else {
+            return "Off"
         }
-        if Date().timeIntervalSince(last) < 60 {
-            return "Updated just now"
+        guard appModel.permissions.accessibility == .granted else {
+            return "Needs Permission"
         }
-        return "Updated at \(last.formatted(date: .omitted, time: .shortened))"
+        guard !appModel.store.config.safeModeEnabled else {
+            return "Paused"
+        }
+        return appModel.multitouchMiddleClick.isRunning ? "Active" : "Ready"
+    }
+
+    private var tone: CapabilityBadge.Tone {
+        switch statusTitle {
+        case "Active", "Ready":
+            .active
+        case "Off":
+            .neutral
+        default:
+            .warning
+        }
+    }
+
+    private var statusSymbol: String {
+        switch tone {
+        case .active:
+            "checkmark.circle.fill"
+        case .warning:
+            "exclamationmark.circle"
+        case .neutral:
+            "pause.circle"
+        }
+    }
+
+    private var statusColor: Color {
+        switch tone {
+        case .active:
+            .green
+        case .warning:
+            .orange
+        case .neutral:
+            .secondary
+        }
     }
 }
 
@@ -247,28 +250,5 @@ private struct OverviewStatusLine: View {
                 .foregroundStyle(tone == .active ? .green : .orange)
         }
         .font(.caption.weight(.semibold))
-    }
-}
-
-private struct RuntimeRow: View {
-    var title: String
-    var detail: String
-    var running: Bool
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Label(title, systemImage: running ? "checkmark.circle.fill" : "pause.circle")
-                .font(.callout.weight(.medium))
-                .foregroundStyle(running ? .green : .orange)
-            Spacer()
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .liquidGlass(.row)
     }
 }

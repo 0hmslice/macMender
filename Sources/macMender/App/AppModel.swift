@@ -5,9 +5,9 @@ import Foundation
 @MainActor
 final class AppModel: ObservableObject {
     @Published var selectedSection: SettingsSection = .overview
-    @Published private(set) var isRefreshingOverview = false
-    @Published private(set) var lastOverviewRefresh: Date?
-    @Published private(set) var lastOverviewRefreshSummary = "Not refreshed yet"
+    @Published private(set) var isRefreshingStatus = false
+    @Published private(set) var lastStatusRefresh: Date?
+    @Published private(set) var lastStatusRefreshSummary = "Not refreshed yet"
     @Published private(set) var firstWindowReadyAt: Date?
     @Published private(set) var runtimeStartedAt: Date?
 
@@ -129,10 +129,10 @@ final class AppModel: ObservableObject {
         updateRuntime()
     }
 
-    func refreshOverviewStatus() {
-        guard !isRefreshingOverview else { return }
-        isRefreshingOverview = true
-        lastOverviewRefreshSummary = "Updating status..."
+    func refreshStatus() {
+        guard !isRefreshingStatus else { return }
+        isRefreshingStatus = true
+        lastStatusRefreshSummary = "Updating status..."
 
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -140,10 +140,10 @@ final class AppModel: ObservableObject {
             self.dock.refresh()
             self.loginItems.refresh()
             self.updateRuntime()
-            self.lastOverviewRefresh = Date()
-            self.lastOverviewRefreshSummary = self.overviewRefreshSummary()
+            self.lastStatusRefresh = Date()
+            self.lastStatusRefreshSummary = self.statusRefreshSummary()
             try? await Task.sleep(for: .milliseconds(300))
-            self.isRefreshingOverview = false
+            self.isRefreshingStatus = false
         }
     }
 
@@ -392,7 +392,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func overviewRefreshSummary() -> String {
+    private func statusRefreshSummary() -> String {
         if permissions.needsAttention {
             return "Updated permissions and service status. A permission still needs review."
         }

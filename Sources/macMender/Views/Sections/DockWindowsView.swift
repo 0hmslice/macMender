@@ -17,6 +17,12 @@ struct DockWindowsView: View {
 
     var body: some View {
         PreferencesScrollView {
+            MendySectionHeader(
+                section: .dockWindows,
+                title: "Dock & Windows",
+                subtitle: "Window Switcher, Dock previews, preview animation, and Dock tuning."
+            )
+
             Picker("Dock Area", selection: $tab) {
                 ForEach(DockTab.allCases) { tab in
                     Text(tab.rawValue).tag(tab)

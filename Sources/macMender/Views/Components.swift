@@ -68,6 +68,32 @@ struct SectionCard<Content: View>: View {
     }
 }
 
+struct MendySectionHeader: View {
+    var section: SettingsSection
+    var title: String
+    var subtitle: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            MendySectionImageView(section: section, size: 94)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.title2.weight(.semibold))
+                Text(subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlass(.card, radius: 14)
+    }
+}
+
 struct CapabilityBadge: View {
     var title: String
     var systemImage: String

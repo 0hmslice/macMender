@@ -14,14 +14,20 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Launch `dist/macMender.app` and inspect onboarding, Overview, General, Input, Dock & Windows, Profiles, Privacy, and Advanced.
 - Confirm the sidebar has no Menu Bar section.
 - Confirm Overview has no Menu Bar setup card, chip, status row, scanner status, hidden-area language, Command-drag tutorial, Mark to Review checklist, or menu-bar icon hiding claim.
+- Confirm Overview shows Permissions, Three-Finger Tap, Window Switcher, and Dock Previews as key status cards.
+- Confirm Overview does not show `Status Refresh` or a `Services` technical disclosure.
 - Confirm the app still has its own macMender status item in the macOS menu bar and that its popover opens Settings/Permissions/Quit without Menu Bar management rows.
-- Confirm Privacy contains only the privacy promise, local data details, Accessibility, Screen Recording, and Input Monitoring guidance.
+- Confirm Privacy contains only the privacy promise, local data details, Accessibility, Screen Recording, and Input Monitoring permission/runtime status.
+- Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Off, or Needs Permission.
 - Confirm Launch at Login is in General.
 - Confirm Dock icon behavior is in General.
 - Confirm Reset to Onboarding is in Advanced Recovery Tools.
 - Confirm Safe Mode is in Advanced and explains that it pauses active input monitoring, Dock previews, Window Switcher shortcuts, and experimental input features.
 - Confirm the floating top-right shell pause/refresh controls are gone.
-- Confirm Overview `Status Refresh` shows progress and then `Updated just now`; it must not trigger window discovery or thumbnail capture.
+- Confirm Advanced `Status Refresh` shows progress and then `Updated just now`; it must not trigger window discovery or thumbnail capture.
+- Confirm Advanced contains Services/Technical Status details.
+- Confirm default/new profile Middle Click behavior is enabled three-finger tap mapped to middle click.
+- Confirm section-specific Mendy art appears on Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles, using generic Mendy only for compact state accents.
 - Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation.
 - Confirm `Test Preview Animation` still shows a local sample preview and does not leave a sticky panel.
 - Confirm Option+Tab still discovers normal apps and activates the selected window.
@@ -46,6 +52,10 @@ Expected current result:
 - No `MenuBarItemMover` reachable path.
 
 Historical menu-bar research and QA scripts live under `docs/archive/menu-bar-removed-2026-06-02/` and are not current product direction.
+
+## Mendy Asset Source
+
+Root `Mendy/` contains the user-provided source/reference PNGs. `Sources/macMender/Resources/Mendy/` contains the copied runtime resources bundled by SwiftPM with matching filenames.
 
 ## Not Verified by This Agent Run
 

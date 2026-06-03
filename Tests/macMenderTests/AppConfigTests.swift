@@ -83,6 +83,13 @@ struct AppConfigTests {
         #expect(!MiddleClickAction.runtimeSupportedCases.contains(.customShortcut))
     }
 
+    @Test("default profile uses three-finger tap middle click")
+    func defaultProfileUsesThreeFingerTapMiddleClick() {
+        #expect(MacMenderProfile.default.middleClick.enabled)
+        #expect(MacMenderProfile.default.middleClick.trigger == .experimentalThreeFinger)
+        #expect(MacMenderProfile.default.middleClick.action == .middleClick)
+    }
+
     @Test("profiles section uses simplified product language")
     func profilesSectionUsesSimplifiedProductLanguage() {
         #expect(SettingsSection.profiles.title == "Profiles")

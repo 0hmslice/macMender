@@ -16,6 +16,12 @@ struct InputScrollingView: View {
 
     var body: some View {
         PreferencesScrollView {
+            MendySectionHeader(
+                section: .input,
+                title: "Input",
+                subtitle: "Mouse, trackpad, scrolling, and three-finger middle-click behavior."
+            )
+
             Picker("Input Area", selection: $tab) {
                 ForEach(InputTab.allCases) { tab in
                     Text(tab.rawValue).tag(tab)
@@ -140,7 +146,7 @@ struct InputScrollingView: View {
     }
 
     private var middleClickView: some View {
-        SectionCard(title: "Middle Click", subtitle: middleClickSubtitle, symbolName: "hand.tap") {
+        SectionCard(title: "Three-Finger Tap", subtitle: middleClickSubtitle, symbolName: "hand.tap") {
             VStack(alignment: .leading, spacing: 14) {
                 Toggle("Enable Middle Click", isOn: binding(\.middleClick.enabled))
                 Picker("Trigger", selection: binding(\.middleClick.trigger)) {
@@ -168,13 +174,16 @@ struct InputScrollingView: View {
     private var middleClickSubtitle: String {
         let settings = appModel.activeProfile.middleClick
         guard settings.enabled else {
-            return "Currently disabled. When enabled, macMender can help send middle-click actions from supported triggers."
+            return "Use a three-finger tap as middle click when this is enabled."
         }
         guard appModel.permissions.accessibility == .granted else {
             return "Waiting for Accessibility before middle-click actions can run."
         }
         guard !appModel.store.config.safeModeEnabled else {
             return "Paused by Safe Mode."
+        }
+        if settings.trigger == .experimentalThreeFinger {
+            return "Open links in new tabs, close tabs, and use middle-click actions without a mouse wheel."
         }
         return "Middle-click actions are set up for the selected trigger."
     }

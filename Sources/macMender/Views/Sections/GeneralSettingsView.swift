@@ -5,6 +5,12 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         PreferencesScrollView {
+            MendySectionHeader(
+                section: .general,
+                title: "General",
+                subtitle: "Startup and app-window behavior live here, separate from privacy permissions."
+            )
+
             SectionCard(
                 title: "App Startup",
                 subtitle: "Choose how macMender appears when you sign in.",

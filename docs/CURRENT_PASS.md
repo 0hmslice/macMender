@@ -8,7 +8,7 @@ Branch:
 
 ## Focus
 
-This pass removes Menu Bar management from the current product, investigates packaged-app launch responsiveness, and reorganizes settings around normal user expectations.
+This pass removes Menu Bar management from the current product, preserves packaged-app launch responsiveness, and polishes Overview, Input, Privacy, Advanced diagnostics, and section-specific Mendy usage.
 
 Menu Bar management is deferred for a future rebuild from scratch. The app still has its own macMender menu bar status item and popover for Settings, Permissions, and Quit.
 
@@ -17,11 +17,17 @@ Menu Bar management is deferred for a future rebuild from scratch. The app still
 1. Removed the Menu Bar settings section, Overview setup card/chip, Overview service row, onboarding Menu Bar card, popover Menu Bar setup row, scanner service, menu-bar management source, Thaw-port engine target, menu-bar XPC helper target, and menu-bar feature tests.
 2. Removed menu-bar scanner startup work from `AppModel`.
 3. Removed the shell toolbar pause/refresh controls.
-4. Added Overview `Status Refresh`, which updates permissions, login item status, Dock defaults, and active helper state without window discovery or thumbnail capture.
+4. Added Overview `Three-Finger Tap` status beside Permissions, Window Switcher, and Dock Previews.
 5. Added `General` for Launch at Login and Dock icon behavior.
-6. Refocused Privacy around the local privacy promise, permissions, Mendy guidance, and technical local details.
-7. Kept reset/onboarding, Safe Mode, export, and technical status in Advanced.
+6. Refocused Privacy around the local privacy promise, permissions, Mendy guidance, technical local details, and separate Input Monitoring permission versus gesture runtime state.
+7. Kept reset/onboarding, Safe Mode, export, `Status Refresh`, and technical service status in Advanced.
 8. Deferred runtime startup briefly until after the first preferences window appears.
+9. Made new/default profiles use three-finger tap as middle click.
+10. Wired user-provided section-specific Mendy assets for Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles.
+
+## Asset Folders
+
+The root `Mendy/` folder is the source/reference folder for user-provided Mendy PNG assets. SwiftPM bundles runtime resources from `Sources/macMender/Resources/Mendy/`, so section assets are copied there with the same filenames and no generated replacements.
 
 ## Launch Notes
 
@@ -36,6 +42,7 @@ The suspected launch blockers were synchronous first-appear runtime refresh plus
 - Dock thumbnail capture/cache logic was not changed.
 - Option+Tab activation/discovery logic was not changed.
 - Scrolling and MiddleClick runtime behavior were not changed.
+- Menu Bar management UI, scanner/runtime/mover, XPC/helper packaging, Command-drag setup, Mark to Review, hidden icon, Show/Tuck, and physical movement copy were not restored.
 - Bundle identifier, signing identity selection, and entitlements were not changed.
 - `docs/qa/screenshots` was not modified.
 

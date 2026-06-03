@@ -7,6 +7,12 @@ struct ProfilesView: View {
 
     var body: some View {
         PreferencesScrollView {
+            MendySectionHeader(
+                section: .profiles,
+                title: "Profiles",
+                subtitle: "Saved setups are optional and copy your current settings when created."
+            )
+
             SectionCard(
                 title: "Default Settings",
                 subtitle: "macMender starts with one balanced default. Create extra profiles only if you want separate setups.",

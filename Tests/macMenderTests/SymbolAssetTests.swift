@@ -82,7 +82,7 @@ struct SymbolAssetTests {
 
     @Test("Mendy resources are bundled")
     func mendyResourcesResolve() {
-        for asset in [MendyAssets.avatar, MendyAssets.menuBarColor, MendyAssets.menuBarTemplate, MendyAssets.appIcon] + MendyAssets.stateAssetNames {
+        for asset in [MendyAssets.avatar, MendyAssets.menuBarColor, MendyAssets.menuBarTemplate, MendyAssets.appIcon] + MendyAssets.stateAssetNames + MendyAssets.sectionAssetNames {
             #expect(
                 MendyAssets.image(named: asset) != nil,
                 "Missing Mendy resource: \(asset)"
@@ -103,5 +103,16 @@ struct SymbolAssetTests {
             "error"
         ])
         #expect(Set(MendyMood.allCases.map(\.assetName)) == Set(MendyAssets.stateAssetNames))
+    }
+
+    @Test("Mendy section assets map to settings sections")
+    func mendySectionAssetsMapToSettingsSections() {
+        #expect(MendyAssets.assetName(for: .overview) == MendyAssets.overview)
+        #expect(MendyAssets.assetName(for: .general) == MendyAssets.general)
+        #expect(MendyAssets.assetName(for: .input) == MendyAssets.input)
+        #expect(MendyAssets.assetName(for: .dockWindows) == MendyAssets.dockWindows)
+        #expect(MendyAssets.assetName(for: .privacy) == MendyAssets.privacy)
+        #expect(MendyAssets.assetName(for: .profiles) == MendyAssets.profiles)
+        #expect(MendyAssets.assetName(for: .advanced) == MendyAssets.settings)
     }
 }

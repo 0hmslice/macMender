@@ -8,6 +8,7 @@ import ScreenCaptureKit
 final class PermissionService: ObservableObject {
     @Published private(set) var accessibility: PermissionState = .missing
     @Published private(set) var screenRecording: PermissionState = .missing
+    @Published private(set) var inputMonitoring: PermissionState = .missing
 
     private var screenRecordingProbeTask: Task<Void, Never>?
 
@@ -17,6 +18,7 @@ final class PermissionService: ObservableObject {
 
     func refresh() {
         accessibility = AXIsProcessTrusted() ? .granted : .missing
+        inputMonitoring = CGPreflightListenEventAccess() ? .granted : .missing
         if CGPreflightScreenCaptureAccess() {
             screenRecordingProbeTask?.cancel()
             screenRecording = .granted
@@ -37,6 +39,11 @@ final class PermissionService: ObservableObject {
         refreshScreenRecordingAfterTCCChange()
     }
 
+    func requestInputMonitoring() {
+        _ = CGRequestListenEventAccess()
+        refreshInputMonitoringAfterTCCChange()
+    }
+
     func openAccessibilitySettings() {
         openSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
     }
@@ -48,6 +55,7 @@ final class PermissionService: ObservableObject {
 
     func openInputMonitoringSettings() {
         openSettingsPane("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
+        refreshInputMonitoringAfterTCCChange()
     }
 
     private func openSettingsPane(_ string: String) {
@@ -78,6 +86,15 @@ final class PermissionService: ObservableObject {
             for delay in [0.25, 1.0, 2.0] {
                 try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
                 self?.refresh()
+            }
+        }
+    }
+
+    private func refreshInputMonitoringAfterTCCChange() {
+        Task { @MainActor [weak self] in
+            for delay in [0.25, 1.0, 2.0] {
+                try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
+                self?.inputMonitoring = CGPreflightListenEventAccess() ? .granted : .missing
             }
         }
     }

@@ -148,7 +148,7 @@ enum MiddleClickTrigger: String, CaseIterable, Codable, Identifiable {
         case .disabled: "Disabled"
         case .modifierClick: "Control + Click"
         case .extraMouseButton: "Extra Mouse Button"
-        case .experimentalThreeFinger: "Three-Finger Gesture"
+        case .experimentalThreeFinger: "Three-Finger Tap"
         }
     }
 
@@ -188,6 +188,6 @@ struct MiddleClickSettings: Codable, Equatable {
     var trigger: MiddleClickTrigger
     var action: MiddleClickAction
 
-    static let `default` = MiddleClickSettings(enabled: false, trigger: .modifierClick, action: .middleClick)
+    static let `default` = MiddleClickSettings(enabled: true, trigger: .experimentalThreeFinger, action: .middleClick)
     static let disabled = MiddleClickSettings(enabled: false, trigger: .disabled, action: .middleClick)
 }

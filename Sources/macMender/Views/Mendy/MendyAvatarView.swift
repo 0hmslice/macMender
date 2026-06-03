@@ -65,6 +65,13 @@ enum MendyAssets {
     static let sleeping = "MendySleeping"
     static let success = "MendySuccess"
     static let error = "MendyError"
+    static let overview = "overview"
+    static let general = "general"
+    static let input = "input"
+    static let dockWindows = "dock&windows"
+    static let privacy = "privacy"
+    static let profiles = "profiles"
+    static let settings = "settings"
 
     static let stateAssetNames = [
         greeting,
@@ -77,24 +84,93 @@ enum MendyAssets {
         error
     ]
 
+    static let sectionAssetNames = [
+        overview,
+        general,
+        input,
+        dockWindows,
+        privacy,
+        profiles,
+        settings
+    ]
+
+    static func assetName(for section: SettingsSection) -> String {
+        switch section {
+        case .overview:
+            overview
+        case .general:
+            general
+        case .input:
+            input
+        case .dockWindows:
+            dockWindows
+        case .privacy:
+            privacy
+        case .profiles:
+            profiles
+        case .advanced:
+            settings
+        }
+    }
+
     static func image(named name: String) -> NSImage? {
         if let image = NSImage(named: name) {
             return image
         }
-        if let url = Bundle.main.url(forResource: name, withExtension: "png") {
-            return NSImage(contentsOf: url)
-        }
-        if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "Mendy") {
-            return NSImage(contentsOf: url)
-        }
-        if let url = Bundle.module.url(forResource: name, withExtension: "png") {
-            return NSImage(contentsOf: url)
-        }
-        if let url = Bundle.module.url(forResource: name, withExtension: "png", subdirectory: "Mendy") {
-            return NSImage(contentsOf: url)
+        for bundle in resourceBundles {
+            if let url = bundle.url(forResource: name, withExtension: "png") {
+                return NSImage(contentsOf: url)
+            }
+            if let url = bundle.url(forResource: name, withExtension: "png", subdirectory: "Mendy") {
+                return NSImage(contentsOf: url)
+            }
         }
         return nil
     }
+
+    private static let resourceBundles: [Bundle] = {
+        let fileManager = FileManager.default
+        let resourceBundleName = "macMender_macMender.bundle"
+        var bundles = [Bundle.main]
+        var seen = Set<String>([Bundle.main.bundlePath])
+
+        func appendBundle(at url: URL?) {
+            guard let url,
+                  fileManager.fileExists(atPath: url.path),
+                  let bundle = Bundle(url: url),
+                  seen.insert(bundle.bundlePath).inserted else {
+                return
+            }
+            bundles.append(bundle)
+        }
+
+        appendBundle(at: Bundle.main.resourceURL?.appendingPathComponent(resourceBundleName))
+        appendBundle(at: Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent(resourceBundleName))
+
+        var ancestor = Bundle.main.bundleURL
+        for _ in 0..<6 {
+            ancestor.deleteLastPathComponent()
+            appendBundle(at: ancestor.appendingPathComponent(resourceBundleName))
+        }
+
+        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(resourceBundleName) && seen.insert(bundle.bundlePath).inserted {
+            bundles.append(bundle)
+        }
+
+        let buildDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath).appendingPathComponent(".build")
+        if let enumerator = fileManager.enumerator(
+            at: buildDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) {
+            for case let url as URL in enumerator where url.lastPathComponent == resourceBundleName {
+                appendBundle(at: url)
+                break
+            }
+        }
+
+        return bundles
+    }()
 
     static var menuBarImage: NSImage {
         let image = image(named: menuBarTemplate) ?? image(named: menuBarColor) ?? image(named: head) ?? NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
@@ -290,6 +366,28 @@ struct MendyAvatarView: View {
 
     private var permitsContinuousMotion: Bool {
         !reduceMotion && scenePhase == .active && showsGlass && size >= MendyAvatarSize.panel
+    }
+}
+
+struct MendySectionImageView: View {
+    var section: SettingsSection
+    var size: CGFloat
+
+    var body: some View {
+        Image(nsImage: sectionImage)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .shadow(color: Color.black.opacity(0.08), radius: size * 0.08, y: size * 0.03)
+            .accessibilityLabel("Mendy for \(section.title)")
+    }
+
+    private var sectionImage: NSImage {
+        MendyAssets.image(named: MendyAssets.assetName(for: section)) ??
+            MendyAssets.image(named: MendyAssets.greeting) ??
+            MendyAssets.image(named: MendyAssets.avatar) ??
+            NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
     }
 }
 
