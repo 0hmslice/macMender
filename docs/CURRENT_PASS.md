@@ -28,6 +28,7 @@ Menu Bar management is deferred for a future rebuild from scratch. The app still
 12. The permission drag-to-add guide now uses an adaptive layout with stable fixed visual pieces and a compact fallback.
 13. The macMender status-item popover shows a glanceable running state, one Permissions summary row, Three-Finger Tap, Dock previews, Window Switcher, Open macMender, and a low-priority Quit control.
 14. The popover shows a Permissions action only when setup or permission review is useful.
+15. The top-right profile switcher uses a single profile-oriented symbol and keeps the active profile name compact.
 
 ## Asset Folders
 

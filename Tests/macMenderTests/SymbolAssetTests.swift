@@ -52,6 +52,7 @@ struct SymbolAssetTests {
             "menubar.rectangle",
             "pause.circle",
             "pause.circle.fill",
+            "person.crop.circle",
             "pin",
             "plus",
             "plus.rectangle.on.rectangle",

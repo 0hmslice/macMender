@@ -43,6 +43,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Advanced contains Services/Technical Status details.
 - Confirm default/new profile Middle Click behavior is enabled three-finger tap mapped to middle click.
 - Confirm section-specific Mendy art appears on Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles, using generic Mendy only for compact state accents.
+- With two or more profiles, confirm the top-right profile switcher uses one profile-oriented symbol, opens the profile menu, switches profiles, and has no clipped text.
 - Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation.
 - Confirm the Dock preview animation picker only shows System, Fade, Scale, Slide Up, and None.
 - Confirm old saved Glass Pop and Genie settings map to safe styles instead of appearing as selectable options.
