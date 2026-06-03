@@ -7,63 +7,14 @@ struct OverviewView: View {
         PreferencesScrollView {
             OverviewHero(appModel: appModel)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: 14)], spacing: 14) {
-                SoftStatusCard(
-                    title: "Permissions",
-                    subtitle: appModel.permissions.needsAttention ? "Needs review" : "Access looks good",
-                    systemImage: "lock.shield",
-                    tone: appModel.permissions.needsAttention ? .warning : .active
-                ) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        OverviewStatusLine(
-                            title: "Accessibility",
-                            status: appModel.permissions.accessibility.title,
-                            tone: appModel.permissions.accessibility == .granted ? .active : .warning
-                        )
-                        OverviewStatusLine(
-                            title: "Screen Recording",
-                            status: appModel.permissions.screenRecording.title,
-                            tone: appModel.permissions.screenRecording == .granted ? .active : .warning
-                        )
-                    }
-                }
-                Button {
-                    appModel.selectedSection = .input
-                } label: {
-                    OverviewMiddleClickCard(appModel: appModel)
-                }
-                .buttonStyle(.plain)
-                OverviewStatusCard(
-                    title: "Window Switcher",
-                    subtitle: appModel.activeProfile.windowSwitcher.shortcut,
-                    symbol: "rectangle.3.group",
-                    status: windowSwitcherStatus,
-                    tone: windowSwitcherIsReady ? .active : .warning
-                )
-                OverviewStatusCard(
-                    title: "Dock Previews",
-                    subtitle: "Hover to preview",
-                    symbol: "dock.rectangle",
-                    status: appModel.dockHover.isRunning ? "Active" : "Paused",
-                    tone: appModel.dockHover.isRunning ? .active : .warning
-                )
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 14)], spacing: 14) {
+                OverviewPermissionsCard(appModel: appModel)
+                OverviewMiddleClickCard(appModel: appModel)
+                OverviewWindowSwitcherCard(appModel: appModel)
+                OverviewDockPreviewsCard(appModel: appModel)
             }
         }
     }
-
-    private var windowSwitcherIsReady: Bool {
-        appModel.store.config.featureToggles.windowSwitcher &&
-        !appModel.store.config.safeModeEnabled &&
-        appModel.permissions.accessibility == .granted
-    }
-
-    private var windowSwitcherStatus: String {
-        if !appModel.store.config.featureToggles.windowSwitcher { return "Off" }
-        if appModel.store.config.safeModeEnabled { return "Paused" }
-        if appModel.permissions.accessibility != .granted { return "Needs access" }
-        return "Ready"
-    }
-
 }
 
 private struct OverviewHero: View {
@@ -145,29 +96,57 @@ private struct OverviewHero: View {
     private var windowSwitcherChipTitle: String {
         windowSwitcherIsReady ? "Window switcher ready" : "Window switcher paused"
     }
+}
 
+private struct OverviewPermissionsCard: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        OverviewFeatureCard(
+            title: "Permissions",
+            benefit: allGranted ? "macMender has the access it needs." : "Review access so enabled features can run.",
+            systemImage: "lock.shield",
+            status: allGranted ? "Ready" : "Needs review",
+            tone: allGranted ? .active : .warning,
+            detailRows: [
+                OverviewDetailRowData(title: "Accessibility", value: appModel.permissions.accessibility.title, tone: permissionTone(appModel.permissions.accessibility)),
+                OverviewDetailRowData(title: "Screen Recording", value: appModel.permissions.screenRecording.title, tone: permissionTone(appModel.permissions.screenRecording)),
+                OverviewDetailRowData(title: "Input Monitoring", value: appModel.permissions.inputMonitoring.title, tone: permissionTone(appModel.permissions.inputMonitoring))
+            ],
+            actionTitle: allGranted ? nil : "Review permissions",
+            action: allGranted ? nil : { appModel.selectedSection = .privacy }
+        )
+    }
+
+    private var allGranted: Bool {
+        appModel.permissions.accessibility == .granted &&
+        appModel.permissions.screenRecording == .granted &&
+        appModel.permissions.inputMonitoring == .granted
+    }
+
+    private func permissionTone(_ state: PermissionState) -> CapabilityBadge.Tone {
+        state == .granted ? .active : .warning
+    }
 }
 
 private struct OverviewMiddleClickCard: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
-        SoftStatusCard(
+        OverviewFeatureCard(
             title: "Three-Finger Tap",
-            subtitle: "Middle-click tabs, links, and more",
+            benefit: "Tap with three fingers to act like middle click.",
             systemImage: "hand.tap",
-            tone: tone
-        ) {
-            VStack(alignment: .leading, spacing: 8) {
-                Label(statusTitle, systemImage: statusSymbol)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(statusColor)
-                Text("Tap with three fingers to act like a middle mouse button.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
+            status: statusTitle,
+            tone: tone,
+            detailRows: [
+                OverviewDetailRowData(title: "Links", value: "Open in new tabs", tone: .neutral),
+                OverviewDetailRowData(title: "Tabs", value: "Close with middle click", tone: .neutral),
+                OverviewDetailRowData(title: "Input Monitoring", value: appModel.permissions.inputMonitoring.title, tone: appModel.permissions.inputMonitoring == .granted ? .active : .warning)
+            ],
+            actionTitle: "Input settings",
+            action: { appModel.selectedSection = .input }
+        )
     }
 
     private var statusTitle: String {
@@ -176,7 +155,10 @@ private struct OverviewMiddleClickCard: View {
             return "Off"
         }
         guard appModel.permissions.accessibility == .granted else {
-            return "Needs Permission"
+            return "Needs permission"
+        }
+        guard appModel.permissions.inputMonitoring == .granted else {
+            return "Needs permission"
         }
         guard !appModel.store.config.safeModeEnabled else {
             return "Paused"
@@ -194,6 +176,175 @@ private struct OverviewMiddleClickCard: View {
             .warning
         }
     }
+}
+
+private struct OverviewWindowSwitcherCard: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        OverviewFeatureCard(
+            title: "Window Switcher",
+            benefit: "Option+Tab shows your open windows.",
+            systemImage: "rectangle.3.group",
+            status: statusTitle,
+            tone: tone,
+            detailRows: [
+                OverviewDetailRowData(title: "Shortcut", value: appModel.activeProfile.windowSwitcher.shortcut, tone: .neutral),
+                OverviewDetailRowData(title: "Windows", value: discoveredWindowCount, tone: .neutral),
+                OverviewDetailRowData(title: "Layout", value: appModel.activeProfile.windowSwitcher.layout.title, tone: .neutral)
+            ],
+            actionTitle: "Dock & Windows",
+            action: { appModel.selectedSection = .dockWindows }
+        )
+    }
+
+    private var statusTitle: String {
+        if !appModel.store.config.featureToggles.windowSwitcher ||
+            !appModel.activeProfile.windowSwitcher.enabled {
+            return "Off"
+        }
+        if appModel.store.config.safeModeEnabled {
+            return "Paused"
+        }
+        if appModel.permissions.accessibility != .granted {
+            return "Needs permission"
+        }
+        return "Ready"
+    }
+
+    private var tone: CapabilityBadge.Tone {
+        switch statusTitle {
+        case "Ready":
+            .active
+        case "Off":
+            .neutral
+        default:
+            .warning
+        }
+    }
+
+    private var discoveredWindowCount: String {
+        guard appModel.windowSwitcher.hasRunWindowDiscovery else {
+            return "Check when opened"
+        }
+        let total = appModel.windowSwitcher.lastDiscoveryReport.totalWindows
+        return total == 1 ? "1 window" : "\(total) windows"
+    }
+}
+
+private struct OverviewDockPreviewsCard: View {
+    @ObservedObject var appModel: AppModel
+
+    var body: some View {
+        OverviewFeatureCard(
+            title: "Dock Previews",
+            benefit: "Hover Dock icons to preview windows.",
+            systemImage: "dock.rectangle",
+            status: statusTitle,
+            tone: tone,
+            detailRows: [
+                OverviewDetailRowData(title: "Previews", value: appModel.activeProfile.dockPreviews.enabled ? "Enabled" : "Off", tone: appModel.activeProfile.dockPreviews.enabled ? .active : .neutral),
+                OverviewDetailRowData(title: "Animation", value: appModel.activeProfile.dockPreviews.animationStyle.title, tone: .neutral),
+                OverviewDetailRowData(title: "Linger", value: "\(appModel.activeProfile.dockPreviews.previewIdleTimeout.sliderValueLabel)s", tone: .neutral)
+            ],
+            actionTitle: "Dock & Windows",
+            action: { appModel.selectedSection = .dockWindows }
+        )
+    }
+
+    private var statusTitle: String {
+        guard appModel.activeProfile.dockPreviews.enabled else {
+            return "Off"
+        }
+        if appModel.store.config.safeModeEnabled {
+            return "Paused"
+        }
+        if appModel.permissions.accessibility != .granted {
+            return "Needs permission"
+        }
+        return appModel.dockHover.isRunning ? "Active" : "Ready"
+    }
+
+    private var tone: CapabilityBadge.Tone {
+        switch statusTitle {
+        case "Active", "Ready":
+            .active
+        case "Off":
+            .neutral
+        default:
+            .warning
+        }
+    }
+}
+
+private struct OverviewFeatureCard: View {
+    var title: String
+    var benefit: String
+    var systemImage: String
+    var status: String
+    var tone: CapabilityBadge.Tone
+    var detailRows: [OverviewDetailRowData]
+    var actionTitle: String?
+    var action: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 38, height: 38)
+                    .background(iconColor.opacity(0.13), in: Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                    Text(benefit)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            CapabilityBadge(title: status, systemImage: statusSymbol, tone: tone)
+
+            VStack(spacing: 7) {
+                ForEach(detailRows.prefix(3)) { row in
+                    OverviewDetailRow(row: row)
+                }
+            }
+
+            if let actionTitle, let action {
+                Button(action: action) {
+                    HStack(spacing: 4) {
+                        Text(actionTitle)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .padding(.top, 2)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .liquidGlass(.card, radius: 14)
+    }
+
+    private var iconColor: Color {
+        switch tone {
+        case .active:
+            .green
+        case .warning:
+            .orange
+        case .neutral:
+            .blue
+        }
+    }
 
     private var statusSymbol: String {
         switch tone {
@@ -205,9 +356,34 @@ private struct OverviewMiddleClickCard: View {
             "pause.circle"
         }
     }
+}
 
-    private var statusColor: Color {
-        switch tone {
+private struct OverviewDetailRowData: Identifiable {
+    var id: String { title }
+    var title: String
+    var value: String
+    var tone: CapabilityBadge.Tone
+}
+
+private struct OverviewDetailRow: View {
+    var row: OverviewDetailRowData
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(row.title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Text(row.value)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+    }
+
+    private var valueColor: Color {
+        switch row.tone {
         case .active:
             .green
         case .warning:
@@ -215,40 +391,5 @@ private struct OverviewMiddleClickCard: View {
         case .neutral:
             .secondary
         }
-    }
-}
-
-private struct OverviewStatusCard: View {
-    var title: String
-    var subtitle: String
-    var symbol: String
-    var status: String
-    var tone: CapabilityBadge.Tone
-
-    var body: some View {
-        SoftStatusCard(title: title, subtitle: subtitle, systemImage: symbol, tone: tone) {
-            Label(status, systemImage: tone == .active ? "checkmark.circle.fill" : "exclamationmark.circle")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(tone == .active ? .green : .orange)
-        }
-    }
-}
-
-private struct OverviewStatusLine: View {
-    var title: String
-    var status: String
-    var tone: CapabilityBadge.Tone
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: tone == .active ? "checkmark.circle.fill" : "exclamationmark.circle")
-                .foregroundStyle(tone == .active ? .green : .orange)
-            Text(title)
-                .foregroundStyle(.primary)
-            Spacer(minLength: 8)
-            Text(status)
-                .foregroundStyle(tone == .active ? .green : .orange)
-        }
-        .font(.caption.weight(.semibold))
     }
 }
