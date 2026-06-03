@@ -113,8 +113,8 @@ private struct OverviewPermissionsCard: View {
                 OverviewDetailRowData(title: "Screen Recording", value: appModel.permissions.screenRecording.title, tone: permissionTone(appModel.permissions.screenRecording)),
                 OverviewDetailRowData(title: "Input Monitoring", value: appModel.permissions.inputMonitoring.title, tone: permissionTone(appModel.permissions.inputMonitoring))
             ],
-            actionTitle: allGranted ? nil : "Review permissions",
-            action: allGranted ? nil : { appModel.selectedSection = .privacy }
+            actionLabel: allGranted ? "Open Privacy" : "Review permissions",
+            action: { appModel.selectedSection = .privacy }
         )
     }
 
@@ -144,7 +144,7 @@ private struct OverviewMiddleClickCard: View {
                 OverviewDetailRowData(title: "Tabs", value: "Close with middle click", tone: .neutral),
                 OverviewDetailRowData(title: "Input Monitoring", value: appModel.permissions.inputMonitoring.title, tone: appModel.permissions.inputMonitoring == .granted ? .active : .warning)
             ],
-            actionTitle: "Input settings",
+            actionLabel: "Input settings",
             action: { appModel.selectedSection = .input }
         )
     }
@@ -193,7 +193,7 @@ private struct OverviewWindowSwitcherCard: View {
                 OverviewDetailRowData(title: "Windows", value: discoveredWindowCount, tone: .neutral),
                 OverviewDetailRowData(title: "Layout", value: appModel.activeProfile.windowSwitcher.layout.title, tone: .neutral)
             ],
-            actionTitle: "Dock & Windows",
+            actionLabel: "Dock & Windows",
             action: { appModel.selectedSection = .dockWindows }
         )
     }
@@ -247,7 +247,7 @@ private struct OverviewDockPreviewsCard: View {
                 OverviewDetailRowData(title: "Animation", value: appModel.activeProfile.dockPreviews.animationStyle.title, tone: .neutral),
                 OverviewDetailRowData(title: "Linger", value: "\(appModel.activeProfile.dockPreviews.previewIdleTimeout.sliderValueLabel)s", tone: .neutral)
             ],
-            actionTitle: "Dock & Windows",
+            actionLabel: "Dock & Windows",
             action: { appModel.selectedSection = .dockWindows }
         )
     }
@@ -278,61 +278,95 @@ private struct OverviewDockPreviewsCard: View {
 }
 
 private struct OverviewFeatureCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
+
     var title: String
     var benefit: String
     var systemImage: String
     var status: String
     var tone: CapabilityBadge.Tone
     var detailRows: [OverviewDetailRowData]
-    var actionTitle: String?
-    var action: (() -> Void)?
+    var actionLabel: String
+    var action: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(iconColor)
-                    .frame(width: 38, height: 38)
-                    .background(iconColor.opacity(0.13), in: Circle())
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 10) {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                        .frame(width: 34, height: 34)
+                        .background(iconColor.opacity(0.13), in: Circle())
 
-                VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.headline)
-                    Text(benefit)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.86)
+
+                    Spacer(minLength: 8)
+
+                    CapabilityBadge(title: status, systemImage: statusSymbol, tone: tone)
                 }
+                .frame(height: 36)
+
+                Text(benefit)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 32, alignment: .topLeading)
+
+                VStack(spacing: 7) {
+                    ForEach(normalizedRows) { row in
+                        OverviewDetailRow(row: row)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .top)
+                .frame(height: 62, alignment: .top)
 
                 Spacer(minLength: 0)
-            }
 
-            CapabilityBadge(title: status, systemImage: statusSymbol, tone: tone)
-
-            VStack(spacing: 7) {
-                ForEach(detailRows.prefix(3)) { row in
-                    OverviewDetailRow(row: row)
-                }
-            }
-
-            if let actionTitle, let action {
-                Button(action: action) {
+                HStack(spacing: 4) {
+                    Spacer(minLength: 0)
+                    Text(actionLabel)
+                        .lineLimit(1)
                     HStack(spacing: 4) {
-                        Text(actionTitle)
                         Image(systemName: "chevron.right")
                             .font(.caption2.weight(.semibold))
                     }
-                    .font(.caption.weight(.semibold))
                 }
-                .buttonStyle(.plain)
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.tint)
-                .padding(.top, 2)
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 214, maxHeight: 214, alignment: .topLeading)
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+        .buttonStyle(.plain)
         .liquidGlass(.card, radius: 14)
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(iconColor.opacity(isHovered ? 0.34 : 0.12), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(reduceMotion ? 0.08 : (isHovered ? 0.16 : 0.09)), radius: reduceMotion ? 10 : (isHovered ? 18 : 10), y: reduceMotion ? 4 : (isHovered ? 8 : 4))
+        .scaleEffect(reduceMotion ? 1 : (isHovered ? 1.015 : 1))
+        .offset(y: reduceMotion ? 0 : (isHovered ? -1 : 0))
+        .animation(.easeInOut(duration: 0.16), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .accessibilityLabel("\(title). \(status). \(benefit) \(actionLabel).")
+        .help(actionLabel)
+    }
+
+    private var normalizedRows: [OverviewDetailRowData] {
+        let rows = Array(detailRows.prefix(3))
+        if rows.count >= 3 { return rows }
+        return rows + (rows.count..<3).map { index in
+            OverviewDetailRowData(title: " ", value: " ", tone: .neutral, idSuffix: "placeholder-\(index)")
+        }
     }
 
     private var iconColor: Color {
@@ -359,10 +393,19 @@ private struct OverviewFeatureCard: View {
 }
 
 private struct OverviewDetailRowData: Identifiable {
-    var id: String { title }
     var title: String
     var value: String
     var tone: CapabilityBadge.Tone
+    var idSuffix: String?
+
+    var id: String { idSuffix ?? title }
+
+    init(title: String, value: String, tone: CapabilityBadge.Tone, idSuffix: String? = nil) {
+        self.title = title
+        self.value = value
+        self.tone = tone
+        self.idSuffix = idSuffix
+    }
 }
 
 private struct OverviewDetailRow: View {
