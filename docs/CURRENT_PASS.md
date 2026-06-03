@@ -4,26 +4,26 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/remove-menubar-and-polish-settings`
+`codex/onboarding-redesign`
 
 ## Focus
 
-This pass removes Menu Bar management from the current product, preserves packaged-app launch responsiveness, and polishes Overview, Input, Privacy, Advanced diagnostics, and section-specific Mendy usage.
+This pass repairs Dock preview animation feel and redesigns onboarding into a concise Mendy-guided setup flow.
 
 Menu Bar management is deferred for a future rebuild from scratch. The app still has its own macMender menu bar status item and popover for Settings, Permissions, and Quit.
 
 ## Implemented
 
-1. Removed the Menu Bar settings section, Overview setup card/chip, Overview service row, onboarding Menu Bar card, popover Menu Bar setup row, scanner service, menu-bar management source, Thaw-port engine target, menu-bar XPC helper target, and menu-bar feature tests.
-2. Removed menu-bar scanner startup work from `AppModel`.
-3. Removed the shell toolbar pause/refresh controls.
-4. Added Overview `Three-Finger Tap` status beside Permissions, Window Switcher, and Dock Previews.
-5. Added `General` for Launch at Login and Dock icon behavior.
-6. Refocused Privacy around the local privacy promise, permissions, Mendy guidance, technical local details, and separate Input Monitoring permission versus gesture runtime state.
-7. Kept reset/onboarding, Safe Mode, export, `Status Refresh`, and technical service status in Advanced.
-8. Deferred runtime startup briefly until after the first preferences window appears.
-9. Made new/default profiles use three-finger tap as middle click.
-10. Wired user-provided section-specific Mendy assets for Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles.
+1. Dock preview animations now animate the content layer only and keep the panel frame stable.
+2. Slide Up uses the Dock anchor direction for appear and matching dismiss motion.
+3. Dismissal uses each animation style's reverse state instead of a shared stale transform.
+4. Visible Dock preview animation styles are reduced to polished options: System, Fade, Scale, Slide Up, and None.
+5. Legacy saved Glass Pop values map to System; legacy saved Genie values map to Scale.
+6. Onboarding is a multi-step flow: Welcome, Input and Three-Finger Tap, Dock and Windows, Permissions, Local Privacy, and Finish.
+7. Onboarding uses real Accessibility, Screen Recording, and Input Monitoring permission status.
+8. Input Monitoring uses CoreGraphics listen-event access status and stays separate from gesture runtime state.
+9. The drag-to-add Privacy & Security guide is retained with a one-shot, Reduce Motion-safe nudge.
+10. Onboarding uses section-specific Mendy assets for Overview, Input, Dock & Windows, and Privacy steps.
 
 ## Asset Folders
 
@@ -48,4 +48,4 @@ The suspected launch blockers were synchronous first-appear runtime refresh plus
 
 ## Manual QA Required
 
-Use `docs/MANUAL_QA.md`. Confirm no Menu Bar management UI is visible, while the app’s own status item/popover still works.
+Use `docs/MANUAL_QA.md`. Confirm onboarding is multi-step, Dock preview animations feel stable, and no Menu Bar management UI is visible while the app’s own status item/popover still works.

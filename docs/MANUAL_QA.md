@@ -12,6 +12,15 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 ## Current Pass Checklist
 
 - Launch `dist/macMender.app` and inspect onboarding, Overview, General, Input, Dock & Windows, Profiles, Privacy, and Advanced.
+- Confirm onboarding is a multi-step flow with Welcome, Input and Three-Finger Tap, Dock and Windows, Permissions, Local Privacy, and Finish.
+- Confirm onboarding has no Menu Bar management content.
+- Confirm onboarding reports Accessibility, Screen Recording, and Input Monitoring from real permission status.
+- Confirm Input Monitoring is separate from three-finger gesture runtime state.
+- Confirm onboarding `Recheck Permissions` refreshes permission status without running window discovery or thumbnail capture.
+- Confirm drag-to-add Privacy & Security guidance is present and phrases drag-to-add as conditional guidance, with + button fallback.
+- Confirm onboarding uses section-specific Mendy assets: Overview for Welcome/Finish, Input for Three-Finger Tap, Dock & Windows for Dock/Window setup, and Privacy for permissions/privacy.
+- Confirm onboarding can be skipped or finished even when permissions are deferred.
+- Confirm Advanced `Reset to Onboarding` still returns to the multi-step flow.
 - Confirm the sidebar has no Menu Bar section.
 - Confirm Overview has no Menu Bar setup card, chip, status row, scanner status, hidden-area language, Command-drag tutorial, Mark to Review checklist, or menu-bar icon hiding claim.
 - Confirm Overview shows Permissions, Three-Finger Tap, Window Switcher, and Dock Previews as key status cards.
@@ -29,6 +38,11 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm default/new profile Middle Click behavior is enabled three-finger tap mapped to middle click.
 - Confirm section-specific Mendy art appears on Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles, using generic Mendy only for compact state accents.
 - Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation.
+- Confirm the Dock preview animation picker only shows System, Fade, Scale, Slide Up, and None.
+- Confirm old saved Glass Pop and Genie settings map to safe styles instead of appearing as selectable options.
+- Confirm Slide Up rises from the Dock direction and dismisses back toward the Dock.
+- Confirm Dock preview dismissal does not jump left/down and does not leave stale transforms.
+- Confirm Fade is opacity-only, None is instant, and Scale has no diagonal drift.
 - Confirm `Test Preview Animation` still shows a local sample preview and does not leave a sticky panel.
 - Confirm Option+Tab still discovers normal apps and activates the selected window.
 - Confirm Dock preview hover still uses correct app/window identity and does not show neighboring Dock item previews.

@@ -77,6 +77,32 @@ struct AppConfigTests {
         #expect(settings.animationDuration == DockPreviewAnimationSpeed.smooth.duration)
     }
 
+    @Test("legacy broken Dock preview animations map to safe styles")
+    func legacyBrokenDockPreviewAnimationsMapToSafeStyles() throws {
+        let glassPop = """
+        {
+          "enabled": true,
+          "hoverDelay": 0.35,
+          "previewIdleTimeout": 1.8,
+          "animationStyle": "glassPop",
+          "animationDuration": 0.22,
+          "layout": "grid",
+          "thumbnailSize": 152
+        }
+        """
+        let genie = glassPop.replacingOccurrences(of: "glassPop", with: "genie")
+
+        #expect(try JSONDecoder().decode(DockPreviewSettings.self, from: Data(glassPop.utf8)).animationStyle == .system)
+        #expect(try JSONDecoder().decode(DockPreviewSettings.self, from: Data(genie.utf8)).animationStyle == .scale)
+    }
+
+    @Test("Dock preview animation picker exposes only polished styles")
+    func dockPreviewAnimationPickerExposesOnlyPolishedStyles() {
+        #expect(DockPreviewAnimationStyle.selectableCases == [.system, .fade, .scale, .slideUp, .none])
+        #expect(!DockPreviewAnimationStyle.selectableCases.contains(.glassPop))
+        #expect(!DockPreviewAnimationStyle.selectableCases.contains(.genie))
+    }
+
     @Test("runtime middle-click actions only include implemented actions")
     func runtimeMiddleClickActionsOnlyIncludeImplementedActions() {
         #expect(MiddleClickAction.runtimeSupportedCases == [.middleClick, .openBackgroundTab, .closeTab])

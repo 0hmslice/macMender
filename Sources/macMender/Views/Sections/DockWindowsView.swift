@@ -123,7 +123,7 @@ struct DockWindowsView: View {
                     valueLabel: "\(appModel.activeProfile.dockPreviews.previewIdleTimeout.sliderValueLabel)s"
                 )
                 Picker("Preview animation", selection: binding(\.dockPreviews.animationStyle)) {
-                    ForEach(DockPreviewAnimationStyle.allCases) { style in
+                    ForEach(DockPreviewAnimationStyle.selectableCases) { style in
                         Text(style.title).tag(style)
                     }
                 }

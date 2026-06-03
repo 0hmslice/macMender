@@ -145,7 +145,7 @@ final class WindowSwitcherService: ObservableObject {
                 windowID: nil,
                 appName: "Animation Test",
                 bundleIdentifier: Bundle.main.bundleIdentifier,
-                title: "\(dockPreviewAnimationStyle.title) preview",
+                title: "\(effectiveDockPreviewAnimationStyle.title) preview",
                 processIdentifier: NSRunningApplication.current.processIdentifier,
                 frame: anchorFrame,
                 isMinimized: false,
@@ -157,8 +157,8 @@ final class WindowSwitcherService: ObservableObject {
         isShowing = true
         isDockPreview = true
         overlayTitle = "Animation Test"
-        overlaySubtitle = "\(dockPreviewAnimationStyle.title) • \(dockPreviewAnimationDuration.formatted(.number.precision(.fractionLength(2))))s"
-        presentationStatus = "Previewing \(dockPreviewAnimationStyle.title)"
+        overlaySubtitle = "\(effectiveDockPreviewAnimationStyle.title) • \(dockPreviewAnimationDuration.formatted(.number.precision(.fractionLength(2))))s"
+        presentationStatus = "Previewing \(effectiveDockPreviewAnimationStyle.title)"
         lastThumbnailDiagnostic = "animation sample uses local placeholder; capture not requested"
         dockPreviewAnchorFrame = anchorFrame
         if presentsPanel {
@@ -246,7 +246,7 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     func updateDockPreviewAnimation(style: DockPreviewAnimationStyle, duration: Double) {
-        dockPreviewAnimationStyle = style
+        dockPreviewAnimationStyle = style.legacyMappedStyle
         dockPreviewAnimationDurationValue = DockPreviewSettings.clampedAnimationDuration(duration)
     }
 
@@ -418,14 +418,6 @@ final class WindowSwitcherService: ObservableObject {
             setLayerState(.identity, on: layer)
             return
         }
-        if style == .glassPop {
-            presentGlassPop(layer: layer, generation: generation)
-            return
-        }
-        if style == .genie {
-            presentGenie(layer: layer, from: startState, generation: generation)
-            return
-        }
         animateLayer(
             layer,
             from: startState,
@@ -518,8 +510,15 @@ final class WindowSwitcherService: ObservableObject {
         contentView.wantsLayer = true
         let layer = contentView.layer ?? CALayer()
         layer.removeAllAnimations()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer.bounds = contentView.bounds
+        layer.position = CGPoint(x: contentView.bounds.midX, y: contentView.bounds.midY)
+        layer.opacity = 1
+        layer.transform = CATransform3DIdentity
         layer.masksToBounds = false
+        CATransaction.commit()
         return layer
     }
 
@@ -603,15 +602,15 @@ final class WindowSwitcherService: ObservableObject {
         case .fade:
             return PanelLayerState(opacity: 0, transform: PanelLayerState.identity.transform)
         case .system:
-            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.965 : 0.975, scaleY: appearing ? 0.965 : 0.975, y: appearing ? 14 : 10))
+            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.965 : 0.975, scaleY: appearing ? 0.965 : 0.975, y: dockOriginYOffset(magnitude: appearing ? 14 : 10)))
         case .scale:
             return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.82 : 0.88, scaleY: appearing ? 0.82 : 0.88, y: 0))
         case .slideUp:
-            return PanelLayerState(opacity: 0, transform: transformed(scaleX: 1, scaleY: 1, y: appearing ? 72 : 58))
+            return PanelLayerState(opacity: 0, transform: transformed(scaleX: 1, scaleY: 1, y: dockOriginYOffset(magnitude: appearing ? 72 : 58)))
         case .glassPop:
-            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.90 : 0.92, scaleY: appearing ? 0.90 : 0.92, y: appearing ? 12 : 8))
+            return layerState(for: .system, appearing: appearing)
         case .genie:
-            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.40 : 0.46, scaleY: appearing ? 0.18 : 0.20, y: appearing ? 96 : 84))
+            return layerState(for: .scale, appearing: appearing)
         }
     }
 
@@ -622,11 +621,18 @@ final class WindowSwitcherService: ObservableObject {
         )
     }
 
+    private func dockOriginYOffset(magnitude: CGFloat) -> CGFloat {
+        guard let panel, let dockPreviewAnchorFrame else {
+            return -magnitude
+        }
+        return panel.frame.midY >= dockPreviewAnchorFrame.midY ? -magnitude : magnitude
+    }
+
     private var effectiveDockPreviewAnimationStyle: DockPreviewAnimationStyle {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            dockPreviewAnimationStyle == .none ? .none : .fade
+            dockPreviewAnimationStyle.legacyMappedStyle == .none ? .none : .fade
         } else {
-            dockPreviewAnimationStyle
+            dockPreviewAnimationStyle.legacyMappedStyle
         }
     }
 

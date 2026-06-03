@@ -33,6 +33,25 @@ enum DockPreviewAnimationStyle: String, CaseIterable, Codable, Identifiable {
 
     var id: String { rawValue }
 
+    static let selectableCases: [DockPreviewAnimationStyle] = [
+        .system,
+        .fade,
+        .scale,
+        .slideUp,
+        .none
+    ]
+
+    var legacyMappedStyle: DockPreviewAnimationStyle {
+        switch self {
+        case .glassPop:
+            return .system
+        case .genie:
+            return .scale
+        case .system, .fade, .scale, .slideUp, .none:
+            return self
+        }
+    }
+
     var title: String {
         switch self {
         case .system: "System"
@@ -152,7 +171,7 @@ struct DockPreviewSettings: Codable, Equatable {
         previewIdleTimeout = Self.clampedPreviewIdleTimeout(
             try container.decodeIfPresent(Double.self, forKey: .previewIdleTimeout) ?? fallback.previewIdleTimeout
         )
-        animationStyle = try container.decodeIfPresent(DockPreviewAnimationStyle.self, forKey: .animationStyle) ?? fallback.animationStyle
+        animationStyle = (try container.decodeIfPresent(DockPreviewAnimationStyle.self, forKey: .animationStyle) ?? fallback.animationStyle).legacyMappedStyle
         if let duration = try container.decodeIfPresent(Double.self, forKey: .animationDuration) {
             animationDuration = Self.clampedAnimationDuration(duration)
         } else if let legacySpeed = try container.decodeIfPresent(DockPreviewAnimationSpeed.self, forKey: .animationSpeed) {

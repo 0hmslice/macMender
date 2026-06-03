@@ -20,7 +20,9 @@ struct SymbolAssetTests {
             "accessibility",
             "app.connected.to.app.below.fill",
             "arrow.counterclockwise",
+            "arrow.right",
             "bolt",
+            "chart.bar.xaxis",
             "checkmark.circle",
             "checkmark.circle.fill",
             "checkmark.shield",
@@ -69,7 +71,8 @@ struct SymbolAssetTests {
             "stethoscope",
             "tray",
             "wrench.and.screwdriver",
-            "wrench.and.screwdriver.fill"
+            "wrench.and.screwdriver.fill",
+            "xmark.circle"
         ]
 
         for symbol in symbols {
