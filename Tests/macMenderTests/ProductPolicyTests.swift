@@ -64,7 +64,9 @@ struct ProductPolicyTests {
             "Command-drag",
             "Mark to Review",
             "Show/Tuck",
-            "Always Hidden"
+            "Always Hidden",
+            "hidden area",
+            "hide menu bar icons"
         ]
 
         for file in try swiftAndScriptFiles(under: activeRoots) {

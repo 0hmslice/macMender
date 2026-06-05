@@ -26,7 +26,25 @@ struct AppConfigTests {
         let config = try JSONDecoder().decode(AppConfig.self, from: Data(json.utf8))
 
         #expect(config.appBehavior == .default)
+        #expect(config.appBehavior.menuBarSpacing == .systemDefault)
         #expect(config.hasCompletedOnboarding)
+    }
+
+    @Test("menu bar spacing presets map to defaults values")
+    func menuBarSpacingPresetsMapToDefaultsValues() {
+        #expect(MenuBarSpacingPreference.compact.defaultsValue == 8)
+        #expect(MenuBarSpacingPreference.comfortable.defaultsValue == 16)
+        #expect(MenuBarSpacingPreference.wide.defaultsValue == 24)
+        #expect(MenuBarSpacingService.defaultsPlan(for: .compact).operation == .write(8))
+        #expect(MenuBarSpacingService.defaultsPlan(for: .comfortable).operation == .write(16))
+        #expect(MenuBarSpacingService.defaultsPlan(for: .wide).operation == .write(24))
+    }
+
+    @Test("menu bar spacing reset maps to system default")
+    func menuBarSpacingResetMapsToSystemDefault() {
+        #expect(MenuBarSpacingPreference.systemDefault.defaultsValue == nil)
+        #expect(MenuBarSpacingService.defaultsPlan(for: .systemDefault).operation == .delete)
+        #expect(MenuBarSpacingDefaultsPlan.keys == ["NSStatusItemSpacing", "NSStatusItemSelectionPadding"])
     }
 
     @Test("decodes older profile without Dock preview settings")

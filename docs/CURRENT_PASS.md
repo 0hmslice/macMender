@@ -8,9 +8,9 @@ Branch:
 
 ## Focus
 
-This pass polishes the redesigned onboarding flow and replaces the crowded status-item popover with a compact control-center layout.
+This pass restores one limited menu bar spacing preference without restoring third-party Menu Bar management.
 
-Menu Bar management is deferred for a future rebuild from scratch. The app still has its own macMender menu bar status item and popover for Settings, Permissions, and Quit.
+Menu Bar management is deferred for a future rebuild from scratch. The app still has its own macMender menu bar status item and popover for Settings, Permissions, and Quit. The restored spacing control only writes or resets the global menu bar item spacing defaults.
 
 ## Implemented
 
@@ -29,6 +29,8 @@ Menu Bar management is deferred for a future rebuild from scratch. The app still
 13. The macMender status-item popover shows a glanceable running state, one Permissions summary row, Three-Finger Tap, Dock previews, Window Switcher, Open macMender, and a low-priority Quit control.
 14. The popover shows a Permissions action only when setup or permission review is useful.
 15. The top-right profile switcher uses a single profile-oriented symbol and keeps the active profile name compact.
+16. General includes a Menu Bar Spacing section with System Default, Compact, Comfortable, and Wide presets.
+17. Menu Bar spacing writes only `NSStatusItemSpacing` and `NSStatusItemSelectionPadding` in the current-host global domain, and reset deletes those keys.
 
 ## Asset Folders
 
@@ -48,9 +50,10 @@ The suspected launch blockers were synchronous first-appear runtime refresh plus
 - Option+Tab activation/discovery logic was not changed.
 - Scrolling and MiddleClick runtime behavior were not changed.
 - Menu Bar management UI, scanner/runtime/mover, XPC/helper packaging, Command-drag setup, Mark to Review, hidden icon, Show/Tuck, and physical movement copy were not restored.
+- Menu Bar spacing does not scan, identify, move, hide, reveal, reorder, group, or manage individual menu bar icons.
 - Bundle identifier, signing identity selection, and entitlements were not changed.
 - `docs/qa/screenshots` was not modified.
 
 ## Manual QA Required
 
-Use `docs/MANUAL_QA.md`. Confirm onboarding is compact and stable, the status-item popover is glanceable with no clipped text, and no Menu Bar management UI is visible while the app’s own status item/popover still works.
+Use `docs/MANUAL_QA.md`. Confirm General shows only the limited Menu Bar Spacing preference, reset to default is available, and no Menu Bar management UI is visible while the app’s own status item/popover still works.

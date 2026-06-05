@@ -65,8 +65,69 @@ struct AppConfig: Codable, Equatable {
 
 struct AppBehavior: Codable, Equatable {
     var hideDockIcon: Bool
+    var menuBarSpacing: MenuBarSpacingPreference
 
-    static let `default` = AppBehavior(hideDockIcon: false)
+    enum CodingKeys: String, CodingKey {
+        case hideDockIcon
+        case menuBarSpacing
+    }
+
+    init(hideDockIcon: Bool, menuBarSpacing: MenuBarSpacingPreference) {
+        self.hideDockIcon = hideDockIcon
+        self.menuBarSpacing = menuBarSpacing
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hideDockIcon = try container.decodeIfPresent(Bool.self, forKey: .hideDockIcon) ?? false
+        menuBarSpacing = try container.decodeIfPresent(MenuBarSpacingPreference.self, forKey: .menuBarSpacing) ?? .systemDefault
+    }
+
+    static let `default` = AppBehavior(hideDockIcon: false, menuBarSpacing: .systemDefault)
+}
+
+enum MenuBarSpacingPreference: String, CaseIterable, Codable, Identifiable {
+    case systemDefault
+    case compact
+    case comfortable
+    case wide
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .systemDefault: "System Default"
+        case .compact: "Compact"
+        case .comfortable: "Comfortable"
+        case .wide: "Wide"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .systemDefault:
+            "Remove macMender's spacing override."
+        case .compact:
+            "Use tighter spacing between menu bar icons."
+        case .comfortable:
+            "Use a balanced spacing value."
+        case .wide:
+            "Use extra room between menu bar icons."
+        }
+    }
+
+    var defaultsValue: Int? {
+        switch self {
+        case .systemDefault:
+            nil
+        case .compact:
+            8
+        case .comfortable:
+            16
+        case .wide:
+            24
+        }
+    }
 }
 
 struct FeatureToggles: Codable, Equatable {

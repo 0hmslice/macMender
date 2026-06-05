@@ -36,6 +36,10 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Off, or Needs Permission.
 - Confirm Launch at Login is in General.
 - Confirm Dock icon behavior is in General.
+- Confirm General contains a Menu Bar Spacing section with System Default, Compact, Comfortable, Wide, Apply, and Reset to Default.
+- Confirm Menu Bar Spacing copy says it only changes spacing and does not move, hide, reorder, reveal, or manage individual icons.
+- Apply Compact, Comfortable, and Wide if safe for the test machine, then confirm a status message appears. Some menu bar apps may require relaunch or logout before the visual spacing fully updates.
+- Use Reset to Default and confirm the status message says system default was restored.
 - Confirm Reset to Onboarding is in Advanced Recovery Tools.
 - Confirm Safe Mode is in Advanced and explains that it pauses active input monitoring, Dock previews, Window Switcher shortcuts, and experimental input features.
 - Confirm the floating top-right shell pause/refresh controls are gone.
@@ -71,6 +75,7 @@ Expected current result:
 - No Mark to Review checklist.
 - No hidden-area, Show/Tuck, Always Hidden, or physical movement controls.
 - No `MenuBarItemMover` reachable path.
+- A limited General > Menu Bar Spacing preference may exist. It must only adjust/reset system item spacing and must not expose scanner, mover, reveal, hidden area, Show/Tuck, or icon grouping controls.
 
 Historical menu-bar research and QA scripts live under `docs/archive/menu-bar-removed-2026-06-02/` and are not current product direction.
 

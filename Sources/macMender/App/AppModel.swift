@@ -15,6 +15,7 @@ final class AppModel: ObservableObject {
     let permissions: PermissionService
     let dock: DockPreferencesService
     let loginItems: LoginItemService
+    let menuBarSpacing: MenuBarSpacingService
     let diagnostics: DiagnosticsService
     let systemEvents: SystemEventService
     let windowSwitcher: WindowSwitcherService
@@ -31,6 +32,7 @@ final class AppModel: ObservableObject {
         permissions: PermissionService = PermissionService(),
         dock: DockPreferencesService = DockPreferencesService(),
         loginItems: LoginItemService = LoginItemService(),
+        menuBarSpacing: MenuBarSpacingService = MenuBarSpacingService(),
         diagnostics: DiagnosticsService = DiagnosticsService(),
         systemEvents: SystemEventService = SystemEventService(),
         windowSwitcher: WindowSwitcherService = WindowSwitcherService(),
@@ -41,6 +43,7 @@ final class AppModel: ObservableObject {
         self.permissions = permissions
         self.dock = dock
         self.loginItems = loginItems
+        self.menuBarSpacing = menuBarSpacing
         self.diagnostics = diagnostics
         self.systemEvents = systemEvents
         self.windowSwitcher = windowSwitcher
@@ -182,6 +185,12 @@ final class AppModel: ObservableObject {
         if isHidden {
             keepPreferencesWindowFrontIfVisible()
         }
+    }
+
+    func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference) {
+        store.config.appBehavior.menuBarSpacing = preference
+        store.save()
+        menuBarSpacing.apply(preference)
     }
 
     func setActiveProfile(_ profileID: UUID) {
@@ -348,6 +357,7 @@ final class AppModel: ObservableObject {
             permissions.objectWillChange.eraseToAnyPublisher(),
             dock.objectWillChange.eraseToAnyPublisher(),
             loginItems.objectWillChange.eraseToAnyPublisher(),
+            menuBarSpacing.objectWillChange.eraseToAnyPublisher(),
             diagnostics.objectWillChange.eraseToAnyPublisher(),
             systemEvents.objectWillChange.eraseToAnyPublisher(),
             windowSwitcher.objectWillChange.eraseToAnyPublisher(),
