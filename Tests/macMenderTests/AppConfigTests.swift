@@ -47,6 +47,24 @@ struct AppConfigTests {
         #expect(MenuBarSpacingDefaultsPlan.keys == ["NSStatusItemSpacing", "NSStatusItemSelectionPadding"])
     }
 
+    @Test("default menu bar spacing does not write a value")
+    func defaultMenuBarSpacingDoesNotWriteValue() {
+        let behavior = AppBehavior.default
+
+        #expect(behavior.menuBarSpacing == .systemDefault)
+        #expect(behavior.menuBarSpacingCustomValue == MenuBarSpacingPreference.systemDefaultNumericValue)
+        #expect(behavior.menuBarSpacing.resolvedDefaultsValue(customValue: behavior.menuBarSpacingCustomValue) == nil)
+        #expect(MenuBarSpacingService.defaultsPlan(for: behavior.menuBarSpacing, customValue: behavior.menuBarSpacingCustomValue).operation == .delete)
+    }
+
+    @Test("fresh app config starts at system default spacing")
+    func freshAppConfigStartsAtSystemDefaultSpacing() {
+        let config = AppConfig.default
+
+        #expect(config.appBehavior.menuBarSpacing == .systemDefault)
+        #expect(config.appBehavior.menuBarSpacing.resolvedDefaultsValue(customValue: config.appBehavior.menuBarSpacingCustomValue) == nil)
+    }
+
     @Test("menu bar spacing custom value maps and clamps")
     func menuBarSpacingCustomValueMapsAndClamps() {
         #expect(MenuBarSpacingPreference.clampedValue(-8) == 0)

@@ -41,6 +41,9 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Menu Bar Spacing copy says it only changes spacing and does not move, hide, or manage individual icons.
 - Apply Compact, Wide, and a custom slider value if safe for the test machine, then confirm a status message appears and menu bar icons briefly reload.
 - Use Reset to Default and confirm the status message says system default was restored and menu bar refresh was requested.
+- After Reset to Default, confirm `defaults -currentHost read -globalDomain NSStatusItemSpacing` and `defaults -currentHost read -globalDomain NSStatusItemSelectionPadding` both fail/miss, and relaunching macMender does not rewrite them.
+- Confirm Compact makes the macMender status item itself look compact enough while remaining clickable and still opening the popover.
+- If a third-party menu bar app does not visually update after Apply, relaunch that app manually and confirm it picks up the global spacing default.
 - Confirm Reset to Onboarding is in Advanced Recovery Tools.
 - Confirm Safe Mode is in Advanced and explains that it pauses active input monitoring, Dock previews, Window Switcher shortcuts, and experimental input features.
 - Confirm the floating top-right shell pause/refresh controls are gone.

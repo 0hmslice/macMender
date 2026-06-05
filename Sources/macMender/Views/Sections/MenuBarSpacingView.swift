@@ -73,6 +73,10 @@ struct MenuBarSpacingView: View {
                     Text("Applying may briefly reload menu bar icons.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    Text("Some apps may need to refresh or relaunch before the new spacing appears.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

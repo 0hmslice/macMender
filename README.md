@@ -33,7 +33,7 @@ macMender combines a focused set of macOS quality-of-life tools:
 
 Menu Bar management is intentionally removed from the current app. The app still keeps its own macMender menu bar status item and popover as the control center.
 
-Menu Bar Spacing is a limited system spacing preference. It does not hide, move, reorder, reveal, group, or manage individual menu bar icons.
+Menu Bar Spacing is a limited system spacing preference. The default is true System Default with no spacing keys written; Compact, Wide, and Custom write the system spacing keys when applied, and Reset deletes them. It does not hide, move, reorder, reveal, group, or manage individual menu bar icons.
 
 The product is explicitly privacy-forward:
 

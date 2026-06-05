@@ -33,6 +33,8 @@ Menu Bar management is deferred for a future rebuild from scratch. The app still
 17. Menu Bar Spacing includes System Default, Compact, Comfortable, Wide, and Custom selections plus a precision slider.
 18. Menu Bar spacing writes only `NSStatusItemSpacing` and `NSStatusItemSelectionPadding` in the current-host global domain, and reset deletes those keys.
 19. Apply and Reset refresh Control Center only so menu bar icons can update without logout where macOS allows it.
+20. App defaults stay at true System Default; macMender does not write spacing keys until the user applies a preset or custom value.
+21. The macMender status item adapts its own length to match the effective spacing value while keeping the popover and status item identity intact.
 
 ## Asset Folders
 
@@ -53,6 +55,7 @@ The suspected launch blockers were synchronous first-appear runtime refresh plus
 - Scrolling and MiddleClick runtime behavior were not changed.
 - Menu Bar management UI, scanner/runtime/mover, XPC/helper packaging, Command-drag setup, Mark to Review, hidden icon, Show/Tuck, and physical movement copy were not restored.
 - Menu Bar spacing does not scan, identify, move, hide, reveal, reorder, group, relaunch, or manage individual menu bar icons.
+- Some third-party status-item apps may need to refresh or relaunch before they reread the global spacing defaults; macMender does not relaunch them automatically.
 - Bundle identifier, signing identity selection, and entitlements were not changed.
 - `docs/qa/screenshots` was not modified.
 

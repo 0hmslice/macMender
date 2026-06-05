@@ -1,16 +1,22 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class MacMenderStatusItemController: NSObject {
     private static let statusItemAutosaveName = "macMender.StatusItem"
+    private static let statusItemImageSize = NSSize(width: 22, height: 18)
+    private static let minimumStatusItemLength: CGFloat = 24
+    private static let maximumStatusItemLength: CGFloat = 42
 
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private weak var appModel: AppModel?
     private var openPreferences: (() -> Void)?
+    private var cancellables = Set<AnyCancellable>()
 
     func install(appModel: AppModel, openPreferences: @escaping () -> Void) {
+        let shouldRebind = self.appModel !== appModel
         self.appModel = appModel
         self.openPreferences = openPreferences
 
@@ -26,6 +32,10 @@ final class MacMenderStatusItemController: NSObject {
         }
 
         updateIcon()
+        updateStatusItemLength()
+        if shouldRebind {
+            bindSpacingUpdates(from: appModel)
+        }
         rebuildPopover()
     }
 
@@ -48,10 +58,48 @@ final class MacMenderStatusItemController: NSObject {
         guard let button = statusItem?.button else { return }
         let image = MendyAssets.menuBarImage.copy() as? NSImage ?? MendyAssets.menuBarImage
         image.isTemplate = true
-        image.size = NSSize(width: 22, height: 18)
+        image.size = Self.statusItemImageSize
         button.image = image
         button.imagePosition = .imageOnly
         button.setAccessibilityLabel("macMender")
+    }
+
+    private func updateStatusItemLength() {
+        guard let statusItem else { return }
+        guard let spacingValue = effectiveSpacingValue() else {
+            statusItem.length = NSStatusItem.variableLength
+            return
+        }
+        let horizontalPadding = CGFloat(MenuBarSpacingPreference.clampedValue(spacingValue))
+        let length = Self.statusItemImageSize.width + horizontalPadding
+        statusItem.length = min(Self.maximumStatusItemLength, max(Self.minimumStatusItemLength, length))
+    }
+
+    private func effectiveSpacingValue() -> Int? {
+        guard let appModel else { return nil }
+        let behavior = appModel.store.config.appBehavior
+        if let configuredValue = behavior.menuBarSpacing.resolvedDefaultsValue(customValue: behavior.menuBarSpacingCustomValue) {
+            return configuredValue
+        }
+        return MenuBarSpacingService.currentDefaultsValues().sharedValue
+    }
+
+    private func bindSpacingUpdates(from appModel: AppModel) {
+        cancellables.removeAll()
+
+        appModel.store.$config
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItemLength()
+            }
+            .store(in: &cancellables)
+
+        appModel.menuBarSpacing.$currentValues
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItemLength()
+            }
+            .store(in: &cancellables)
     }
 
     private func rebuildPopover() {

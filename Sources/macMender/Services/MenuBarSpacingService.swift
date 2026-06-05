@@ -55,7 +55,7 @@ final class MenuBarSpacingService: ObservableObject {
     }
 
     func refreshCurrentValues() {
-        currentValues = Self.readCurrentValues()
+        currentValues = Self.currentDefaultsValues()
         statusDescription = currentValues.description
     }
 
@@ -67,7 +67,7 @@ final class MenuBarSpacingService: ObservableObject {
 
         Task { [weak self] in
             let result = await Self.apply(plan)
-            let currentValues = Self.readCurrentValues()
+            let currentValues = Self.currentDefaultsValues()
             await MainActor.run {
                 self?.isApplying = false
                 self?.currentValues = currentValues
@@ -93,7 +93,7 @@ final class MenuBarSpacingService: ObservableObject {
         }
     }
 
-    private nonisolated static func readCurrentValues() -> MenuBarSpacingDefaultsValues {
+    nonisolated static func currentDefaultsValues() -> MenuBarSpacingDefaultsValues {
         MenuBarSpacingDefaultsValues(
             spacing: currentValue(for: MenuBarSpacingDefaultsPlan.keys[0]),
             selectionPadding: currentValue(for: MenuBarSpacingDefaultsPlan.keys[1])
