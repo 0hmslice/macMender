@@ -3,6 +3,8 @@ set -euo pipefail
 
 APP_NAME="macMender"
 VERSION="0.1.0"
+# This creates a local Homebrew cask template. Replace OWNER/REPO before
+# using the generated cask for a public release.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"

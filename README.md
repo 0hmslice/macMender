@@ -1,75 +1,49 @@
 # macMender
 
-macMender is a privacy-first macOS utility for fixing everyday desktop friction in one cohesive native app.
+macMender is a native macOS utility for reducing everyday desktop friction across input, windows, Dock previews, profiles, and a small amount of app behavior tuning.
 
-The current repository contains the product and engineering foundation for the app:
+The app is privacy-first by design: it runs locally, stores configuration locally, and does not include analytics, tracking, remote APIs, or configuration sync.
 
-- [Product and Engineering Spec](docs/PRODUCT_SPEC.md)
+## Current Features
 
-It also now contains a working SwiftPM macOS app with:
-
-- macMender status item popover and preferences window
+- Three-Finger Tap / Middle Click using a private multitouch bridge plus local event synthesis
+- Input and scrolling tuning for direction, gain, smoothing, devices, apps, and profiles
+- Dock hover previews with local window thumbnails when Screen Recording is available
+- Option+Tab window switcher with a native preview overlay
+- Profiles for saved input, Dock, and window behavior setups
+- Launch at Login and Dock icon behavior controls
 - First-launch onboarding with guided permission setup
-- Local JSON profile storage
-- Privacy and Permissions center for Accessibility, Screen Recording, Input Monitoring guidance, and local privacy details
-- General app settings for launch-at-login and Dock icon behavior
-- Dedicated menu bar spacing preference that only adjusts system item spacing, with a reset to system default
-- Runtime input event tap for scroll direction/gain/smoothing transforms
-- Middle-click emulation from event-tap triggers and private MultitouchSupport three-finger taps
-- Option+Tab window switcher controller with a native preview overlay
-- Dock hover preview monitor driven by the Dock accessibility tree
-- Reset-to-onboarding recovery action
-- Dock preference read/diff/apply service
-- Privacy manifest
-- Swift tests for core transformation/diff logic
+- Privacy and Permissions center for Accessibility, Screen Recording, and Input Monitoring status
+- Limited Menu Bar Spacing controls
 
-## Product Positioning
+## Menu Bar Boundary
 
-macMender combines a focused set of macOS quality-of-life tools:
+macMender does not include Menu Bar management.
 
-- Input and scrolling tuning for mice, trackpads, apps, and profiles
-- Dock and window enhancements, including a keyboard window switcher, Dock hover previews, and configurable Dock behavior
-- A simple default profile, with optional user-created profiles for separate setups
+The only current menu-bar-adjacent feature is Menu Bar Spacing. It adjusts the system spacing defaults for menu bar items and provides a reset back to system default. It does not scan, identify, hide, move, reorder, group, reveal, or manage individual menu bar icons.
 
-Menu Bar management is intentionally removed from the current app. The app still keeps its own macMender menu bar status item and popover as the control center.
+Some status-item apps may need the menu bar to refresh, or the app to relaunch, before they visually pick up changed spacing.
 
-Menu Bar Spacing is a limited system spacing preference. The default is true System Default with no spacing keys written; Compact, Wide, and Custom write the system spacing keys when applied, and Reset deletes them. It does not hide, move, reorder, reveal, group, or manage individual menu bar icons.
+macMender also has its own status item and popover in the macOS menu bar. That popover is only the app control center.
 
-The product is explicitly privacy-forward:
+## Requirements
 
-- No analytics
-- No tracking
-- No remote APIs
-- No configuration sync unless the user later opts into an explicit export/import workflow
-- Human-readable local configuration files
+- macOS with SwiftPM support for Swift tools 6.0
+- Xcode or Command Line Tools with a Swift 6-compatible toolchain
+- Apple Silicon is the main development target
+- `MultitouchSupport.framework` must be present for the private three-finger tap path
 
-## Platform Direction
-
-Target macOS 26 on Apple Silicon. The app is built with Swift, SwiftUI, and AppKit interop where needed. Some replacement-grade behavior, especially three-finger middle click, uses private macOS frameworks and is intended for direct/Homebrew distribution rather than the Mac App Store.
-
-## Distribution Note
-
-The primary distribution path is direct download or Homebrew with Developer ID signing and notarization. A later Mac App Store edition would need a reduced feature set because the current app links against `MultitouchSupport.framework` and uses low-level event synthesis for several replacement features.
-
-## License
-
-macMender is GPL-3.0 licensed. See `THIRD_PARTY_NOTICES.md` and `docs/THIRD_PARTY_NOTICES.md` for current third-party notes.
+`Package.swift` currently declares a macOS 14 minimum so the SwiftPM build can resolve locally. The product direction is modern macOS, and some behavior is expected to be verified on current macOS releases before distribution.
 
 ## Build and Run
 
-Build:
+Build the app source:
 
 ```bash
 swift build
 ```
 
-Test:
-
-```bash
-swift test
-```
-
-Build and launch as a local `.app` bundle:
+Build and launch a local `.app` bundle:
 
 ```bash
 ./script/build_and_run.sh
@@ -77,16 +51,30 @@ Build and launch as a local `.app` bundle:
 
 The generated app bundle is staged at `dist/macMender.app`.
 
-Create a Homebrew-ready zip and local cask template:
+Create a local Homebrew cask template:
 
 ```bash
 ./script/package_brew.sh
 ```
 
-The archive, checksum, and cask template are written to `dist/release/`.
+The packaging script writes a zip, checksum, and cask template to `dist/release/`. Replace the template repository URL before using it for a real release.
 
-## First Launch
+## Permissions
 
-On first launch, macMender opens a setup flow instead of the full preferences UI. The flow opens the correct System Settings privacy panes and provides a draggable `macMender.app` tile for permission lists that require adding the app manually.
+macMender uses macOS permissions only for enabled local features:
 
-Accessibility is required before completing setup. Screen Recording remains optional and can be enabled later for live window thumbnails.
+- Accessibility: required for core input and window control paths
+- Screen Recording: optional, used for live window thumbnails
+- Input Monitoring: shown separately from the three-finger tap runtime state
+
+Configuration is stored in the user Application Support folder. Window thumbnails are captured locally for previews and are not uploaded.
+
+## Distribution Notes
+
+The current app is intended for direct distribution or Homebrew-style distribution, not the Mac App Store. The active source links against the private `MultitouchSupport.framework` and uses low-level event synthesis for replacement-style input behavior.
+
+## License
+
+No final public license is declared in this branch yet.
+
+Choose and add the intended project license before publishing if reuse rights should be granted. Until then, the source is available for review, but no broad reuse license is granted.
