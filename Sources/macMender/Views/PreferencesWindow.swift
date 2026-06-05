@@ -65,6 +65,8 @@ private struct MendySidebarHeader: View {
             "Keeping your Mac working beautifully."
         case .general:
             "Launch and app behavior."
+        case .menuBarSpacing:
+            "Menu bar icon spacing."
         case .input:
             "Mouse and trackpad tools."
         case .dockWindows:
@@ -150,6 +152,8 @@ private struct DetailRouter: View {
             OverviewView(appModel: appModel)
         case .general:
             GeneralSettingsView(appModel: appModel)
+        case .menuBarSpacing:
+            MenuBarSpacingView(appModel: appModel)
         case .input:
             InputScrollingView(appModel: appModel)
         case .dockWindows:

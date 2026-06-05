@@ -100,6 +100,8 @@ enum MendyAssets {
             overview
         case .general:
             general
+        case .menuBarSpacing:
+            settings
         case .input:
             input
         case .dockWindows:

@@ -66,24 +66,41 @@ struct AppConfig: Codable, Equatable {
 struct AppBehavior: Codable, Equatable {
     var hideDockIcon: Bool
     var menuBarSpacing: MenuBarSpacingPreference
+    var menuBarSpacingCustomValue: Int
 
     enum CodingKeys: String, CodingKey {
         case hideDockIcon
         case menuBarSpacing
+        case menuBarSpacingCustomValue
     }
 
-    init(hideDockIcon: Bool, menuBarSpacing: MenuBarSpacingPreference) {
+    init(hideDockIcon: Bool, menuBarSpacing: MenuBarSpacingPreference, menuBarSpacingCustomValue: Int) {
         self.hideDockIcon = hideDockIcon
         self.menuBarSpacing = menuBarSpacing
+        self.menuBarSpacingCustomValue = MenuBarSpacingPreference.clampedValue(menuBarSpacingCustomValue)
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         hideDockIcon = try container.decodeIfPresent(Bool.self, forKey: .hideDockIcon) ?? false
-        menuBarSpacing = try container.decodeIfPresent(MenuBarSpacingPreference.self, forKey: .menuBarSpacing) ?? .systemDefault
+        if let rawPreference = try container.decodeIfPresent(String.self, forKey: .menuBarSpacing),
+           let decodedPreference = MenuBarSpacingPreference(rawValue: rawPreference) {
+            menuBarSpacing = decodedPreference
+        } else {
+            menuBarSpacing = .systemDefault
+        }
+        menuBarSpacingCustomValue = MenuBarSpacingPreference.clampedValue(
+            try container.decodeIfPresent(Int.self, forKey: .menuBarSpacingCustomValue) ??
+                menuBarSpacing.defaultsValue ??
+                MenuBarSpacingPreference.systemDefaultNumericValue
+        )
     }
 
-    static let `default` = AppBehavior(hideDockIcon: false, menuBarSpacing: .systemDefault)
+    static let `default` = AppBehavior(
+        hideDockIcon: false,
+        menuBarSpacing: .systemDefault,
+        menuBarSpacingCustomValue: MenuBarSpacingPreference.systemDefaultNumericValue
+    )
 }
 
 enum MenuBarSpacingPreference: String, CaseIterable, Codable, Identifiable {
@@ -91,6 +108,11 @@ enum MenuBarSpacingPreference: String, CaseIterable, Codable, Identifiable {
     case compact
     case comfortable
     case wide
+    case custom
+
+    static let minimumValue = 0
+    static let maximumValue = 32
+    static let systemDefaultNumericValue = 16
 
     var id: String { rawValue }
 
@@ -100,6 +122,7 @@ enum MenuBarSpacingPreference: String, CaseIterable, Codable, Identifiable {
         case .compact: "Compact"
         case .comfortable: "Comfortable"
         case .wide: "Wide"
+        case .custom: "Custom"
         }
     }
 
@@ -113,6 +136,8 @@ enum MenuBarSpacingPreference: String, CaseIterable, Codable, Identifiable {
             "Use a balanced spacing value."
         case .wide:
             "Use extra room between menu bar icons."
+        case .custom:
+            "Use a precise custom spacing value."
         }
     }
 
@@ -126,7 +151,22 @@ enum MenuBarSpacingPreference: String, CaseIterable, Codable, Identifiable {
             16
         case .wide:
             24
+        case .custom:
+            nil
         }
+    }
+
+    func resolvedDefaultsValue(customValue: Int) -> Int? {
+        defaultsValue ?? (self == .custom ? Self.clampedValue(customValue) : nil)
+    }
+
+    static func preference(matching value: Int) -> MenuBarSpacingPreference {
+        let clamped = clampedValue(value)
+        return [.compact, .comfortable, .wide].first { $0.defaultsValue == clamped } ?? .custom
+    }
+
+    static func clampedValue(_ value: Int) -> Int {
+        min(maximumValue, max(minimumValue, value))
     }
 }
 

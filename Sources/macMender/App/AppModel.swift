@@ -95,6 +95,8 @@ final class AppModel: ObservableObject {
             return .success
         case .general:
             return .idle
+        case .menuBarSpacing:
+            return .thinking
         case .input:
             return .scanning
         case .dockWindows:
@@ -190,7 +192,18 @@ final class AppModel: ObservableObject {
     func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference) {
         store.config.appBehavior.menuBarSpacing = preference
         store.save()
-        menuBarSpacing.apply(preference)
+        menuBarSpacing.apply(preference, customValue: store.config.appBehavior.menuBarSpacingCustomValue)
+    }
+
+    func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference, customValue: Int) {
+        store.config.appBehavior.menuBarSpacing = preference
+        store.config.appBehavior.menuBarSpacingCustomValue = MenuBarSpacingPreference.clampedValue(customValue)
+        store.save()
+        menuBarSpacing.apply(preference, customValue: store.config.appBehavior.menuBarSpacingCustomValue)
+    }
+
+    func refreshMenuBarSpacingStatus() {
+        menuBarSpacing.refreshCurrentValues()
     }
 
     func setActiveProfile(_ profileID: UUID) {

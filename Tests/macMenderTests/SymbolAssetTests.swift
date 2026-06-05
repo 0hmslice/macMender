@@ -113,6 +113,7 @@ struct SymbolAssetTests {
     func mendySectionAssetsMapToSettingsSections() {
         #expect(MendyAssets.assetName(for: .overview) == MendyAssets.overview)
         #expect(MendyAssets.assetName(for: .general) == MendyAssets.general)
+        #expect(MendyAssets.assetName(for: .menuBarSpacing) == MendyAssets.settings)
         #expect(MendyAssets.assetName(for: .input) == MendyAssets.input)
         #expect(MendyAssets.assetName(for: .dockWindows) == MendyAssets.dockWindows)
         #expect(MendyAssets.assetName(for: .privacy) == MendyAssets.privacy)

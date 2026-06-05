@@ -23,7 +23,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm onboarding uses section-specific Mendy assets: Overview for Welcome/Finish, Input for Three-Finger Tap, Dock & Windows for Dock/Window setup, and Privacy for permissions/privacy.
 - Confirm onboarding can be skipped or finished even when permissions are deferred.
 - Confirm Advanced `Reset to Onboarding` still returns to the multi-step flow.
-- Confirm the sidebar has no Menu Bar section.
+- Confirm the sidebar has a Menu Bar Spacing section but no Menu Bar management section.
 - Confirm Overview has no Menu Bar setup card, chip, status row, scanner status, hidden-area language, Command-drag tutorial, Mark to Review checklist, or menu-bar icon hiding claim.
 - Confirm Overview shows Permissions, Three-Finger Tap, Window Switcher, and Dock Previews as key status cards.
 - Confirm Overview does not show `Status Refresh` or a `Services` technical disclosure.
@@ -36,10 +36,11 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Off, or Needs Permission.
 - Confirm Launch at Login is in General.
 - Confirm Dock icon behavior is in General.
-- Confirm General contains a Menu Bar Spacing section with System Default, Compact, Comfortable, Wide, Apply, and Reset to Default.
-- Confirm Menu Bar Spacing copy says it only changes spacing and does not move, hide, reorder, reveal, or manage individual icons.
-- Apply Compact, Comfortable, and Wide if safe for the test machine, then confirm a status message appears. Some menu bar apps may require relaunch or logout before the visual spacing fully updates.
-- Use Reset to Default and confirm the status message says system default was restored.
+- Confirm General no longer contains Menu Bar Spacing.
+- Confirm Menu Bar Spacing is its own section with System Default, Compact, Comfortable, Wide, Custom, an Icon spacing slider, Apply, and Reset to Default.
+- Confirm Menu Bar Spacing copy says it only changes spacing and does not move, hide, or manage individual icons.
+- Apply Compact, Wide, and a custom slider value if safe for the test machine, then confirm a status message appears and menu bar icons briefly reload.
+- Use Reset to Default and confirm the status message says system default was restored and menu bar refresh was requested.
 - Confirm Reset to Onboarding is in Advanced Recovery Tools.
 - Confirm Safe Mode is in Advanced and explains that it pauses active input monitoring, Dock previews, Window Switcher shortcuts, and experimental input features.
 - Confirm the floating top-right shell pause/refresh controls are gone.
@@ -75,7 +76,7 @@ Expected current result:
 - No Mark to Review checklist.
 - No hidden-area, Show/Tuck, Always Hidden, or physical movement controls.
 - No `MenuBarItemMover` reachable path.
-- A limited General > Menu Bar Spacing preference may exist. It must only adjust/reset system item spacing and must not expose scanner, mover, reveal, hidden area, Show/Tuck, or icon grouping controls.
+- A limited Menu Bar Spacing section may exist. It must only adjust/reset system item spacing and must not expose scanner, mover, reveal, hidden area, Show/Tuck, or icon grouping controls.
 
 Historical menu-bar research and QA scripts live under `docs/archive/menu-bar-removed-2026-06-02/` and are not current product direction.
 

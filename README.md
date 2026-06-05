@@ -13,7 +13,7 @@ It also now contains a working SwiftPM macOS app with:
 - Local JSON profile storage
 - Privacy and Permissions center for Accessibility, Screen Recording, Input Monitoring guidance, and local privacy details
 - General app settings for launch-at-login and Dock icon behavior
-- General menu bar spacing preference that only adjusts system item spacing, with a reset to system default
+- Dedicated menu bar spacing preference that only adjusts system item spacing, with a reset to system default
 - Runtime input event tap for scroll direction/gain/smoothing transforms
 - Middle-click emulation from event-tap triggers and private MultitouchSupport three-finger taps
 - Option+Tab window switcher controller with a native preview overlay
@@ -33,7 +33,7 @@ macMender combines a focused set of macOS quality-of-life tools:
 
 Menu Bar management is intentionally removed from the current app. The app still keeps its own macMender menu bar status item and popover as the control center.
 
-The General menu bar spacing control is a limited system spacing preference. It does not hide, move, reorder, reveal, group, or manage individual menu bar icons.
+Menu Bar Spacing is a limited system spacing preference. It does not hide, move, reorder, reveal, group, or manage individual menu bar icons.
 
 The product is explicitly privacy-forward:
 

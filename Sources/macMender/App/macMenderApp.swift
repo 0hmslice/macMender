@@ -95,7 +95,9 @@ private enum MacMenderLaunchBehavior {
 
         return AppBehavior(
             hideDockIcon: appBehavior["hideDockIcon"] as? Bool ?? AppBehavior.default.hideDockIcon,
-            menuBarSpacing: MenuBarSpacingPreference(rawValue: appBehavior["menuBarSpacing"] as? String ?? "") ?? .systemDefault
+            menuBarSpacing: MenuBarSpacingPreference(rawValue: appBehavior["menuBarSpacing"] as? String ?? "") ?? .systemDefault,
+            menuBarSpacingCustomValue: appBehavior["menuBarSpacingCustomValue"] as? Int ??
+                AppBehavior.default.menuBarSpacingCustomValue
         )
     }
 }

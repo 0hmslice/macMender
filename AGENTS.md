@@ -113,7 +113,7 @@ Do not reintroduce:
 
 Historical Menu Bar management research may remain under `docs/archive`, but it is not current product direction.
 
-A limited General-only Menu Bar spacing preference may remain as a separate utility. It must only write or reset the system-wide menu bar item spacing defaults, must have a reset-to-system-default path, and must not scan, identify, move, hide, reveal, reorder, group, or manage individual third-party menu bar icons.
+A limited Menu Bar Spacing section may remain as a separate utility. It must only read, write, or reset the system-wide menu bar item spacing defaults, must have a reset-to-system-default path, and must not scan, identify, move, hide, reveal, reorder, group, or manage individual third-party menu bar icons.
 
 ## Dock/window previews
 

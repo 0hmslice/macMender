@@ -3,6 +3,7 @@ import Foundation
 enum SettingsSection: String, CaseIterable, Identifiable {
     case overview
     case general
+    case menuBarSpacing
     case input
     case dockWindows
     case profiles
@@ -15,6 +16,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .overview: "Overview"
         case .general: "General"
+        case .menuBarSpacing: "Menu Bar Spacing"
         case .input: "Input"
         case .dockWindows: "Dock & Windows"
         case .profiles: "Profiles"
@@ -27,6 +29,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .overview: "At a glance"
         case .general: "App settings"
+        case .menuBarSpacing: "Icon spacing"
         case .input: "Mouse and trackpad"
         case .dockWindows: "Previews and switching"
         case .profiles: "Saved setups"
@@ -39,6 +42,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .overview: "gauge.with.dots.needle.33percent"
         case .general: "gearshape"
+        case .menuBarSpacing: "arrow.left.and.right"
         case .input: "computermouse"
         case .dockWindows: "dock.rectangle"
         case .profiles: "person.2.badge.gearshape"

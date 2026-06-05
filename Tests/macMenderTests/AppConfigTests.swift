@@ -47,6 +47,57 @@ struct AppConfigTests {
         #expect(MenuBarSpacingDefaultsPlan.keys == ["NSStatusItemSpacing", "NSStatusItemSelectionPadding"])
     }
 
+    @Test("menu bar spacing custom value maps and clamps")
+    func menuBarSpacingCustomValueMapsAndClamps() {
+        #expect(MenuBarSpacingPreference.clampedValue(-8) == 0)
+        #expect(MenuBarSpacingPreference.clampedValue(18) == 18)
+        #expect(MenuBarSpacingPreference.clampedValue(48) == 32)
+        #expect(MenuBarSpacingService.defaultsPlan(for: .custom, customValue: 18).operation == .write(18))
+        #expect(MenuBarSpacingService.defaultsPlan(for: .custom, customValue: -4).operation == .write(0))
+        #expect(MenuBarSpacingService.defaultsPlan(for: .custom, customValue: 42).operation == .write(32))
+    }
+
+    @Test("menu bar spacing values resolve matching presets")
+    func menuBarSpacingValuesResolveMatchingPresets() {
+        #expect(MenuBarSpacingPreference.preference(matching: 8) == .compact)
+        #expect(MenuBarSpacingPreference.preference(matching: 16) == .comfortable)
+        #expect(MenuBarSpacingPreference.preference(matching: 24) == .wide)
+        #expect(MenuBarSpacingPreference.preference(matching: 18) == .custom)
+    }
+
+    @Test("decodes menu bar spacing custom settings")
+    func decodesMenuBarSpacingCustomSettings() throws {
+        let json = """
+        {
+          "hideDockIcon": true,
+          "menuBarSpacing": "custom",
+          "menuBarSpacingCustomValue": 22
+        }
+        """
+
+        let behavior = try JSONDecoder().decode(AppBehavior.self, from: Data(json.utf8))
+
+        #expect(behavior.hideDockIcon)
+        #expect(behavior.menuBarSpacing == .custom)
+        #expect(behavior.menuBarSpacingCustomValue == 22)
+    }
+
+    @Test("decodes unknown menu bar spacing safely")
+    func decodesUnknownMenuBarSpacingSafely() throws {
+        let json = """
+        {
+          "hideDockIcon": false,
+          "menuBarSpacing": "legacyWideEnough",
+          "menuBarSpacingCustomValue": 99
+        }
+        """
+
+        let behavior = try JSONDecoder().decode(AppBehavior.self, from: Data(json.utf8))
+
+        #expect(behavior.menuBarSpacing == .systemDefault)
+        #expect(behavior.menuBarSpacingCustomValue == 32)
+    }
+
     @Test("decodes older profile without Dock preview settings")
     func decodesOlderProfileWithoutDockPreviewSettings() throws {
         let encoded = try JSONEncoder().encode(MacMenderProfile.default)
