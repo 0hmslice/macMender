@@ -73,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let bundle = Bundle.main
         let bundlePath = bundle.bundlePath
         let isAppBundle = bundlePath.hasSuffix(".app")
-        logger.info("Launch identity bundleIdentifier=\(bundle.bundleIdentifier ?? "nil", privacy: .public) bundlePath=\(bundlePath, privacy: .public) isAppBundle=\(isAppBundle, privacy: .public)")
+        logger.info("Launch identity bundleIdentifier=\(bundle.bundleIdentifier ?? "nil", privacy: .private) bundlePath=\(bundlePath, privacy: .private) isAppBundle=\(isAppBundle, privacy: .public)")
     }
 }
 
