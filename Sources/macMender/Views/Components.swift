@@ -136,6 +136,19 @@ struct CapabilityBadge: View {
     }
 }
 
+extension CapabilityBadge.Tone {
+    init(featureStatusKind: FeatureStatusKind) {
+        switch featureStatusKind {
+        case .active:
+            self = .active
+        case .ready, .paused, .off, .optional:
+            self = .neutral
+        case .needsAttention:
+            self = .warning
+        }
+    }
+}
+
 struct LabeledSlider: View {
     var title: String
     @Binding var value: Double

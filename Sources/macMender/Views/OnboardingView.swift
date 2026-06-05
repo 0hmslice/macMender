@@ -179,7 +179,7 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         CapabilityBadge(title: appModel.permissions.accessibility == .granted ? "Accessibility ready" : "Needs Accessibility", systemImage: "accessibility", tone: appModel.permissions.accessibility == .granted ? .active : .warning)
-                        CapabilityBadge(title: appModel.permissions.screenRecording == .granted ? "Thumbnails ready" : "Icon fallback", systemImage: "rectangle.on.rectangle", tone: appModel.permissions.screenRecording == .granted ? .active : .warning)
+                        CapabilityBadge(title: PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording).title, systemImage: "rectangle.on.rectangle", tone: CapabilityBadge.Tone(featureStatusKind: PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording).kind))
                     }
                     Text("This setup step checks status only. It does not scan windows or capture thumbnails.")
                         .font(.caption)
@@ -221,8 +221,9 @@ struct OnboardingView: View {
                 )
                 PermissionStatusRow(
                     title: "Screen Recording",
-                    detail: "Used for local window thumbnails. Dock previews can fall back to icons without it.",
+                    detail: "Optional for local window thumbnails. Dock previews can fall back to icons without it.",
                     state: appModel.permissions.screenRecording,
+                    summary: PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording),
                     systemImage: "rectangle.on.rectangle",
                     primaryTitle: "Request Access",
                     secondaryTitle: "Open Settings",
@@ -231,8 +232,9 @@ struct OnboardingView: View {
                 )
                 PermissionStatusRow(
                     title: "Input Monitoring",
-                    detail: "macOS listen-event access. Gesture runtime status is shown separately.",
+                    detail: "Optional macOS listen-event access. Gesture runtime status is shown separately.",
                     state: appModel.permissions.inputMonitoring,
+                    summary: PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring),
                     systemImage: "keyboard",
                     primaryTitle: "Request Access",
                     secondaryTitle: "Open Settings",
@@ -310,7 +312,7 @@ struct OnboardingView: View {
                 OnboardingSummaryCard(title: "Three-Finger Tap", status: middleClickSetupTitle, tone: middleClickSetupTone, symbolName: "hand.tap")
                 OnboardingSummaryCard(title: "Dock Previews", status: appModel.dockHover.isRunning ? "Active" : "Ready after setup", tone: appModel.permissions.accessibility == .granted ? .active : .warning, symbolName: "dock.rectangle")
                 OnboardingSummaryCard(title: "Window Switcher", status: appModel.permissions.accessibility == .granted ? "Ready" : "Needs access", tone: appModel.permissions.accessibility == .granted ? .active : .warning, symbolName: "rectangle.3.group")
-                OnboardingSummaryCard(title: "Input Monitoring", status: appModel.permissions.inputMonitoring.title, tone: appModel.permissions.inputMonitoring == .granted ? .active : .warning, symbolName: "keyboard")
+                OnboardingSummaryCard(title: "Input Monitoring", status: PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring).title, tone: CapabilityBadge.Tone(featureStatusKind: PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring).kind), symbolName: "keyboard")
             }
 
             if let finishMessage {
@@ -620,6 +622,7 @@ private struct PermissionStatusRow<Accessory: View>: View {
     var title: String
     var detail: String
     var state: PermissionState
+    var summary: FeatureStatusSummary?
     var systemImage: String
     var primaryTitle: String
     var secondaryTitle: String
@@ -631,6 +634,7 @@ private struct PermissionStatusRow<Accessory: View>: View {
         title: String,
         detail: String,
         state: PermissionState,
+        summary: FeatureStatusSummary? = nil,
         systemImage: String,
         primaryTitle: String,
         secondaryTitle: String,
@@ -641,6 +645,7 @@ private struct PermissionStatusRow<Accessory: View>: View {
         self.title = title
         self.detail = detail
         self.state = state
+        self.summary = summary
         self.systemImage = systemImage
         self.primaryTitle = primaryTitle
         self.secondaryTitle = secondaryTitle
@@ -653,15 +658,15 @@ private struct PermissionStatusRow<Accessory: View>: View {
         HStack(alignment: .top, spacing: 14) {
             Image(systemName: systemImage)
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(state == .granted ? .green : .orange)
+                .foregroundStyle(iconColor)
                 .frame(width: 38, height: 38)
-                .background((state == .granted ? Color.green : Color.orange).opacity(0.14), in: Circle())
+                .background(iconColor.opacity(0.14), in: Circle())
 
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
                     Text(title)
                         .font(.headline)
-                    CapabilityBadge(title: state.title, systemImage: state == .granted ? "checkmark.circle.fill" : "exclamationmark.circle", tone: state == .granted ? .active : .warning)
+                    CapabilityBadge(title: summary?.title ?? state.title, systemImage: state == .granted ? "checkmark.circle.fill" : "exclamationmark.circle", tone: tone)
                     accessory
                     Spacer(minLength: 0)
                 }
@@ -682,6 +687,24 @@ private struct PermissionStatusRow<Accessory: View>: View {
         }
         .padding(14)
         .liquidGlass(.row, radius: 12)
+    }
+
+    private var tone: CapabilityBadge.Tone {
+        if let summary {
+            return CapabilityBadge.Tone(featureStatusKind: summary.kind)
+        }
+        return state == .granted ? .active : .warning
+    }
+
+    private var iconColor: Color {
+        switch tone {
+        case .active:
+            .green
+        case .warning:
+            .orange
+        case .neutral:
+            .secondary
+        }
     }
 }
 

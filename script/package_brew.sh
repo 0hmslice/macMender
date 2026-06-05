@@ -27,7 +27,7 @@ cask "macmender" do
 
   url "https://github.com/OWNER/REPO/releases/download/v#{version}/$ZIP_NAME"
   name "macMender"
-  desc "Privacy-first macOS utility for input, menu bar, Dock, and window quality-of-life fixes"
+  desc "Privacy-first macOS utility for input, Dock, and window quality-of-life fixes"
   homepage "https://github.com/OWNER/REPO"
 
   depends_on macos: ">= :sonoma"

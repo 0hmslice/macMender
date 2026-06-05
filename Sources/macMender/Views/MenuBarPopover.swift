@@ -112,7 +112,7 @@ struct MenuBarPopover: View {
     }
 
     private var permissionsItem: PopoverStatusItem {
-        let missing = missingPermissionNames
+        let missing = requiredPermissionNames
         if missing.isEmpty {
             return PopoverStatusItem(title: "Permissions", value: "Ready", symbolName: "lock.shield", tone: .active)
         }
@@ -121,73 +121,45 @@ struct MenuBarPopover: View {
     }
 
     private var middleClickItem: PopoverStatusItem {
-        let settings = appModel.activeProfile.middleClick
-        guard settings.enabled, settings.trigger == .experimentalThreeFinger else {
-            return PopoverStatusItem(title: "Three-Finger Tap", value: "Off", symbolName: "hand.tap", tone: .neutral)
-        }
-        if appModel.store.config.safeModeEnabled {
-            return PopoverStatusItem(title: "Three-Finger Tap", value: "Paused", symbolName: "hand.tap", tone: .neutral)
-        }
-        guard appModel.permissions.accessibility == .granted else {
-            return PopoverStatusItem(title: "Three-Finger Tap", value: "Needs access", symbolName: "hand.tap", tone: .warning)
-        }
-        guard appModel.permissions.inputMonitoring == .granted else {
-            return PopoverStatusItem(title: "Three-Finger Tap", value: "Check input", symbolName: "hand.tap", tone: .warning)
-        }
-        let value = appModel.multitouchMiddleClick.isRunning ? "Active" : "Ready"
-        return PopoverStatusItem(title: "Three-Finger Tap", value: value, symbolName: "hand.tap", tone: appModel.multitouchMiddleClick.isRunning ? .active : .neutral)
+        let status = PermissionStatusPolicy.threeFingerTapStatus(
+            settings: appModel.activeProfile.middleClick,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled,
+            runtimeRunning: appModel.multitouchMiddleClick.isRunning
+        )
+        return PopoverStatusItem(title: "Three-Finger Tap", value: status.title, symbolName: "hand.tap", tone: PopoverStatusTone(featureStatusKind: status.kind))
     }
 
     private var dockPreviewItem: PopoverStatusItem {
-        guard appModel.activeProfile.dockPreviews.enabled else {
-            return PopoverStatusItem(title: "Dock previews", value: "Off", symbolName: "dock.rectangle", tone: .neutral)
-        }
-        if appModel.store.config.safeModeEnabled {
-            return PopoverStatusItem(title: "Dock previews", value: "Paused", symbolName: "dock.rectangle", tone: .neutral)
-        }
-        guard appModel.permissions.accessibility == .granted else {
-            return PopoverStatusItem(title: "Dock previews", value: "Needs access", symbolName: "dock.rectangle", tone: .warning)
-        }
-        let value = appModel.dockHover.isRunning ? "Ready" : "Starting"
-        return PopoverStatusItem(title: "Dock previews", value: value, symbolName: "dock.rectangle", tone: appModel.dockHover.isRunning ? .active : .neutral)
+        let status = PermissionStatusPolicy.dockPreviewStatus(
+            settings: appModel.activeProfile.dockPreviews,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled,
+            runtimeRunning: appModel.dockHover.isRunning
+        )
+        return PopoverStatusItem(title: "Dock previews", value: status.title, symbolName: "dock.rectangle", tone: PopoverStatusTone(featureStatusKind: status.kind))
     }
 
     private var windowSwitcherItem: PopoverStatusItem {
-        guard appModel.store.config.featureToggles.windowSwitcher else {
-            return PopoverStatusItem(title: "Window Switcher", value: "Off", symbolName: "rectangle.3.group", tone: .neutral)
-        }
-        if appModel.store.config.safeModeEnabled {
-            return PopoverStatusItem(title: "Window Switcher", value: "Paused", symbolName: "rectangle.3.group", tone: .neutral)
-        }
-        guard appModel.permissions.accessibility == .granted else {
-            return PopoverStatusItem(title: "Window Switcher", value: "Needs access", symbolName: "rectangle.3.group", tone: .warning)
-        }
-        return PopoverStatusItem(title: "Window Switcher", value: "Ready", symbolName: "rectangle.3.group", tone: .active)
+        let status = PermissionStatusPolicy.windowSwitcherStatus(
+            settings: appModel.activeProfile.windowSwitcher,
+            featureEnabled: appModel.store.config.featureToggles.windowSwitcher,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled
+        )
+        return PopoverStatusItem(title: "Window Switcher", value: status.title, symbolName: "rectangle.3.group", tone: PopoverStatusTone(featureStatusKind: status.kind))
     }
 
     private var permissionsNeedAttention: Bool {
-        !missingPermissionNames.isEmpty
+        !requiredPermissionNames.isEmpty
     }
 
     private var shouldShowPermissionsAction: Bool {
         permissionsNeedAttention || !appModel.store.config.hasCompletedOnboarding
     }
 
-    private var missingPermissionNames: [String] {
-        var names = [String]()
-        if appModel.permissions.accessibility != .granted {
-            names.append("Accessibility")
-        }
-        if appModel.permissions.screenRecording != .granted {
-            names.append("Screen Recording")
-        }
-        let middleClick = appModel.activeProfile.middleClick
-        if middleClick.enabled,
-           middleClick.trigger == .experimentalThreeFinger,
-           appModel.permissions.inputMonitoring != .granted {
-            names.append("Input Monitoring")
-        }
-        return names
+    private var requiredPermissionNames: [String] {
+        PermissionStatusPolicy.requiredPermissionNames(accessibility: appModel.permissions.accessibility)
     }
 
     private var footerStatus: String {
@@ -243,6 +215,17 @@ private enum PopoverStatusTone {
             .orange
         case .neutral:
             .secondary
+        }
+    }
+
+    init(featureStatusKind: FeatureStatusKind) {
+        switch featureStatusKind {
+        case .active:
+            self = .active
+        case .needsAttention:
+            self = .warning
+        case .ready, .paused, .off, .optional:
+            self = .neutral
         }
     }
 }

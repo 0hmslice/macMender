@@ -184,7 +184,7 @@ final class DockHoverService: ObservableObject {
         lastDiagnosticMessage = message
         lastDiagnosticAt = now
         lastDiagnostic = message
-        logger.debug("\(message, privacy: .public)")
+        logger.debug("\(message, privacy: .private)")
     }
 
     private func refreshDockItems(force: Bool) {

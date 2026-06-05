@@ -53,9 +53,10 @@ struct PrivacyPermissionsView: View {
 
                 PermissionCard(
                     title: "Screen Recording",
-                    subtitle: "Window thumbnails",
+                    subtitle: "Optional local window thumbnails",
                     symbolName: "rectangle.on.rectangle",
                     state: appModel.permissions.screenRecording,
+                    summary: PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording),
                     primaryActionTitle: "Request Access",
                     secondaryActionTitle: "Open Settings",
                     primaryAction: { appModel.permissions.requestScreenRecording() },
@@ -109,6 +110,7 @@ private struct PermissionCard: View {
     var subtitle: String
     var symbolName: String
     var state: PermissionState
+    var summary: FeatureStatusSummary? = nil
     var primaryActionTitle: String
     var secondaryActionTitle: String
     var primaryAction: () -> Void
@@ -119,13 +121,13 @@ private struct PermissionCard: View {
             title: title,
             subtitle: subtitle,
             systemImage: symbolName,
-            tone: state == .granted ? .active : .warning
+            tone: tone
         ) {
             HStack(spacing: 8) {
                 CapabilityBadge(
-                    title: state.title,
+                    title: summary?.title ?? state.title,
                     systemImage: state == .granted ? "checkmark.circle.fill" : "exclamationmark.circle",
-                    tone: state == .granted ? .active : .warning
+                    tone: tone
                 )
                 Spacer()
                 if state != .granted {
@@ -137,6 +139,13 @@ private struct PermissionCard: View {
             }
         }
     }
+
+    private var tone: CapabilityBadge.Tone {
+        if let summary {
+            return CapabilityBadge.Tone(featureStatusKind: summary.kind)
+        }
+        return state == .granted ? .active : .warning
+    }
 }
 
 private struct InputMonitoringCard: View {
@@ -146,18 +155,19 @@ private struct InputMonitoringCard: View {
     var openSettings: () -> Void
 
     var body: some View {
+        let summary = PermissionStatusPolicy.inputMonitoringSummary(permissionState)
         SoftStatusCard(
             title: "Input Monitoring",
-            subtitle: "Listen-event permission",
+            subtitle: "Optional listen-event permission",
             systemImage: "keyboard",
-            tone: permissionState == .granted ? .active : .warning
+            tone: CapabilityBadge.Tone(featureStatusKind: summary.kind)
         ) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     CapabilityBadge(
-                        title: "Permission: \(permissionState.title)",
+                        title: "Permission: \(summary.title)",
                         systemImage: permissionState == .granted ? "checkmark.circle.fill" : "exclamationmark.circle",
-                        tone: permissionState == .granted ? .active : .warning
+                        tone: CapabilityBadge.Tone(featureStatusKind: summary.kind)
                     )
                     CapabilityBadge(
                         title: "Gesture: \(gestureRuntimeState.title)",

@@ -85,7 +85,7 @@ final class WindowSwitcherService: ObservableObject {
     func showDockPreview(identity: DockAppIdentity, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
         guard identity.hasResolvedApplicationIdentity else {
             presentationStatus = "Dock preview skipped for unresolved Dock item \(identity.displayName)"
-            logger.debug("Dock preview suppressed unresolved title=\(identity.displayName, privacy: .public)")
+            logger.debug("Dock preview suppressed unresolved title=\(identity.displayName, privacy: .private)")
             cancel()
             return
         }
@@ -97,7 +97,7 @@ final class WindowSwitcherService: ObservableObject {
 
         guard !discovered.isEmpty else {
             presentationStatus = "No windows detected for \(identity.displayName)"
-            logger.debug("Dock preview suppressed noWindows title=\(identity.displayName, privacy: .public) bundle=\(identity.bundleIdentifier ?? "nil", privacy: .public) pid=\(identity.processIdentifier.map(String.init) ?? "nil", privacy: .public)")
+            logger.debug("Dock preview suppressed noWindows title=\(identity.displayName, privacy: .private) bundle=\(identity.bundleIdentifier ?? "nil", privacy: .private) pid=\(identity.processIdentifier.map(String.init) ?? "nil", privacy: .private)")
             cancel()
             return
         }
@@ -296,7 +296,7 @@ final class WindowSwitcherService: ObservableObject {
     private func activateSelectedWindow(_ window: WindowSummary, displayedIndex: Int, source: WindowActivationSource) {
         let context = WindowActivationContext(selectedIndex: displayedIndex, highlightedIndex: displayedIndex)
         let diagnosticPrefix = "source=\(source.rawValue) selectedIndex=\(displayedIndex) highlightedIndex=\(displayedIndex) title=\(window.title) cg=\(window.windowID.map(String.init) ?? "nil") pid=\(window.processIdentifier) bundle=\(window.bundleIdentifier ?? "nil")"
-        logger.debug("Activating highlighted window \(diagnosticPrefix, privacy: .public)")
+        logger.debug("Activating highlighted window \(diagnosticPrefix, privacy: .private)")
         cancel()
         let outcome = catalog.activate(window, source: source, context: context)
         lastActivationDiagnostic = outcome.reason
@@ -304,7 +304,7 @@ final class WindowSwitcherService: ObservableObject {
             presentationStatus = "Activated \(window.title)"
         } else {
             presentationStatus = "Activation failed for \(window.title)"
-            logger.debug("Activation failed \(self.lastActivationDiagnostic, privacy: .public)")
+            logger.debug("Activation failed \(self.lastActivationDiagnostic, privacy: .private)")
         }
     }
 
@@ -431,47 +431,6 @@ final class WindowSwitcherService: ObservableObject {
         }
     }
 
-    private func presentGlassPop(layer: CALayer, generation: Int) {
-        applyPanelHighlight()
-        let start = layerState(for: .glassPop, appearing: true)
-        let overshoot = PanelLayerState(
-            opacity: 1,
-            transform: CATransform3DMakeScale(1.055, 1.055, 1)
-        )
-        animateLayerKeyframes(
-            layer,
-            transforms: [start.transform, overshoot.transform, PanelLayerState.identity.transform],
-            opacities: [start.opacity, 1, 1],
-            keyTimes: [0, 0.58, 1],
-            duration: dockPreviewAnimationDuration,
-            timingFunction: CAMediaTimingFunction(controlPoints: 0.08, 0.82, 0.16, 1.0),
-            key: "macmender.preview.glassPop"
-        ) { [weak self] in
-            guard let self, self.panelAnimationGeneration == generation else { return }
-            self.setLayerState(.identity, on: layer)
-            self.fadePanelHighlight()
-        }
-    }
-
-    private func presentGenie(layer: CALayer, from start: PanelLayerState, generation: Int) {
-        let stretch = PanelLayerState(
-            opacity: 1,
-            transform: transformed(scaleX: 1.035, scaleY: 1.015, y: -5)
-        )
-        animateLayerKeyframes(
-            layer,
-            transforms: [start.transform, stretch.transform, PanelLayerState.identity.transform],
-            opacities: [start.opacity, 1, 1],
-            keyTimes: [0, 0.72, 1],
-            duration: dockPreviewAnimationDuration,
-            timingFunction: timingFunction(for: .genie, appearing: true),
-            key: "macmender.preview.genie"
-        ) { [weak self] in
-            guard let self, self.panelAnimationGeneration == generation else { return }
-            self.setLayerState(.identity, on: layer)
-        }
-    }
-
     private func dismissPanel() {
         guard let panel else { return }
         panelAnimationGeneration += 1
@@ -548,39 +507,6 @@ final class WindowSwitcherService: ObservableObject {
         let opacity = CABasicAnimation(keyPath: "opacity")
         opacity.fromValue = start.opacity
         opacity.toValue = end.opacity
-
-        let group = CAAnimationGroup()
-        group.animations = [transform, opacity]
-        group.duration = duration
-        group.timingFunction = timingFunction
-        group.isRemovedOnCompletion = true
-        layer.add(group, forKey: key)
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(Int(max(duration, 0) * 1000)))
-            completion()
-        }
-    }
-
-    private func animateLayerKeyframes(
-        _ layer: CALayer,
-        transforms: [CATransform3D],
-        opacities: [Float],
-        keyTimes: [NSNumber],
-        duration: TimeInterval,
-        timingFunction: CAMediaTimingFunction,
-        key: String,
-        completion: @escaping @MainActor () -> Void
-    ) {
-        setLayerState(.identity, on: layer)
-
-        let transform = CAKeyframeAnimation(keyPath: "transform")
-        transform.values = transforms
-        transform.keyTimes = keyTimes
-
-        let opacity = CAKeyframeAnimation(keyPath: "opacity")
-        opacity.values = opacities
-        opacity.keyTimes = keyTimes
 
         let group = CAAnimationGroup()
         group.animations = [transform, opacity]
@@ -678,35 +604,6 @@ final class WindowSwitcherService: ObservableObject {
             appearing
                 ? CAMediaTimingFunction(controlPoints: 0.08, 0.80, 0.16, 1.12)
                 : CAMediaTimingFunction(controlPoints: 0.34, 0.02, 0.78, 0.42)
-        }
-    }
-
-    private func applyPanelHighlight() {
-        guard let contentView = panel?.contentView else { return }
-        contentView.wantsLayer = true
-        guard let layer = contentView.layer else { return }
-        layer.cornerRadius = LiquidGlassSurface.preview.radius
-        layer.masksToBounds = false
-        layer.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.82).cgColor
-        layer.borderWidth = 2.4
-        layer.shadowColor = NSColor.controlAccentColor.withAlphaComponent(0.78).cgColor
-        layer.shadowOpacity = 0.58
-        layer.shadowRadius = 34
-        layer.shadowOffset = CGSize(width: 0, height: 0)
-    }
-
-    private func fadePanelHighlight() {
-        guard let layer = panel?.contentView?.layer else { return }
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 1
-        fade.toValue = 0
-        fade.duration = 0.14
-        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        layer.add(fade, forKey: "macmender.glassPopHighlightFade")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-            layer.borderWidth = 0
-            layer.shadowOpacity = 0
-            layer.opacity = 1
         }
     }
 

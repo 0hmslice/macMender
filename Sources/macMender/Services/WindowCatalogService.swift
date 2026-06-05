@@ -185,7 +185,7 @@ final class WindowCatalogService: WindowCatalogProviding {
             return $0.stackIndex < $1.stackIndex
         }
         lastDiscoveryReport = WindowDiscoveryReport(totalWindows: sorted.count, appReports: reports)
-        logger.debug("Dock preview discovery \(self.lastDiscoveryReport.summary, privacy: .public) identityTitle=\(identity.displayName, privacy: .public) bundle=\(identity.bundleIdentifier ?? "nil", privacy: .public) pid=\(identity.processIdentifier.map(String.init) ?? "nil", privacy: .public)")
+        logger.debug("Dock preview discovery \(self.lastDiscoveryReport.summary, privacy: .public) identityTitle=\(identity.displayName, privacy: .private) bundle=\(identity.bundleIdentifier ?? "nil", privacy: .private) pid=\(identity.processIdentifier.map(String.init) ?? "nil", privacy: .private)")
         return sorted
     }
 
@@ -273,7 +273,7 @@ final class WindowCatalogService: WindowCatalogProviding {
             "appMatches=\(appMatches)",
             "idMatches=\(idMatches)"
         ].joined(separator: " ")
-        logger.debug("\(reason, privacy: .public) steps=\(steps.joined(separator: ","), privacy: .public)")
+        logger.debug("\(reason, privacy: .private) steps=\(steps.joined(separator: ","), privacy: .private)")
         return WindowActivationOutcome(attemptedSteps: steps, success: success, reason: reason)
     }
 

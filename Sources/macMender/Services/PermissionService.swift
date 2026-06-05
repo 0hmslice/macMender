@@ -13,7 +13,7 @@ final class PermissionService: ObservableObject {
     private var screenRecordingProbeTask: Task<Void, Never>?
 
     var needsAttention: Bool {
-        accessibility != .granted || screenRecording != .granted
+        PermissionStatusPolicy.needsAttention(accessibility: accessibility)
     }
 
     func refresh() {

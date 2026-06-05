@@ -8,7 +8,7 @@ The current repository contains the product and engineering foundation for the a
 
 It also now contains a working SwiftPM macOS app with:
 
-- Menu bar extra and preferences window
+- macMender status item popover and preferences window
 - First-launch onboarding with guided permission setup
 - Local JSON profile storage
 - Privacy and Permissions center for Accessibility, Screen Recording, Input Monitoring guidance, and local privacy details

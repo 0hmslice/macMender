@@ -12,14 +12,15 @@ The most complete working copy is expected to be:
 
 ## Product priorities
 
-Primary priority:
-1. Thaw/Ice-grade menu bar management.
-
-Secondary priorities:
-2. DockDoor-style Dock previews and window switching.
+Primary priorities:
+1. DockDoor-style Dock previews and window switching.
+2. Three-Finger Tap / Middle Click correctness.
 3. Mendy state system.
 4. Liquid Glass visual system.
-5. Smooth scrolling, middle-click, and Dock tuning as later subsystems.
+
+Deferred subsystems:
+5. Smooth scrolling and Dock tuning.
+6. Third-party Menu Bar management, if rebuilt later from a fresh approved plan.
 
 Do not attempt to fully complete every subsystem in one pass unless explicitly asked.
 
@@ -89,30 +90,28 @@ Build reusable components instead of one-off styling:
 - motion helpers
 - readable light/dark behavior
 
-Apply to onboarding, settings, menu bar settings, Mendy panels, and preview surfaces where safe.
+Apply to onboarding, settings, the app status-item popover, Mendy panels, and preview surfaces where safe.
 
-## Menu bar management
+## Removed Menu Bar management
 
-Treat this as the primary subsystem.
+Third-party Menu Bar management is intentionally removed/deferred and must not be restored during ordinary app cleanup or packaging passes.
 
-Use Thaw/Ice as the main implementation reference.
+The app's own macMender menu bar status item and popover remain. Do not confuse that control center with removed third-party Menu Bar management.
 
-Implement toward:
+Do not reintroduce:
 
-- visible items
-- hidden items
-- always hidden items
-- overflow model
-- hover reveal
-- click reveal
-- scroll reveal
-- auto-rehide
-- item discovery
-- search where practical
-- settings controls
-- honest disabled states for incomplete features
+- Menu Bar scanner/runtime/mover/engine code
+- XPC/helper code for Menu Bar management
+- Command-drag setup
+- Mark to Review
+- hidden icon or hidden area controls
+- Show/Tuck controls
+- visible/hidden/always-hidden item sections
+- hover/click/scroll reveal
+- physical status-item movement
+- Thaw/Ice parity claims
 
-Do not claim drag-and-drop item movement, system item movement, multi-icon app handling, or private API behavior works unless verified.
+Historical Menu Bar management research may remain under `docs/archive`, but it is not current product direction.
 
 ## Dock/window previews
 
@@ -128,7 +127,7 @@ For Dock/window preview work, prioritize correctness over visuals:
 - correct keyboard activation
 - Liquid Glass preview surfaces
 
-Do not deeply rewrite this during a menu bar pass unless explicitly asked.
+Do not deeply rewrite this during unrelated cleanup unless explicitly asked.
 
 ## Smooth scrolling, middle-click, and Dock tuning
 
@@ -178,8 +177,7 @@ Run where applicable:
 - onboarding check
 - settings check
 - Mendy rendering check
-- menu bar icon check
-- menu bar reveal/hide check
+- macMender status item icon/popover check
 
 If something cannot be verified, document it in `docs/MANUAL_QA.md`.
 

@@ -33,9 +33,9 @@ private struct OverviewHero: View {
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 8) {
-                    CapabilityBadge(title: permissionsChipTitle, systemImage: "checkmark.circle.fill", tone: appModel.permissions.needsAttention ? .warning : .active)
-                    CapabilityBadge(title: appModel.dockHover.isRunning ? "Dock previews active" : "Dock previews paused", systemImage: "dock.rectangle", tone: appModel.dockHover.isRunning ? .active : .warning)
-                    CapabilityBadge(title: windowSwitcherChipTitle, systemImage: "rectangle.3.group", tone: windowSwitcherIsReady ? .active : .warning)
+                    CapabilityBadge(title: permissionsStatus.title, systemImage: "checkmark.circle.fill", tone: CapabilityBadge.Tone(featureStatusKind: permissionsStatus.kind))
+                    CapabilityBadge(title: dockPreviewStatus.title, systemImage: "dock.rectangle", tone: CapabilityBadge.Tone(featureStatusKind: dockPreviewStatus.kind))
+                    CapabilityBadge(title: windowSwitcherStatus.title, systemImage: "rectangle.3.group", tone: CapabilityBadge.Tone(featureStatusKind: windowSwitcherStatus.kind))
                 }
             }
 
@@ -75,7 +75,7 @@ private struct OverviewHero: View {
 
     private var heroSubtitle: String {
         if appModel.permissions.needsAttention {
-            return "A permission needs review before every feature can run."
+            return "Accessibility needs review before shortcuts, previews, and window actions can run."
         }
         if appModel.store.config.safeModeEnabled {
             return "Safe Mode is on, so active system changes are paused."
@@ -83,18 +83,30 @@ private struct OverviewHero: View {
         return "Your Mac is set up and the main helpers are ready."
     }
 
-    private var permissionsChipTitle: String {
-        appModel.permissions.needsAttention ? "Permissions need review" : "Permissions granted"
+    private var permissionsStatus: FeatureStatusSummary {
+        PermissionStatusPolicy.permissionsSummary(
+            accessibility: appModel.permissions.accessibility,
+            screenRecording: appModel.permissions.screenRecording,
+            inputMonitoring: appModel.permissions.inputMonitoring
+        )
     }
 
-    private var windowSwitcherIsReady: Bool {
-        appModel.store.config.featureToggles.windowSwitcher &&
-        !appModel.store.config.safeModeEnabled &&
-        appModel.permissions.accessibility == .granted
+    private var dockPreviewStatus: FeatureStatusSummary {
+        PermissionStatusPolicy.dockPreviewStatus(
+            settings: appModel.activeProfile.dockPreviews,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled,
+            runtimeRunning: appModel.dockHover.isRunning
+        )
     }
 
-    private var windowSwitcherChipTitle: String {
-        windowSwitcherIsReady ? "Window switcher ready" : "Window switcher paused"
+    private var windowSwitcherStatus: FeatureStatusSummary {
+        PermissionStatusPolicy.windowSwitcherStatus(
+            settings: appModel.activeProfile.windowSwitcher,
+            featureEnabled: appModel.store.config.featureToggles.windowSwitcher,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled
+        )
     }
 }
 
@@ -104,24 +116,26 @@ private struct OverviewPermissionsCard: View {
     var body: some View {
         OverviewFeatureCard(
             title: "Permissions",
-            benefit: allGranted ? "macMender has the access it needs." : "Review access so enabled features can run.",
+            benefit: permissionsStatus.detail,
             systemImage: "lock.shield",
-            status: allGranted ? "Ready" : "Needs review",
-            tone: allGranted ? .active : .warning,
+            status: permissionsStatus.title,
+            tone: CapabilityBadge.Tone(featureStatusKind: permissionsStatus.kind),
             detailRows: [
                 OverviewDetailRowData(title: "Accessibility", value: appModel.permissions.accessibility.title, tone: permissionTone(appModel.permissions.accessibility)),
-                OverviewDetailRowData(title: "Screen Recording", value: appModel.permissions.screenRecording.title, tone: permissionTone(appModel.permissions.screenRecording)),
-                OverviewDetailRowData(title: "Input Monitoring", value: appModel.permissions.inputMonitoring.title, tone: permissionTone(appModel.permissions.inputMonitoring))
+                OverviewDetailRowData(title: "Screen Recording", value: PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording).title, tone: CapabilityBadge.Tone(featureStatusKind: PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording).kind)),
+                OverviewDetailRowData(title: "Input Monitoring", value: PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring).title, tone: CapabilityBadge.Tone(featureStatusKind: PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring).kind))
             ],
-            actionLabel: allGranted ? "Open Privacy" : "Review permissions",
+            actionLabel: appModel.permissions.needsAttention ? "Review permissions" : "Open Privacy",
             action: { appModel.selectedSection = .privacy }
         )
     }
 
-    private var allGranted: Bool {
-        appModel.permissions.accessibility == .granted &&
-        appModel.permissions.screenRecording == .granted &&
-        appModel.permissions.inputMonitoring == .granted
+    private var permissionsStatus: FeatureStatusSummary {
+        PermissionStatusPolicy.permissionsSummary(
+            accessibility: appModel.permissions.accessibility,
+            screenRecording: appModel.permissions.screenRecording,
+            inputMonitoring: appModel.permissions.inputMonitoring
+        )
     }
 
     private func permissionTone(_ state: PermissionState) -> CapabilityBadge.Tone {
@@ -133,48 +147,26 @@ private struct OverviewMiddleClickCard: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
+        let status = PermissionStatusPolicy.threeFingerTapStatus(
+            settings: appModel.activeProfile.middleClick,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled,
+            runtimeRunning: appModel.multitouchMiddleClick.isRunning
+        )
         OverviewFeatureCard(
             title: "Three-Finger Tap",
             benefit: "Tap with three fingers to act like middle click.",
             systemImage: "hand.tap",
-            status: statusTitle,
-            tone: tone,
+            status: status.title,
+            tone: CapabilityBadge.Tone(featureStatusKind: status.kind),
             detailRows: [
                 OverviewDetailRowData(title: "Links", value: "Open in new tabs", tone: .neutral),
                 OverviewDetailRowData(title: "Tabs", value: "Close with middle click", tone: .neutral),
-                OverviewDetailRowData(title: "Input Monitoring", value: appModel.permissions.inputMonitoring.title, tone: appModel.permissions.inputMonitoring == .granted ? .active : .warning)
+                OverviewDetailRowData(title: "Input Monitoring", value: PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring).title, tone: CapabilityBadge.Tone(featureStatusKind: PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring).kind))
             ],
             actionLabel: "Input settings",
             action: { appModel.selectedSection = .input }
         )
-    }
-
-    private var statusTitle: String {
-        let settings = appModel.activeProfile.middleClick
-        guard settings.enabled, settings.trigger == .experimentalThreeFinger else {
-            return "Off"
-        }
-        guard appModel.permissions.accessibility == .granted else {
-            return "Needs permission"
-        }
-        guard appModel.permissions.inputMonitoring == .granted else {
-            return "Needs permission"
-        }
-        guard !appModel.store.config.safeModeEnabled else {
-            return "Paused"
-        }
-        return appModel.multitouchMiddleClick.isRunning ? "Active" : "Ready"
-    }
-
-    private var tone: CapabilityBadge.Tone {
-        switch statusTitle {
-        case "Active", "Ready":
-            .active
-        case "Off":
-            .neutral
-        default:
-            .warning
-        }
     }
 }
 
@@ -199,28 +191,20 @@ private struct OverviewWindowSwitcherCard: View {
     }
 
     private var statusTitle: String {
-        if !appModel.store.config.featureToggles.windowSwitcher ||
-            !appModel.activeProfile.windowSwitcher.enabled {
-            return "Off"
-        }
-        if appModel.store.config.safeModeEnabled {
-            return "Paused"
-        }
-        if appModel.permissions.accessibility != .granted {
-            return "Needs permission"
-        }
-        return "Ready"
+        status.title
     }
 
     private var tone: CapabilityBadge.Tone {
-        switch statusTitle {
-        case "Ready":
-            .active
-        case "Off":
-            .neutral
-        default:
-            .warning
-        }
+        CapabilityBadge.Tone(featureStatusKind: status.kind)
+    }
+
+    private var status: FeatureStatusSummary {
+        PermissionStatusPolicy.windowSwitcherStatus(
+            settings: appModel.activeProfile.windowSwitcher,
+            featureEnabled: appModel.store.config.featureToggles.windowSwitcher,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled
+        )
     }
 
     private var discoveredWindowCount: String {
@@ -253,27 +237,20 @@ private struct OverviewDockPreviewsCard: View {
     }
 
     private var statusTitle: String {
-        guard appModel.activeProfile.dockPreviews.enabled else {
-            return "Off"
-        }
-        if appModel.store.config.safeModeEnabled {
-            return "Paused"
-        }
-        if appModel.permissions.accessibility != .granted {
-            return "Needs permission"
-        }
-        return appModel.dockHover.isRunning ? "Active" : "Ready"
+        status.title
     }
 
     private var tone: CapabilityBadge.Tone {
-        switch statusTitle {
-        case "Active", "Ready":
-            .active
-        case "Off":
-            .neutral
-        default:
-            .warning
-        }
+        CapabilityBadge.Tone(featureStatusKind: status.kind)
+    }
+
+    private var status: FeatureStatusSummary {
+        PermissionStatusPolicy.dockPreviewStatus(
+            settings: appModel.activeProfile.dockPreviews,
+            accessibility: appModel.permissions.accessibility,
+            safeModeEnabled: appModel.store.config.safeModeEnabled,
+            runtimeRunning: appModel.dockHover.isRunning
+        )
     }
 }
 
