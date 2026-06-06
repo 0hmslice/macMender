@@ -65,6 +65,32 @@ struct AppConfig: Codable, Equatable {
 }
 
 extension AppConfig {
+    static func normalizedForStorage(_ loaded: AppConfig) -> AppConfig {
+        var normalized = loaded
+        if loaded.schemaVersion < 3 {
+            normalized.profiles = normalized.profiles.map { profile in
+                var profile = profile
+                profile.windowSwitcher.layout = .grid
+                profile.dockPreviews.layout = .grid
+                profile.dockPreviews.thumbnailSize = min(profile.dockPreviews.thumbnailSize, DockPreviewSettings.default.thumbnailSize)
+                return profile
+            }
+        }
+
+        normalized.schemaVersion = AppConfig.default.schemaVersion
+        normalized.profiles = normalized.profiles.map { profile in
+            var profile = profile
+            if profile.middleClick.action == .customShortcut {
+                profile.middleClick.action = .middleClick
+            }
+            profile.dockPreviews.previewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(profile.dockPreviews.previewIdleTimeout)
+            profile.dockPreviews.animationDuration = DockPreviewSettings.clampedAnimationDuration(profile.dockPreviews.animationDuration)
+            return profile
+        }
+        normalized.ensureValidProfileSelection()
+        return normalized
+    }
+
     var activeProfile: MacMenderProfile {
         profiles.first(where: { $0.id == activeProfileID }) ?? profiles.first ?? .default
     }

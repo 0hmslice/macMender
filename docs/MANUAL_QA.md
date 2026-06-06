@@ -49,6 +49,15 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm the floating top-right shell pause/refresh controls are gone.
 - Confirm Advanced `Status Refresh` shows progress and then `Updated just now`; it must not trigger window discovery or thumbnail capture.
 - Confirm Advanced contains Services/Technical Status details.
+- Confirm Advanced has a Configuration section separate from Recovery Tools.
+- Confirm Save Now reports that current settings were written to disk.
+- Confirm Export Config can write a `macMender-config.json` file.
+- Confirm Import Config opens a file picker for JSON files and shows confirmation before replacing current profiles and app settings.
+- Import a valid exported config and confirm visible settings update immediately, selected profile is valid, and runtime services remain responsive.
+- Confirm importing a config creates a `config-backup-*.json` file in the macMender Application Support folder.
+- Confirm importing invalid JSON is rejected with readable feedback and does not replace current settings.
+- Confirm imported macOS permission-shaped JSON does not make permissions appear granted; Privacy must continue to show live system permission status.
+- Confirm importing Menu Bar Spacing stores the setting but does not write `NSStatusItemSpacing` or `NSStatusItemSelectionPadding` until the user presses Apply on the Menu Bar Spacing page.
 - Confirm default/new profile Middle Click behavior is enabled three-finger tap mapped to middle click.
 - Confirm section-specific Mendy art appears on Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles, using generic Mendy only for compact state accents.
 - With two or more profiles, confirm the top-right profile switcher uses one profile-oriented symbol, opens the profile menu, switches profiles, and has no clipped text.

@@ -119,6 +119,97 @@ struct AppConfigTests {
         #expect(config.appBehavior.menuBarSpacingCustomValue == 19)
     }
 
+    @Test("exported config decodes back into app config")
+    func exportedConfigDecodesBackIntoAppConfig() throws {
+        var config = AppConfig.default
+        config.hasCompletedOnboarding = true
+        config.appBehavior.menuBarSpacing = .custom
+        config.appBehavior.menuBarSpacingCustomValue = 21
+        config.createProfile(named: "Studio")
+
+        let data = try ConfigurationFileService.exportData(for: config)
+        let imported = try ConfigurationFileService.decodeImportedConfig(from: data)
+
+        #expect(imported == AppConfig.normalizedForStorage(config))
+        #expect(imported.profiles.count == 2)
+        #expect(imported.appBehavior.menuBarSpacing == .custom)
+        #expect(imported.appBehavior.menuBarSpacingCustomValue == 21)
+    }
+
+    @Test("import rejects invalid JSON")
+    func importRejectsInvalidJSON() {
+        do {
+            _ = try ConfigurationFileService.decodeImportedConfig(from: Data("{ nope".utf8))
+            Issue.record("Invalid JSON should not decode.")
+        } catch let error as ConfigurationFileError {
+            #expect(error == .invalidJSON)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("import rejects newer schema")
+    func importRejectsNewerSchema() throws {
+        let encoded = try JSONEncoder().encode(AppConfig.default)
+        var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object["schemaVersion"] = AppConfig.default.schemaVersion + 100
+        let futureData = try JSONSerialization.data(withJSONObject: object)
+
+        do {
+            _ = try ConfigurationFileService.decodeImportedConfig(from: futureData)
+            Issue.record("Future schema should not import.")
+        } catch let error as ConfigurationFileError {
+            #expect(error == .unsupportedSchema(AppConfig.default.schemaVersion + 100))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("import repairs missing selected profile")
+    func importRepairsMissingSelectedProfile() throws {
+        let customProfile = MacMenderProfile.customCopy(from: .default, name: "Travel")
+        var config = AppConfig.default
+        config.profiles = [customProfile]
+        config.activeProfileID = UUID()
+        let data = try JSONEncoder().encode(config)
+
+        let imported = try ConfigurationFileService.decodeImportedConfig(from: data)
+
+        #expect(imported.profiles == [customProfile])
+        #expect(imported.activeProfileID == customProfile.id)
+        #expect(imported.activeProfile == customProfile)
+    }
+
+    @Test("import ignores permission-shaped JSON")
+    func importIgnoresPermissionShapedJSON() throws {
+        let encoded = try JSONEncoder().encode(AppConfig.default)
+        var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object["permissions"] = [
+            "accessibility": "granted",
+            "screenRecording": "granted",
+            "inputMonitoring": "granted"
+        ]
+        let data = try JSONSerialization.data(withJSONObject: object)
+
+        let imported = try ConfigurationFileService.decodeImportedConfig(from: data)
+
+        #expect(imported == AppConfig.default)
+    }
+
+    @Test("menu bar spacing import stores preference without resolving system defaults")
+    func menuBarSpacingImportStoresPreferenceWithoutResolvingSystemDefaults() throws {
+        var config = AppConfig.default
+        config.appBehavior.menuBarSpacing = .wide
+        config.appBehavior.menuBarSpacingCustomValue = 27
+
+        let data = try ConfigurationFileService.exportData(for: config)
+        let imported = try ConfigurationFileService.decodeImportedConfig(from: data)
+
+        #expect(imported.appBehavior.menuBarSpacing == .wide)
+        #expect(imported.appBehavior.menuBarSpacingCustomValue == 27)
+        #expect(imported.appBehavior.menuBarSpacing.resolvedDefaultsValue(customValue: imported.appBehavior.menuBarSpacingCustomValue) == 24)
+    }
+
     @Test("menu bar spacing presets map to defaults values")
     func menuBarSpacingPresetsMapToDefaultsValues() {
         #expect(MenuBarSpacingPreference.compact.defaultsValue == 8)

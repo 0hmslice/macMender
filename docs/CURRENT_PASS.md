@@ -4,13 +4,25 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/profile-state-repair`
+`codex/config-import-export-polish`
 
 ## Focus
 
-This pass repairs profile state correctness before public GitHub publishing. The selected profile must be the source of truth for profile-specific settings shown in Overview, Input, Dock & Windows, Profiles, and the status-item popover, and switching profiles must immediately reapply the selected profile's runtime settings.
+This pass cleans up Advanced configuration actions so Save, Export, and Import form a complete and honest workflow.
+
+The app now exposes safe Import Config behavior instead of only offering Save Configuration and Export Configuration. Import validates a selected JSON config, asks for confirmation before replacing current settings, creates a backup of the current config, refreshes UI/runtime state after import, and does not import macOS permission grants.
 
 Menu Bar management remains removed/deferred. The limited Menu Bar Spacing page remains app-wide and only reads, writes, or resets the global menu bar item spacing defaults.
+
+## Configuration Behavior
+
+- Save Now writes the current in-memory `AppConfig` to `~/Library/Application Support/macMender/config.json`.
+- Export Config writes the same JSON config to a user-selected file.
+- Import Config accepts a macMender JSON config, rejects invalid JSON, rejects configs from a newer unsupported schema, repairs missing/invalid selected profile state, and confirms before replacing current profiles and app settings.
+- Import creates a backup named `config-backup-<timestamp>-<id>.json` in the macMender Application Support folder before replacement.
+- Imported macOS permission-shaped JSON is ignored. Permission status remains live system state from Accessibility, Screen Recording, and Input Monitoring checks.
+- Imported Menu Bar Spacing is stored in app settings but does not write system defaults or refresh Control Center until the user explicitly presses Apply on the Menu Bar Spacing page.
+- After import, runtime services reapply the imported selected profile through the existing `AppModel.updateRuntime()` path without triggering Dock/window discovery or thumbnail capture.
 
 ## Profile State Source of Truth
 
@@ -69,6 +81,9 @@ App-wide:
 24. The Profiles page labels the selected setup as Current Profile instead of implying the visible settings are always the default profile.
 25. Menu Bar Spacing pending controls reload from app-wide stored behavior and do not follow profile switches.
 26. Focused tests cover profile selection repair, switcher visibility, per-profile setting isolation, and app-wide Menu Bar Spacing behavior.
+27. Advanced now has a dedicated Configuration section with Save Now, Export Config, Import Config, and Open Config Folder.
+28. Import Config validates JSON, rejects unsupported future schemas, confirms destructive replacement, and backs up the previous local config before applying.
+29. Focused tests cover export round-trip, invalid import rejection, unsupported schema rejection, selected-profile repair, ignored permission-shaped JSON, and Menu Bar Spacing import behavior.
 
 ## Asset Folders
 
@@ -95,4 +110,4 @@ The suspected launch blockers were synchronous first-appear runtime refresh plus
 
 ## Manual QA Required
 
-Use `docs/MANUAL_QA.md`. Confirm multiple profiles show the top-right profile switcher immediately, switching profiles updates visible profile-specific settings, app-wide settings do not change per profile, and no Menu Bar management UI is visible while the app’s own status item/popover still works.
+Use `docs/MANUAL_QA.md`. Confirm Advanced configuration actions are clear, export writes a JSON file, valid import shows confirmation and updates visible settings, invalid JSON is rejected with a readable message, permissions remain live system state, and no Menu Bar management UI is visible while the app’s own status item/popover still works.
