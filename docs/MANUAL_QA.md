@@ -52,6 +52,12 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm default/new profile Middle Click behavior is enabled three-finger tap mapped to middle click.
 - Confirm section-specific Mendy art appears on Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles, using generic Mendy only for compact state accents.
 - With two or more profiles, confirm the top-right profile switcher uses one profile-oriented symbol, opens the profile menu, switches profiles, and has no clipped text.
+- Create Profile A and Profile B. Change Profile A's Dock preview animation style, animation duration, and Three-Finger Tap / Middle Click setting, switch to Profile B, and confirm those visible controls update to Profile B's values.
+- Change Profile B's Dock preview and Three-Finger Tap / Middle Click values, switch back to Profile A, and confirm Profile A's values return without needing an app relaunch.
+- Confirm Overview and the status-item popover update their Three-Finger Tap, Dock previews, and Window Switcher summaries after each profile switch.
+- Confirm the top-right profile switcher appears immediately after creating a second profile and disappears only after returning to one profile.
+- Confirm Launch at Login, Dock icon visibility, Safe Mode, permission status, onboarding completion, and Menu Bar Spacing behave as app-wide settings rather than per-profile settings.
+- Confirm Menu Bar Spacing does not silently write or refresh system defaults when switching profiles.
 - Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation.
 - Confirm the Dock preview animation picker only shows System, Fade, Scale, Slide Up, and None.
 - Confirm old saved Glass Pop and Genie settings map to safe styles instead of appearing as selectable options.

@@ -26,7 +26,7 @@ final class ProfileStore: ObservableObject {
     }
 
     var activeProfile: MacMenderProfile {
-        config.profiles.first(where: { $0.id == config.activeProfileID }) ?? MacMenderProfile.default
+        config.activeProfile
     }
 
     var applicationSupportDirectory: URL {
@@ -39,15 +39,15 @@ final class ProfileStore: ObservableObject {
     }
 
     func setActiveProfile(_ profileID: UUID) {
-        guard config.profiles.contains(where: { $0.id == profileID }) else { return }
-        config.activeProfileID = profileID
+        let previousID = config.activeProfileID
+        config.setActiveProfile(profileID)
+        guard config.activeProfileID != previousID else { return }
         save()
     }
 
     func updateActiveProfile(_ profile: MacMenderProfile) {
-        guard let index = config.profiles.firstIndex(where: { $0.id == profile.id }) else { return }
-        guard config.profiles[index] != profile else { return }
-        config.profiles[index] = profile
+        guard config.activeProfile != profile else { return }
+        config.updateActiveProfile(profile)
     }
 
     func completeOnboarding() {
@@ -61,26 +61,16 @@ final class ProfileStore: ObservableObject {
     }
 
     func createProfile(named name: String) {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
-        let profile = MacMenderProfile.customCopy(from: activeProfile, name: trimmedName)
-        config.profiles.append(profile)
-        config.activeProfileID = profile.id
+        let previousConfig = config
+        config.createProfile(named: name)
+        guard config != previousConfig else { return }
         save()
     }
 
     func deleteProfile(_ profileID: UUID) {
-        guard config.profiles.count > 1,
-              profileID != MacMenderProfile.default.id,
-              let index = config.profiles.firstIndex(where: { $0.id == profileID }) else {
-            return
-        }
-
-        config.profiles.remove(at: index)
-        if config.activeProfileID == profileID {
-            config.activeProfileID = MacMenderProfile.default.id
-        }
-
+        let previousConfig = config
+        config.deleteProfile(profileID)
+        guard config != previousConfig else { return }
         save()
     }
 
@@ -151,6 +141,7 @@ final class ProfileStore: ObservableObject {
             profile.dockPreviews.animationDuration = DockPreviewSettings.clampedAnimationDuration(profile.dockPreviews.animationDuration)
             return profile
         }
+        sanitized.ensureValidProfileSelection()
         return sanitized
     }
 

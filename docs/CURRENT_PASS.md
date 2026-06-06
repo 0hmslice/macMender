@@ -4,13 +4,42 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/menu-bar-spacing-controls`
+`codex/profile-state-repair`
 
 ## Focus
 
-This pass improves the limited menu bar spacing preference without restoring third-party Menu Bar management.
+This pass repairs profile state correctness before public GitHub publishing. The selected profile must be the source of truth for profile-specific settings shown in Overview, Input, Dock & Windows, Profiles, and the status-item popover, and switching profiles must immediately reapply the selected profile's runtime settings.
 
-Menu Bar management is deferred for a future rebuild from scratch. The app still has its own macMender menu bar status item and popover for Settings, Permissions, and Quit. The spacing control only reads, writes, or resets the global menu bar item spacing defaults.
+Menu Bar management remains removed/deferred. The limited Menu Bar Spacing page remains app-wide and only reads, writes, or resets the global menu bar item spacing defaults.
+
+## Profile State Source of Truth
+
+- `AppConfig.activeProfileID` is the selected profile identifier.
+- `AppConfig.profiles` owns the saved profile list.
+- `AppConfig.activeProfile` is the single model-level lookup for the selected profile.
+- `ProfileStore.activeProfile` and `AppModel.activeProfile` delegate to `AppConfig.activeProfile`.
+- Profile switching calls `AppModel.setActiveProfile(_:)`, which updates the selected profile and reapplies runtime services without changing Dock preview identity, thumbnail capture/cache, or Option+Tab discovery/activation logic.
+- Profile edits call `AppModel.updateActiveProfile(_:)`, which writes to the selected saved profile and reapplies only the changed runtime areas.
+
+## Settings Ownership
+
+Profile-specific:
+
+- Input and scrolling behavior.
+- Three-Finger Tap / Middle Click behavior.
+- Dock preview behavior, animation, hover, linger, and visual settings.
+- Window Switcher behavior and visual settings.
+- Dock profile values that require explicit Apply to the system Dock.
+
+App-wide:
+
+- Launch at Login.
+- Dock icon visibility.
+- Onboarding completion.
+- Safe Mode.
+- Permission status.
+- macMender status item behavior.
+- Menu Bar Spacing.
 
 ## Implemented
 
@@ -35,6 +64,11 @@ Menu Bar management is deferred for a future rebuild from scratch. The app still
 19. Apply and Reset refresh Control Center only so menu bar icons can update without logout where macOS allows it.
 20. App defaults stay at true System Default; macMender does not write spacing keys until the user applies a preset or custom value.
 21. The macMender status item adapts its own length to match the effective spacing value while keeping the popover and status item identity intact.
+22. Decoded/imported configs now repair empty or invalid profile selections to a real saved profile.
+23. The top-right profile switcher uses live profile count and a stable toolbar slot so it appears immediately when multiple profiles exist.
+24. The Profiles page labels the selected setup as Current Profile instead of implying the visible settings are always the default profile.
+25. Menu Bar Spacing pending controls reload from app-wide stored behavior and do not follow profile switches.
+26. Focused tests cover profile selection repair, switcher visibility, per-profile setting isolation, and app-wide Menu Bar Spacing behavior.
 
 ## Asset Folders
 
@@ -61,4 +95,4 @@ The suspected launch blockers were synchronous first-appear runtime refresh plus
 
 ## Manual QA Required
 
-Use `docs/MANUAL_QA.md`. Confirm General no longer contains Menu Bar Spacing, the dedicated Menu Bar Spacing section works, reset to default is available, and no Menu Bar management UI is visible while the app’s own status item/popover still works.
+Use `docs/MANUAL_QA.md`. Confirm multiple profiles show the top-right profile switcher immediately, switching profiles updates visible profile-specific settings, app-wide settings do not change per profile, and no Menu Bar management UI is visible while the app’s own status item/popover still works.

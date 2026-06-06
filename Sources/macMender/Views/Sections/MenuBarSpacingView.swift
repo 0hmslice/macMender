@@ -84,6 +84,9 @@ struct MenuBarSpacingView: View {
             appModel.refreshMenuBarSpacingStatus()
             loadPendingState()
         }
+        .onChange(of: appModel.store.config.appBehavior) { _, _ in
+            loadPendingState()
+        }
     }
 
     private var presetSelection: Binding<MenuBarSpacingPreference> {
@@ -117,14 +120,6 @@ struct MenuBarSpacingView: View {
 
     private func loadPendingState() {
         let stored = appModel.store.config.appBehavior
-        if stored.menuBarSpacing == .systemDefault,
-           let currentValue = appModel.menuBarSpacing.currentValues.sharedValue {
-            let clamped = MenuBarSpacingPreference.clampedValue(currentValue)
-            pendingValue = Double(clamped)
-            pendingPreference = MenuBarSpacingPreference.preference(matching: clamped)
-            return
-        }
-
         let resolvedValue = stored.menuBarSpacing.resolvedDefaultsValue(customValue: stored.menuBarSpacingCustomValue) ??
             MenuBarSpacingPreference.systemDefaultNumericValue
         pendingValue = Double(resolvedValue)

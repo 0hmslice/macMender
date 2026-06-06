@@ -27,7 +27,96 @@ struct AppConfigTests {
 
         #expect(config.appBehavior == .default)
         #expect(config.appBehavior.menuBarSpacing == .systemDefault)
+        #expect(config.profiles == [MacMenderProfile.default])
+        #expect(config.activeProfile.id == MacMenderProfile.default.id)
         #expect(config.hasCompletedOnboarding)
+    }
+
+    @Test("profile selection repairs invalid state")
+    func profileSelectionRepairsInvalidState() {
+        var config = AppConfig.default
+        let customProfile = MacMenderProfile.customCopy(from: .default, name: "Work")
+        config.profiles = [customProfile]
+        config.activeProfileID = UUID()
+
+        config.ensureValidProfileSelection()
+
+        #expect(config.activeProfileID == customProfile.id)
+        #expect(config.activeProfile == customProfile)
+    }
+
+    @Test("profile switcher visibility follows live profile count")
+    func profileSwitcherVisibilityFollowsLiveProfileCount() {
+        var config = AppConfig.default
+
+        #expect(!config.shouldShowProfileSwitcher)
+
+        config.createProfile(named: "Work")
+        let workProfileID = config.activeProfileID
+
+        #expect(config.shouldShowProfileSwitcher)
+        #expect(config.activeProfile.name == "Work")
+
+        config.deleteProfile(workProfileID)
+
+        #expect(!config.shouldShowProfileSwitcher)
+        #expect(config.activeProfile.id == MacMenderProfile.default.id)
+    }
+
+    @Test("profile-specific settings do not leak between profiles")
+    func profileSpecificSettingsDoNotLeakBetweenProfiles() {
+        let defaultProfile = MacMenderProfile.default
+        var profileA = MacMenderProfile.customCopy(from: defaultProfile, name: "Profile A")
+        profileA.dockPreviews.animationStyle = .fade
+        profileA.dockPreviews.animationDuration = 0.18
+        profileA.middleClick.enabled = false
+
+        var profileB = MacMenderProfile.customCopy(from: defaultProfile, name: "Profile B")
+        profileB.dockPreviews.animationStyle = .scale
+        profileB.dockPreviews.animationDuration = 0.32
+        profileB.middleClick.enabled = true
+
+        var config = AppConfig.default
+        config.profiles = [defaultProfile, profileA, profileB]
+        config.activeProfileID = profileA.id
+
+        #expect(config.activeProfile.dockPreviews.animationStyle == .fade)
+        #expect(config.activeProfile.dockPreviews.animationDuration == 0.18)
+        #expect(!config.activeProfile.middleClick.enabled)
+
+        config.setActiveProfile(profileB.id)
+
+        #expect(config.activeProfile.dockPreviews.animationStyle == .scale)
+        #expect(config.activeProfile.dockPreviews.animationDuration == 0.32)
+        #expect(config.activeProfile.middleClick.enabled)
+
+        var editedProfileB = config.activeProfile
+        editedProfileB.dockPreviews.animationStyle = .slideUp
+        editedProfileB.middleClick.enabled = false
+        config.updateActiveProfile(editedProfileB)
+
+        config.setActiveProfile(profileA.id)
+
+        #expect(config.activeProfile.dockPreviews.animationStyle == .fade)
+        #expect(config.activeProfile.dockPreviews.animationDuration == 0.18)
+        #expect(!config.activeProfile.middleClick.enabled)
+    }
+
+    @Test("menu bar spacing remains app-wide when switching profiles")
+    func menuBarSpacingRemainsAppWideWhenSwitchingProfiles() {
+        let defaultProfile = MacMenderProfile.default
+        let customProfile = MacMenderProfile.customCopy(from: defaultProfile, name: "Work")
+        var config = AppConfig.default
+        config.profiles = [defaultProfile, customProfile]
+        config.activeProfileID = defaultProfile.id
+        config.appBehavior.menuBarSpacing = .custom
+        config.appBehavior.menuBarSpacingCustomValue = 19
+
+        config.setActiveProfile(customProfile.id)
+
+        #expect(config.activeProfile.id == customProfile.id)
+        #expect(config.appBehavior.menuBarSpacing == .custom)
+        #expect(config.appBehavior.menuBarSpacingCustomValue == 19)
     }
 
     @Test("menu bar spacing presets map to defaults values")
