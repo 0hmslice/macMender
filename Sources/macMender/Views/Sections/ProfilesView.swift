@@ -14,8 +14,8 @@ struct ProfilesView: View {
             )
 
             SectionCard(
-                title: "Default Settings",
-                subtitle: "macMender starts with one balanced default. Create extra profiles only if you want separate setups.",
+                title: "Current Profile",
+                subtitle: "Profile-specific input, Dock preview, and window switcher settings follow the selected profile.",
                 symbolName: "wrench.and.screwdriver"
             ) {
                 HStack(spacing: 12) {
@@ -43,12 +43,12 @@ struct ProfilesView: View {
                 symbolName: "plus.rectangle.on.rectangle"
             ) {
                 HStack(spacing: 14) {
-                    if appModel.store.config.profiles.count == 1 {
+                    if !appModel.shouldShowProfileSwitcher {
                         MendyAvatarView(mood: .sleeping, size: MendyAvatarSize.compact)
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        if appModel.store.config.profiles.count == 1 {
+                        if !appModel.shouldShowProfileSwitcher {
                             Text("You only have the default setup. Mendy can create another one when you need a separate context.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -69,7 +69,7 @@ struct ProfilesView: View {
                 }
             }
 
-            if appModel.store.config.profiles.count > 1 {
+            if appModel.shouldShowProfileSwitcher {
                 SectionCard(
                     title: "Custom Profiles",
                     subtitle: "Switch between only the profiles you created.",

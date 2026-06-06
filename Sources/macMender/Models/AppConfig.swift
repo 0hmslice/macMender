@@ -47,6 +47,7 @@ struct AppConfig: Codable, Equatable {
         featureToggles = try container.decodeIfPresent(FeatureToggles.self, forKey: .featureToggles) ?? fallback.featureToggles
         appBehavior = try container.decodeIfPresent(AppBehavior.self, forKey: .appBehavior) ?? fallback.appBehavior
         profiles = try container.decodeIfPresent([MacMenderProfile].self, forKey: .profiles) ?? fallback.profiles
+        ensureValidProfileSelection()
     }
 
     static var `default`: AppConfig {
@@ -60,6 +61,74 @@ struct AppConfig: Codable, Equatable {
             appBehavior: .default,
             profiles: [defaultProfile]
         )
+    }
+}
+
+extension AppConfig {
+    var activeProfile: MacMenderProfile {
+        profiles.first(where: { $0.id == activeProfileID }) ?? profiles.first ?? .default
+    }
+
+    var shouldShowProfileSwitcher: Bool {
+        profiles.count > 1
+    }
+
+    var profileSwitcherIdentity: String {
+        let profileIDs = profiles.map(\.id.uuidString).joined(separator: ",")
+        return "\(activeProfileID.uuidString)|\(profileIDs)"
+    }
+
+    mutating func ensureValidProfileSelection() {
+        if profiles.isEmpty {
+            profiles = [.default]
+        }
+
+        guard !profiles.contains(where: { $0.id == activeProfileID }) else { return }
+
+        if let defaultProfile = profiles.first(where: { $0.id == MacMenderProfile.default.id }) {
+            activeProfileID = defaultProfile.id
+        } else if let firstProfile = profiles.first {
+            activeProfileID = firstProfile.id
+        }
+    }
+
+    mutating func setActiveProfile(_ profileID: UUID) {
+        guard profiles.contains(where: { $0.id == profileID }) else {
+            ensureValidProfileSelection()
+            return
+        }
+        activeProfileID = profileID
+    }
+
+    mutating func updateActiveProfile(_ profile: MacMenderProfile) {
+        guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else {
+            ensureValidProfileSelection()
+            return
+        }
+        profiles[index] = profile
+        activeProfileID = profile.id
+    }
+
+    mutating func createProfile(named name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+
+        ensureValidProfileSelection()
+        let profile = MacMenderProfile.customCopy(from: activeProfile, name: trimmedName)
+        profiles.append(profile)
+        activeProfileID = profile.id
+    }
+
+    mutating func deleteProfile(_ profileID: UUID) {
+        guard profiles.count > 1,
+              profileID != MacMenderProfile.default.id,
+              let index = profiles.firstIndex(where: { $0.id == profileID }) else {
+            ensureValidProfileSelection()
+            return
+        }
+
+        profiles.remove(at: index)
+        ensureValidProfileSelection()
     }
 }
 

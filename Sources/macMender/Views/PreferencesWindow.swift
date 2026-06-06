@@ -22,10 +22,8 @@ struct PreferencesWindow: View {
                 PreferencesDetailShell(appModel: appModel)
                     .navigationTitle(appModel.selectedSection.title)
                     .toolbar {
-                        ToolbarItemGroup {
-                            if appModel.store.config.profiles.count > 1 {
-                                ProfilePicker(appModel: appModel)
-                            }
+                        ToolbarItem {
+                            ProfilePicker(appModel: appModel)
                         }
                     }
             }
@@ -172,28 +170,33 @@ private struct ProfilePicker: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
-        Menu {
-            ForEach(appModel.store.config.profiles) { profile in
-                Button {
-                    appModel.setActiveProfile(profile.id)
-                } label: {
-                    if profile.id == appModel.store.config.activeProfileID {
-                        Label(profile.name, systemImage: "checkmark")
-                    } else {
-                        Text(profile.name)
+        Group {
+            if appModel.shouldShowProfileSwitcher {
+                Menu {
+                    ForEach(appModel.store.config.profiles) { profile in
+                        Button {
+                            appModel.setActiveProfile(profile.id)
+                        } label: {
+                            if profile.id == appModel.store.config.activeProfileID {
+                                Label(profile.name, systemImage: "checkmark")
+                            } else {
+                                Text(profile.name)
+                            }
+                        }
                     }
+                } label: {
+                    Label(appModel.activeProfile.name, systemImage: "person.crop.circle")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
                 }
+                .menuStyle(.button)
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+                .frame(maxWidth: 168)
+                .help("Switch profile")
+                .accessibilityLabel("Current profile: \(appModel.activeProfile.name). Switch profile.")
+                .id(appModel.profileSwitcherIdentity)
             }
-        } label: {
-            Label(appModel.activeProfile.name, systemImage: "person.crop.circle")
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
         }
-        .menuStyle(.button)
-        .buttonStyle(.bordered)
-        .controlSize(.regular)
-        .frame(maxWidth: 168)
-        .help("Switch profile")
-        .accessibilityLabel("Current profile: \(appModel.activeProfile.name). Switch profile.")
     }
 }

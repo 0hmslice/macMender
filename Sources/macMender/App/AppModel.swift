@@ -57,6 +57,14 @@ final class AppModel: ObservableObject {
         store.activeProfile
     }
 
+    var shouldShowProfileSwitcher: Bool {
+        store.config.shouldShowProfileSwitcher
+    }
+
+    var profileSwitcherIdentity: String {
+        store.config.profileSwitcherIdentity
+    }
+
     var runningStatusTitle: String {
         if !store.config.hasCompletedOnboarding { return "Setup Required" }
         if store.config.safeModeEnabled { return "Paused" }
