@@ -75,6 +75,4 @@ The current app is intended for direct distribution or Homebrew-style distributi
 
 ## License
 
-No final public license is declared in this branch yet.
-
-Choose and add the intended project license before publishing if reuse rights should be granted. Until then, the source is available for review, but no broad reuse license is granted.
+macMender is released under the MIT License.
