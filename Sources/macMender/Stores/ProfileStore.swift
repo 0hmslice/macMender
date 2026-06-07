@@ -12,15 +12,10 @@ final class ProfileStore: ObservableObject {
     }
 
     private let fileManager: FileManager
-    private let encoder: JSONEncoder
-    private let decoder: JSONDecoder
     private var autosaveTask: Task<Void, Never>?
 
     init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
-        self.encoder = JSONEncoder()
-        self.encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        self.decoder = JSONDecoder()
         self.config = .default
         self.config = loadConfig()
     }
@@ -77,72 +72,96 @@ final class ProfileStore: ObservableObject {
     func save() {
         autosaveTask?.cancel()
         do {
-            try fileManager.createDirectory(at: applicationSupportDirectory, withIntermediateDirectories: true)
-            let data = try encoder.encode(config)
-            try data.write(to: configURL, options: [.atomic])
+            try saveToDisk()
         } catch {
             assertionFailure("Failed to save macMender config: \(error)")
         }
     }
 
-    func export(to url: URL) {
+    func saveToDisk() throws {
         do {
-            let data = try encoder.encode(config)
+            try fileManager.createDirectory(at: applicationSupportDirectory, withIntermediateDirectories: true)
+            let data = try ConfigurationFileService.exportData(for: config)
+            try data.write(to: configURL, options: [.atomic])
+        } catch let error as ConfigurationFileError {
+            throw error
+        } catch {
+            throw ConfigurationFileError.unwritableFile
+        }
+    }
+
+    func export(to url: URL) throws {
+        do {
+            let data = try ConfigurationFileService.exportData(for: config)
             try data.write(to: url, options: [.atomic])
+        } catch let error as ConfigurationFileError {
+            throw error
+        } catch {
+            throw ConfigurationFileError.unwritableFile
+        }
+    }
+
+    func previewImport(from url: URL) throws -> ConfigurationImportPreview {
+        do {
+            let data = try Data(contentsOf: url)
+            let imported = try ConfigurationFileService.decodeImportedConfig(from: data)
+            return ConfigurationImportPreview(sourceURL: url, config: imported)
+        } catch let error as ConfigurationFileError {
+            throw error
+        } catch {
+            throw ConfigurationFileError.unreadableFile
+        }
+    }
+
+    @discardableResult
+    func importConfig(_ preview: ConfigurationImportPreview, createBackup: Bool = true) throws -> URL? {
+        let backupURL: URL?
+        if createBackup {
+            backupURL = try backupCurrentConfig()
+        } else {
+            backupURL = nil
+        }
+
+        config = AppConfig.normalizedForStorage(preview.config)
+        try saveToDisk()
+        return backupURL
+    }
+
+    func importConfig(from url: URL) {
+        do {
+            let preview = try previewImport(from: url)
+            try importConfig(preview)
         } catch {
             NSSound.beep()
         }
     }
 
-    func importConfig(from url: URL) {
+    func backupCurrentConfig() throws -> URL {
         do {
-            let data = try Data(contentsOf: url)
-            let imported = try decoder.decode(AppConfig.self, from: data)
-            config = sanitize(migrate(imported))
-            save()
+            try fileManager.createDirectory(at: applicationSupportDirectory, withIntermediateDirectories: true)
+            if !fileManager.fileExists(atPath: configURL.path) {
+                try saveToDisk()
+            }
+            let timestamp = Self.backupTimestampFormatter.string(from: Date())
+            let backupURL = applicationSupportDirectory
+                .appendingPathComponent("config-backup-\(timestamp)-\(UUID().uuidString.prefix(8)).json")
+            try fileManager.copyItem(at: configURL, to: backupURL)
+            return backupURL
+        } catch let error as ConfigurationFileError {
+            throw error
         } catch {
-            NSSound.beep()
+            throw ConfigurationFileError.backupFailed
         }
     }
 
     private func loadConfig() -> AppConfig {
         do {
             let data = try Data(contentsOf: configURL)
-            let loaded = try decoder.decode(AppConfig.self, from: data)
-            return sanitize(migrate(loaded))
+            let loaded = try ConfigurationFileService.decodeImportedConfig(from: data)
+            return loaded
         } catch {
             return .default
         }
-    }
-
-    private func migrate(_ loaded: AppConfig) -> AppConfig {
-        var migrated = loaded
-        if loaded.schemaVersion < 3 {
-            migrated.profiles = migrated.profiles.map { profile in
-                var profile = profile
-                profile.windowSwitcher.layout = .grid
-                profile.dockPreviews.layout = .grid
-                profile.dockPreviews.thumbnailSize = min(profile.dockPreviews.thumbnailSize, DockPreviewSettings.default.thumbnailSize)
-                return profile
-            }
-        }
-        migrated.schemaVersion = AppConfig.default.schemaVersion
-        return migrated
-    }
-
-    private func sanitize(_ loaded: AppConfig) -> AppConfig {
-        var sanitized = loaded
-        sanitized.profiles = sanitized.profiles.map { profile in
-            var profile = profile
-            if profile.middleClick.action == .customShortcut {
-                profile.middleClick.action = .middleClick
-            }
-            profile.dockPreviews.previewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(profile.dockPreviews.previewIdleTimeout)
-            profile.dockPreviews.animationDuration = DockPreviewSettings.clampedAnimationDuration(profile.dockPreviews.animationDuration)
-            return profile
-        }
-        sanitized.ensureValidProfileSelection()
-        return sanitized
     }
 
     private func scheduleAutosave() {
@@ -154,4 +173,11 @@ final class ProfileStore: ObservableObject {
             }
         }
     }
+
+    private static let backupTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
 }

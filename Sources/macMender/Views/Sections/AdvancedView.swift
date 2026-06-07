@@ -1,8 +1,12 @@
+import AppKit
 import SwiftUI
 
 struct AdvancedView: View {
     @ObservedObject var appModel: AppModel
     @State private var showingResetConfirmation = false
+    @State private var showingImportConfirmation = false
+    @State private var pendingImport: ConfigurationImportPreview?
+    @State private var configurationStatus = "Autosave keeps current settings on disk."
 
     var body: some View {
         PreferencesScrollView {
@@ -34,6 +38,72 @@ struct AdvancedView: View {
                 }
             }
 
+            SectionCard(title: "Configuration", subtitle: "Save, export, or restore local settings.", symbolName: "externaldrive") {
+                VStack(alignment: .leading, spacing: 10) {
+                    ConfigurationActionRow(
+                        title: "Save Now",
+                        detail: "Write the current settings to disk.",
+                        buttonTitle: "Save Now",
+                        symbolName: "square.and.arrow.down"
+                    ) {
+                        switch appModel.saveConfigurationNow() {
+                        case .success(let url):
+                            configurationStatus = "Saved current settings to \(url.lastPathComponent)."
+                        case .failure(let error):
+                            configurationStatus = configurationErrorMessage(error)
+                        }
+                    }
+
+                    ConfigurationActionRow(
+                        title: "Export Config",
+                        detail: "Save a copy you can back up or move to another Mac.",
+                        buttonTitle: "Export Config",
+                        symbolName: "square.and.arrow.up"
+                    ) {
+                        appModel.exportConfiguration { result in
+                            switch result {
+                            case .success(let url):
+                                configurationStatus = "Exported configuration to \(url.lastPathComponent)."
+                            case .failure(let error):
+                                configurationStatus = configurationErrorMessage(error)
+                            }
+                        }
+                    }
+
+                    ConfigurationActionRow(
+                        title: "Import Config",
+                        detail: "Restore settings from a macMender config file.",
+                        buttonTitle: "Import Config",
+                        symbolName: "tray.and.arrow.down"
+                    ) {
+                        appModel.chooseConfigurationImport { result in
+                            switch result {
+                            case .success(let preview):
+                                pendingImport = preview
+                                showingImportConfirmation = true
+                            case .failure(let error):
+                                configurationStatus = configurationErrorMessage(error)
+                            }
+                        }
+                    }
+
+                    ConfigurationActionRow(
+                        title: "Open Config Folder",
+                        detail: "Reveal the local configuration folder in Finder.",
+                        buttonTitle: "Open Folder",
+                        symbolName: "folder"
+                    ) {
+                        appModel.openConfigurationFolder()
+                        configurationStatus = "Opened the local configuration folder."
+                    }
+
+                    Label(configurationStatus, systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
             SectionCard(title: "Recovery Tools", subtitle: "Safe, reversible actions for troubleshooting.", symbolName: "arrow.counterclockwise") {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -59,12 +129,6 @@ struct AdvancedView: View {
                     HStack {
                         Button("Read Dock Defaults") {
                             appModel.dock.refresh()
-                        }
-                        Button("Save Configuration") {
-                            appModel.store.save()
-                        }
-                        Button("Export Configuration") {
-                            appModel.exportConfiguration()
                         }
                         Spacer()
                         Button("Reset to Onboarding", role: .destructive) {
@@ -125,6 +189,27 @@ struct AdvancedView: View {
         } message: {
             Text("This clears local settings and shows onboarding again.")
         }
+        .confirmationDialog("Import Configuration?", isPresented: $showingImportConfirmation) {
+            Button("Import Config", role: .destructive) {
+                guard let pendingImport else { return }
+                switch appModel.importConfiguration(pendingImport) {
+                case .success(let backupURL):
+                    if let backupURL {
+                        configurationStatus = "Imported \(pendingImport.sourceURL.lastPathComponent). Backup saved as \(backupURL.lastPathComponent)."
+                    } else {
+                        configurationStatus = "Imported \(pendingImport.sourceURL.lastPathComponent)."
+                    }
+                case .failure(let error):
+                    configurationStatus = configurationErrorMessage(error)
+                }
+                self.pendingImport = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingImport = nil
+            }
+        } message: {
+            Text(importConfirmationMessage)
+        }
     }
 
     private var launchTimingDetail: String {
@@ -145,6 +230,53 @@ struct AdvancedView: View {
             return "Paused by Safe Mode"
         }
         return appModel.multitouchMiddleClick.lastStatus
+    }
+
+    private var importConfirmationMessage: String {
+        guard let pendingImport else {
+            return "This will replace your current profiles and app settings. macOS permissions are not imported."
+        }
+
+        let onboarding = pendingImport.includesCompletedOnboarding ? "Onboarding is marked complete." : "Onboarding is marked incomplete."
+        return "This will replace your current profiles and app settings with \(pendingImport.profileCount) profile(s). The selected profile will be \(pendingImport.selectedProfileName). \(onboarding) Menu Bar Spacing will be stored as \(pendingImport.menuBarSpacingTitle), but system spacing will not be applied until you press Apply. macOS permissions are not imported. A backup of your current config will be saved first."
+    }
+
+    private func configurationErrorMessage(_ error: Error) -> String {
+        if let localizedError = error as? LocalizedError {
+            let description = localizedError.errorDescription ?? "Configuration action failed."
+            if let recoverySuggestion = localizedError.recoverySuggestion {
+                return "\(description) \(recoverySuggestion)"
+            }
+            return description
+        }
+        return "Configuration action failed: \(error.localizedDescription)"
+    }
+}
+
+private struct ConfigurationActionRow: View {
+    var title: String
+    var detail: String
+    var buttonTitle: String
+    var symbolName: String
+    var action: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Label(title, systemImage: symbolName)
+                .font(.callout.weight(.semibold))
+
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 12)
+
+            Button(buttonTitle, action: action)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .liquidGlass(.row)
     }
 }
 

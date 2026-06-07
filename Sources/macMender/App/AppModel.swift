@@ -269,7 +269,17 @@ final class AppModel: ObservableObject {
         return false
     }
 
-    func exportConfiguration() {
+    @discardableResult
+    func saveConfigurationNow() -> Result<URL, Error> {
+        do {
+            try store.saveToDisk()
+            return .success(store.configURL)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    func exportConfiguration(completion: ((Result<URL, Error>) -> Void)? = nil) {
         let panel = NSSavePanel()
         panel.title = "Export macMender Configuration"
         panel.nameFieldStringValue = "macMender-config.json"
@@ -278,9 +288,54 @@ final class AppModel: ObservableObject {
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
-                self?.store.export(to: url)
+                guard let self else { return }
+                do {
+                    try self.store.export(to: url)
+                    completion?(.success(url))
+                } catch {
+                    NSSound.beep()
+                    completion?(.failure(error))
+                }
             }
         }
+    }
+
+    func chooseConfigurationImport(completion: @escaping (Result<ConfigurationImportPreview, Error>) -> Void) {
+        let panel = NSOpenPanel()
+        panel.title = "Import macMender Configuration"
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.url else { return }
+            Task { @MainActor in
+                guard let self else { return }
+                do {
+                    let preview = try self.store.previewImport(from: url)
+                    completion(.success(preview))
+                } catch {
+                    NSSound.beep()
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    func importConfiguration(_ preview: ConfigurationImportPreview) -> Result<URL?, Error> {
+        do {
+            let backupURL = try store.importConfig(preview)
+            refreshPassiveState()
+            updateRuntime()
+            return .success(backupURL)
+        } catch {
+            NSSound.beep()
+            return .failure(error)
+        }
+    }
+
+    func openConfigurationFolder() {
+        NSWorkspace.shared.activateFileViewerSelecting([store.configURL])
     }
 
     func updateRuntime() {
