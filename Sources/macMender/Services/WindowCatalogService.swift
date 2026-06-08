@@ -98,6 +98,56 @@ struct WindowSummary: Identifiable, Equatable {
     }
 }
 
+struct WindowDiscoveryCandidateFacts: Equatable {
+    var bundleIdentifier: String?
+    var rawTitle: String
+    var axWindowID: CGWindowID?
+    var matchedCGWindowID: CGWindowID?
+    var role: String?
+    var subrole: String?
+    var frame: CGRect
+    var isMinimized: Bool
+}
+
+enum WindowDiscoveryCandidateDecision: Equatable {
+    case include(reason: String)
+    case drop(reason: String)
+
+    var isIncluded: Bool {
+        if case .include = self { return true }
+        return false
+    }
+
+    var reason: String {
+        switch self {
+        case let .include(reason), let .drop(reason):
+            return reason
+        }
+    }
+}
+
+enum WindowDiscoveryEligibility {
+    static func decision(for facts: WindowDiscoveryCandidateFacts) -> WindowDiscoveryCandidateDecision {
+        if facts.matchedCGWindowID != nil {
+            return .include(reason: "includedAXWindowCGMatched")
+        }
+
+        guard facts.role == kAXWindowRole as String else {
+            return .drop(reason: "nonWindowAXElementNoCGMatch")
+        }
+
+        let hasTitle = !facts.rawTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasAXWindowID = facts.axWindowID != nil
+        let hasAXShape = facts.frame.width >= 80 && facts.frame.height >= 60
+
+        guard hasTitle || hasAXWindowID || hasAXShape || facts.isMinimized else {
+            return .drop(reason: "emptyTitleNoCGNoAXFrame")
+        }
+
+        return .include(reason: "includedAXWindowNoCGMatch")
+    }
+}
+
 @MainActor
 protocol WindowCatalogProviding {
     var lastDiscoveryReport: WindowDiscoveryReport { get }
@@ -377,14 +427,14 @@ final class WindowCatalogService: WindowCatalogProviding {
         for (index, window) in windows.enumerated() {
             var titleValue: CFTypeRef?
             AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleValue)
-            let title = titleValue as? String ?? "Untitled Window"
+            let rawTitle = titleValue as? String ?? ""
             let frame = frame(for: window)
             let minimized = boolAttribute(kAXMinimizedAttribute, from: window)
             let axWindowID = cgWindowID(for: window)
             let matchedCGWindow = bestCGWindow(
                 for: app.processIdentifier,
                 axWindowID: axWindowID,
-                title: title,
+                title: rawTitle,
                 frame: frame,
                 cgWindows: cgWindows,
                 usedWindowIDs: usedCGWindowIDs
@@ -393,25 +443,36 @@ final class WindowCatalogService: WindowCatalogProviding {
                 usedCGWindowIDs.insert(matchedCGWindow.windowID)
             }
 
-            let hasAXShape = frame.width >= 80 && frame.height >= 60
-            guard !title.isEmpty || matchedCGWindow != nil || hasAXShape else {
+            let facts = WindowDiscoveryCandidateFacts(
+                bundleIdentifier: app.bundleIdentifier,
+                rawTitle: rawTitle,
+                axWindowID: axWindowID,
+                matchedCGWindowID: matchedCGWindow?.windowID,
+                role: stringAttribute(kAXRoleAttribute, from: window),
+                subrole: stringAttribute(kAXSubroleAttribute, from: window),
+                frame: frame,
+                isMinimized: minimized
+            )
+            let decision = WindowDiscoveryEligibility.decision(for: facts)
+            guard decision.isIncluded else {
                 entries.append(WindowDiscoveryEntry(
                     id: "\(app.processIdentifier)-ax-\(index)-dropped",
-                    title: title,
+                    title: rawTitle.isEmpty ? "Untitled Window" : rawTitle,
                     cgWindowID: nil,
                     cgMatchFound: false,
                     included: false,
-                    reason: "emptyTitleNoCGNoAXFrame"
+                    reason: decision.reason
                 ))
                 continue
             }
 
+            let displayTitle = rawTitle.isEmpty ? "Untitled Window" : rawTitle
             let summary = WindowSummary(
-                id: "\(app.processIdentifier)-\(matchedCGWindow?.windowID ?? axWindowID ?? CGWindowID(index))-\(title)",
+                id: "\(app.processIdentifier)-\(matchedCGWindow?.windowID ?? axWindowID ?? CGWindowID(index))-\(displayTitle)",
                 windowID: matchedCGWindow?.windowID,
                 appName: appName,
                 bundleIdentifier: app.bundleIdentifier,
-                title: title.isEmpty ? "Untitled Window" : title,
+                title: displayTitle,
                 processIdentifier: app.processIdentifier,
                 frame: frame == .zero ? matchedCGWindow?.frame ?? .zero : frame,
                 isMinimized: minimized,
@@ -425,7 +486,7 @@ final class WindowCatalogService: WindowCatalogProviding {
                 cgWindowID: summary.windowID,
                 cgMatchFound: matchedCGWindow != nil,
                 included: true,
-                reason: matchedCGWindow == nil ? "includedAXWindowNoCGMatch" : "includedAXWindowCGMatched"
+                reason: decision.reason
             ))
         }
 
