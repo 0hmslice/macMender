@@ -1,31 +1,20 @@
 # macMender
 
-A privacy-first macOS utility for Dock previews, a better window switching experience, three finger tap as middle click, and menu bar spacing.
+macMender is a privacy-first macOS utility for better input, Dock window previews, Option+Tab window switching, and menu bar spacing. It runs locally, stores configuration locally, and does not include analytics, tracking, remote APIs, or configuration sync.
 
-The app is privacy-first by design: it runs locally, stores configuration locally, and does not include analytics, tracking, remote APIs, or configuration sync.
-
-## Current Features
+## Features
 
 - Three-Finger Tap / Middle Click using a private multitouch bridge plus local event synthesis
-- Dock hover previews with local window thumbnails when Screen Recording is available
-- Option+Tab window switcher with a native preview overlay
 - Input and scrolling tuning for direction, gain, smoothing, devices, apps, and profiles
+- External mice can use normal scrolling without changing trackpad scrolling
+- Dock icons can show local window previews when you mouse over them
+- Option+Tab window switcher with native preview cards
 - Profiles for saved input, Dock, and window behavior setups
-- Limited Menu Bar Spacing controls
 - Config export/import with a local backup before import
+- Limited Menu Bar Spacing controls
 - Launch at Login and Dock icon behavior controls
 - First-launch onboarding with guided permission setup
 - Privacy and Permissions center for Accessibility, Screen Recording, and Input Monitoring status
-
-## What It Can Replace or Reduce
-
-Depending on which features you use, macMender can replace or reduce the need for:
-
-- simple middle-click utilities
-- basic Dock/window preview helpers
-- small input tuning utilities
-- simple menu bar spacing tweaks
-
 
 ## Privacy
 
@@ -38,12 +27,12 @@ Depending on which features you use, macMender can replace or reduce the need fo
 
 ## Requirements
 
-- macOS 14 or later based on `Package.swift`
-- Xcode or Command Line Tools with a Swift 6-compatible toolchain
+- macOS 14 or later, matching `Package.swift`
+- Xcode or Apple Command Line Tools with a Swift 6-compatible toolchain
 - Apple Silicon is the main development target
 - `MultitouchSupport.framework` must be present for the private three-finger tap path
 
-`Package.swift` currently declares a macOS 14 minimum so the SwiftPM build can resolve locally. The product direction is modern macOS, and some behavior is expected to be verified on current macOS releases before distribution.
+Some behavior may vary by macOS version, hardware, and permission state.
 
 ## Screenshots
 <img width="980" height="732" alt="overview" src="https://github.com/user-attachments/assets/8904f50e-aaab-4f64-97e7-8b52cc0befb4" />
@@ -54,39 +43,115 @@ Depending on which features you use, macMender can replace or reduce the need fo
 <img width="639" height="423" alt="Screenshot2" src="https://github.com/user-attachments/assets/c6eb2146-81b0-4be2-8d6a-cc7084062c08" />
 <img width="980" height="732" alt="menu-bar-spacing" src="https://github.com/user-attachments/assets/64a8a777-a840-4ec2-915f-1809ae7e244c" />
 
+## Build From Source
 
+Building from source is a good option if you prefer not to use a downloaded unsigned `.app`. It can avoid some downloaded-app quarantine friction, but it does not remove macOS permission requirements.
 
-## Build and Run
+### 1. Install Build Tools
 
-Build the app source:
+Install Xcode or Apple Command Line Tools. If you are new to macOS development, this command is usually enough:
+
+```bash
+xcode-select --install
+```
+
+If full Xcode is installed, macOS may ask you to open Xcode once to finish setup and accept its license. If `swift` is missing in Terminal, install Command Line Tools first.
+
+### 2. Clone The Repository
+
+```bash
+git clone https://github.com/0hmslice/macMender.git
+cd macMender
+```
+
+### 3. Compile The Source
 
 ```bash
 swift build
 ```
 
-Build and launch a local `.app` bundle:
+This compiles the Swift package and confirms the source can build on your Mac.
+
+### 4. Build And Launch The App Bundle
 
 ```bash
 ./script/build_and_run.sh
 ```
 
-The generated app bundle is staged at `dist/macMender.app`.
+This builds a local `.app` bundle, stages it at `dist/macMender.app`, and launches it.
 
+To build and verify that the app launches, run:
+
+```bash
+./script/build_and_run.sh --verify
+```
+
+The build script is executable in this repository. If your checkout loses executable permissions and Terminal says `permission denied`, run:
+
+```bash
+chmod +x script/build_and_run.sh
+```
 
 ## Permissions
 
-macMender uses macOS permissions only for enabled local features:
+macMender uses macOS permissions only for local features you enable:
 
-- Accessibility: required for core input and window control paths
-- Screen Recording: optional, used for live window thumbnails
+- Accessibility: used for core input handling and window control paths
+- Screen Recording: optional, used for live Dock and window preview thumbnails
 - Input Monitoring: shown separately from the three-finger tap runtime state
 
-Configuration is stored in the user Application Support folder. Window thumbnails are captured locally for previews and are not uploaded.
+If the app does not appear in a permission list, launch it once and then check System Settings again. Building from source does not bypass these permission prompts.
 
-## Distribution Notes
+## Troubleshooting
 
-The current app is intended for direct distribution or Homebrew-style distribution, not the Mac App Store. The active source links against the private `MultitouchSupport.framework` and uses low-level event synthesis for replacement-style input behavior.
+### `swift: command not found`
+
+Install Apple Command Line Tools:
+
+```bash
+xcode-select --install
+```
+
+Then open a new Terminal window and try `swift build` again.
+
+### Command Line Tools or Xcode setup errors
+
+If Xcode is installed, open Xcode once and let it finish installing components. You may also need to accept the Xcode license before command-line builds work.
+
+### `permission denied` when running the build script
+
+Restore the executable bit:
+
+```bash
+chmod +x script/build_and_run.sh
+```
+
+Then run:
+
+```bash
+./script/build_and_run.sh
+```
+
+### The app launches but features do not work
+
+Open macOS System Settings and grant the requested permissions. Some features need Accessibility, Screen Recording, or Input Monitoring before they can work.
+
+### macOS blocks a downloaded unsigned app
+
+Downloaded unsigned builds can trigger Gatekeeper warnings. Building from source can reduce downloaded-app quarantine friction, but macOS security and permission checks still apply.
+
+### Menu Bar Spacing does not immediately update every icon
+
+Some menu bar icons may not update immediately or may behave differently depending on macOS and the app that owns the icon.
+
+## Known Limitations
+
+- macMender is an early public macOS project.
+- The current source is intended for direct or Homebrew-style distribution, not the Mac App Store.
+- Some features depend on macOS permissions and may vary by macOS version and hardware.
+- Menu Bar Spacing is not full menu bar management.
+- The active source links against the private `MultitouchSupport.framework` for the three-finger tap path.
 
 ## License
 
-macMender is released under the MIT License.
+macMender is released under the [MIT License](LICENSE).
