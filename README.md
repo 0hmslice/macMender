@@ -1,6 +1,6 @@
 # macMender
 
-A privacy-first macOS utility for better gestures, Dock previews, window switching, and menu bar spacing.
+A privacy-first macOS utility for Dock previews, a better window switching experience, three finger tap as middle click, and menu bar spacing.
 
 The app is privacy-first by design: it runs locally, stores configuration locally, and does not include analytics, tracking, remote APIs, or configuration sync.
 
@@ -26,15 +26,6 @@ Depending on which features you use, macMender can replace or reduce the need fo
 - small input tuning utilities
 - simple menu bar spacing tweaks
 
-## Menu Bar Boundary
-
-macMender does not include Menu Bar management.
-
-The only current menu-bar-adjacent feature is Menu Bar Spacing. It adjusts the system spacing defaults for menu bar items and provides a reset back to system default. It does not scan, identify, hide, move, reorder, group, reveal, or manage individual menu bar icons.
-
-Some status-item apps may need the menu bar to refresh, or the app to relaunch, before they visually pick up changed spacing.
-
-macMender also has its own status item and popover in the macOS menu bar. That popover is only the app control center.
 
 ## Privacy
 
@@ -54,6 +45,17 @@ macMender also has its own status item and popover in the macOS menu bar. That p
 
 `Package.swift` currently declares a macOS 14 minimum so the SwiftPM build can resolve locally. The product direction is modern macOS, and some behavior is expected to be verified on current macOS releases before distribution.
 
+## Screenshots
+<img width="980" height="732" alt="overview" src="https://github.com/user-attachments/assets/8904f50e-aaab-4f64-97e7-8b52cc0befb4" />
+<img width="584" height="540" alt="popover" src="https://github.com/user-attachments/assets/f059547f-8f42-47f5-b4bc-6004d9a1e5d7" />
+<img width="980" height="732" alt="advanced-config" src="https://github.com/user-attachments/assets/bb19e5ff-d4d9-402a-bbe8-08b3bf3fd518" />
+<img width="980" height="732" alt="dock-windows" src="https://github.com/user-attachments/assets/e1146d04-0793-49bc-99e3-448e56bbcf71" />
+<img width="639" height="423" alt="Screenshot1" src="https://github.com/user-attachments/assets/e239373c-0f6b-4587-87c5-c49d8edff74d" />
+<img width="639" height="423" alt="Screenshot2" src="https://github.com/user-attachments/assets/c6eb2146-81b0-4be2-8d6a-cc7084062c08" />
+<img width="980" height="732" alt="menu-bar-spacing" src="https://github.com/user-attachments/assets/64a8a777-a840-4ec2-915f-1809ae7e244c" />
+
+
+
 ## Build and Run
 
 Build the app source:
@@ -70,13 +72,6 @@ Build and launch a local `.app` bundle:
 
 The generated app bundle is staged at `dist/macMender.app`.
 
-Create a local Homebrew cask template:
-
-```bash
-./script/package_brew.sh
-```
-
-The packaging script writes a zip, checksum, and cask template to `dist/release/`. Replace the template repository URL before using it for a real release.
 
 ## Permissions
 
@@ -91,13 +86,6 @@ Configuration is stored in the user Application Support folder. Window thumbnail
 ## Distribution Notes
 
 The current app is intended for direct distribution or Homebrew-style distribution, not the Mac App Store. The active source links against the private `MultitouchSupport.framework` and uses low-level event synthesis for replacement-style input behavior.
-
-## Known Limitations
-
-- The current distribution path is direct download or Homebrew-style packaging.
-- The app is not Mac App Store compatible in its current form.
-- Some features require Accessibility, Screen Recording, or Input Monitoring permissions.
-- Menu Bar Spacing may require the menu bar to refresh or some apps to relaunch before every icon reflects the new spacing.
 
 ## License
 
