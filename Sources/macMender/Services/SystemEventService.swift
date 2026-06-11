@@ -4,6 +4,7 @@ import ApplicationServices
 import Foundation
 
 private let macMenderSyntheticEventMarker: Int64 = 0x6D61634D656E6465
+private let escapeKeyCode: Int64 = 53
 
 struct RuntimeStatus: Equatable {
     var eventTapRunning: Bool = false
@@ -211,9 +212,17 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        let shortcutHeld = shortcut.flags.allSatisfy { event.flags.contains($0) }
 
-        if type == .keyDown, keyCode == shortcut.keyCode, shortcutHeld {
+        switch SwitcherKeyboardRouter.decision(
+            type: type,
+            keyCode: keyCode,
+            flags: event.flags,
+            shortcut: shortcut,
+            switcherSessionActive: switcherSessionActive
+        ) {
+        case .passThrough:
+            return Unmanaged.passUnretained(event)
+        case .consume(.showOrCycle):
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 if self.switcherSessionActive {
@@ -225,28 +234,19 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
             }
             publishStatus(eventTapRunning: true, description: "Window switcher opened")
             return nil
-        }
-
-        if (type == .keyUp && shortcut.modifierKeyCodes.contains(CGKeyCode(keyCode))) || (type == .flagsChanged && !shortcutHeld) {
-            guard switcherSessionActive else {
-                return Unmanaged.passUnretained(event)
-            }
+        case .consume(.commit):
+            switcherSessionActive = false
             DispatchQueue.main.async { [weak self] in
-                self?.switcherSessionActive = false
                 self?.onCommitSwitcher?()
             }
             return nil
-        }
-
-        if type == .keyDown, keyCode == 53 {
+        case .consume(.cancel):
+            switcherSessionActive = false
             DispatchQueue.main.async { [weak self] in
-                self?.switcherSessionActive = false
                 self?.onCancelSwitcher?()
             }
             return nil
         }
-
-        return Unmanaged.passUnretained(event)
     }
 
     private func postSmoothedScroll(template: CGEvent, total: ScrollSample, duration: Double) {
@@ -392,7 +392,44 @@ private struct RuntimeEventState {
     var featureToggles: FeatureToggles = .default
 }
 
-private struct SwitcherShortcut {
+enum SwitcherKeyboardAction: Equatable {
+    case showOrCycle
+    case commit
+    case cancel
+}
+
+enum SwitcherKeyboardDecision: Equatable {
+    case passThrough
+    case consume(SwitcherKeyboardAction)
+}
+
+struct SwitcherKeyboardRouter {
+    static func decision(
+        type: CGEventType,
+        keyCode: Int64,
+        flags: CGEventFlags,
+        shortcut: SwitcherShortcut,
+        switcherSessionActive: Bool
+    ) -> SwitcherKeyboardDecision {
+        let shortcutHeld = shortcut.flags.allSatisfy { flags.contains($0) }
+
+        if type == .keyDown, keyCode == shortcut.keyCode, shortcutHeld {
+            return .consume(.showOrCycle)
+        }
+
+        if (type == .keyUp && shortcut.modifierKeyCodes.contains(CGKeyCode(keyCode))) || (type == .flagsChanged && !shortcutHeld) {
+            return switcherSessionActive ? .consume(.commit) : .passThrough
+        }
+
+        if type == .keyDown, keyCode == escapeKeyCode {
+            return switcherSessionActive ? .consume(.cancel) : .passThrough
+        }
+
+        return .passThrough
+    }
+}
+
+struct SwitcherShortcut {
     var keyCode: Int64
     var flags: [CGEventFlags]
     var modifierKeyCodes: Set<CGKeyCode>
@@ -411,7 +448,7 @@ private struct SwitcherShortcut {
         case "space":
             keyCode = 49
         case "escape", "esc":
-            keyCode = 53
+            keyCode = escapeKeyCode
         default:
             return nil
         }
