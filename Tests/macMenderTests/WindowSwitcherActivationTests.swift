@@ -190,18 +190,163 @@ struct WindowSwitcherActivationTests {
         #expect(!service.isShowing)
     }
 
-    private func makeWindow(id: String, title: String, pid: pid_t, windowID: CGWindowID) -> WindowSummary {
+    @Test("Finder desktop fake window is excluded from preview candidates")
+    func finderDesktopFakeWindowIsExcludedFromPreviewCandidates() {
+        let screenFrame = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let fakeFinderDesktop = makeWindow(
+            id: "finder-desktop",
+            appName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            title: "Untitled Window",
+            rawTitle: nil,
+            pid: 901,
+            windowID: nil,
+            axWindowID: nil,
+            frame: screenFrame,
+            axRole: "AXScrollArea"
+        )
+
+        #expect(!fakeFinderDesktop.isPreviewableAppWindow(screenFrames: [screenFrame]))
+    }
+
+    @Test("real Finder window is included in preview candidates")
+    func realFinderWindowIsIncludedInPreviewCandidates() {
+        let realFinderWindow = makeWindow(
+            id: "finder-home",
+            appName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            title: "ryan",
+            rawTitle: "ryan",
+            pid: 902,
+            windowID: 92,
+            axWindowID: 92,
+            axRole: kAXWindowRole as String
+        )
+
+        #expect(realFinderWindow.isPreviewableAppWindow())
+    }
+
+    @Test("Finder window with valid identity is preserved even with unusual title")
+    func finderWindowWithValidIdentityIsPreservedEvenWithUnusualTitle() {
+        let screenFrame = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let unusualFinderWindow = makeWindow(
+            id: "finder-untitled",
+            appName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            title: "Untitled Window",
+            rawTitle: nil,
+            pid: 906,
+            windowID: 96,
+            axWindowID: 96,
+            frame: screenFrame,
+            axRole: kAXWindowRole as String
+        )
+
+        #expect(unusualFinderWindow.isPreviewableAppWindow(screenFrames: [screenFrame]))
+    }
+
+    @Test("Finder preview candidates keep only real windows")
+    func finderPreviewCandidatesKeepOnlyRealWindows() {
+        let screenFrame = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let realFinderWindow = makeWindow(
+            id: "finder-home",
+            appName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            title: "ryan",
+            rawTitle: "ryan",
+            pid: 903,
+            windowID: 93,
+            axWindowID: 93,
+            axRole: kAXWindowRole as String
+        )
+        let fakeFinderDesktop = makeWindow(
+            id: "finder-desktop",
+            appName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            title: "Untitled Window",
+            rawTitle: nil,
+            pid: 903,
+            windowID: nil,
+            axWindowID: nil,
+            frame: screenFrame,
+            axRole: "AXScrollArea"
+        )
+
+        let filtered = [realFinderWindow, fakeFinderDesktop].filter {
+            $0.isPreviewableAppWindow(screenFrames: [screenFrame])
+        }
+
+        #expect(filtered.map(\.id) == ["finder-home"])
+    }
+
+    @Test("Finder with no real windows has no preview candidates")
+    func finderWithNoRealWindowsHasNoPreviewCandidates() {
+        let screenFrame = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let fakeFinderDesktop = makeWindow(
+            id: "finder-desktop",
+            appName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            title: "Untitled Window",
+            rawTitle: nil,
+            pid: 904,
+            windowID: nil,
+            axWindowID: nil,
+            frame: screenFrame,
+            axRole: "AXScrollArea"
+        )
+
+        let filtered = [fakeFinderDesktop].filter {
+            $0.isPreviewableAppWindow(screenFrames: [screenFrame])
+        }
+
+        #expect(filtered.isEmpty)
+    }
+
+    @Test("legitimate untitled non-Finder window with CG identity is preserved")
+    func legitimateUntitledNonFinderWindowWithCGIdentityIsPreserved() {
+        let untitledDocument = makeWindow(
+            id: "editor-untitled",
+            appName: "Editor",
+            bundleIdentifier: "com.example.editor",
+            title: "Untitled Window",
+            rawTitle: nil,
+            pid: 905,
+            windowID: 95,
+            axWindowID: nil,
+            axRole: nil
+        )
+
+        #expect(untitledDocument.isPreviewableAppWindow())
+    }
+
+    private func makeWindow(
+        id: String,
+        appName: String? = nil,
+        bundleIdentifier: String? = nil,
+        title: String,
+        rawTitle: String? = nil,
+        pid: pid_t,
+        windowID: CGWindowID?,
+        axWindowID: CGWindowID? = nil,
+        frame: CGRect = CGRect(x: 0, y: 0, width: 800, height: 600),
+        axRole: String? = nil,
+        axSubrole: String? = nil
+    ) -> WindowSummary {
         WindowSummary(
             id: id,
             windowID: windowID,
-            appName: title,
-            bundleIdentifier: "com.example.\(id)",
+            axWindowID: axWindowID,
+            appName: appName ?? title,
+            bundleIdentifier: bundleIdentifier ?? "com.example.\(id)",
             title: title,
+            rawTitle: rawTitle ?? title,
             processIdentifier: pid,
-            frame: CGRect(x: 0, y: 0, width: 800, height: 600),
+            frame: frame,
             isMinimized: false,
-            stackIndex: Int(windowID),
-            axElement: nil
+            stackIndex: windowID.map(Int.init) ?? Int.max,
+            axElement: nil,
+            axRole: axRole,
+            axSubrole: axSubrole
         )
     }
 }
