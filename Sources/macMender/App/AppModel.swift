@@ -476,6 +476,9 @@ final class AppModel: ObservableObject {
         dockHover.onExitDock = { [weak self] in
             self?.windowSwitcher.scheduleDockPreviewDismiss()
         }
+        dockHover.onContextMenuInteraction = { [weak self] in
+            self?.windowSwitcher.suppressDockPreviewPresentation()
+        }
     }
 
     private func statusRefreshSummary() -> String {
