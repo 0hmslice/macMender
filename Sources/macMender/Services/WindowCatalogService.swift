@@ -79,14 +79,18 @@ struct WindowDiscoveryEntry: Identifiable, Equatable {
 struct WindowSummary: Identifiable, Equatable {
     var id: String
     var windowID: CGWindowID?
+    var axWindowID: CGWindowID?
     var appName: String
     var bundleIdentifier: String?
     var title: String
+    var rawTitle: String?
     var processIdentifier: pid_t
     var frame: CGRect
     var isMinimized: Bool
     var stackIndex: Int
     var axElement: AXUIElement?
+    var axRole: String?
+    var axSubrole: String?
 
     static func == (lhs: WindowSummary, rhs: WindowSummary) -> Bool {
         lhs.id == rhs.id &&
@@ -431,6 +435,8 @@ final class WindowCatalogService: WindowCatalogProviding {
             let frame = frame(for: window)
             let minimized = boolAttribute(kAXMinimizedAttribute, from: window)
             let axWindowID = cgWindowID(for: window)
+            let role = stringAttribute(kAXRoleAttribute, from: window)
+            let subrole = stringAttribute(kAXSubroleAttribute, from: window)
             let matchedCGWindow = bestCGWindow(
                 for: app.processIdentifier,
                 axWindowID: axWindowID,
@@ -470,14 +476,18 @@ final class WindowCatalogService: WindowCatalogProviding {
             let summary = WindowSummary(
                 id: "\(app.processIdentifier)-\(matchedCGWindow?.windowID ?? axWindowID ?? CGWindowID(index))-\(displayTitle)",
                 windowID: matchedCGWindow?.windowID,
+                axWindowID: axWindowID,
                 appName: appName,
                 bundleIdentifier: app.bundleIdentifier,
                 title: displayTitle,
+                rawTitle: rawTitle,
                 processIdentifier: app.processIdentifier,
                 frame: frame == .zero ? matchedCGWindow?.frame ?? .zero : frame,
                 isMinimized: minimized,
                 stackIndex: matchedCGWindow?.stackIndex ?? Int.max,
-                axElement: window
+                axElement: window,
+                axRole: role,
+                axSubrole: subrole
             )
             summaries.append(summary)
             entries.append(WindowDiscoveryEntry(
@@ -510,6 +520,25 @@ final class WindowCatalogService: WindowCatalogProviding {
             )
         })
 
+        let previewableSummaries = filterPreviewableWindows(summaries)
+        let keptSummaryIDs = Set(previewableSummaries.map(\.id))
+        if keptSummaryIDs.count != summaries.count {
+            entries = entries.map { entry in
+                guard entry.included, !keptSummaryIDs.contains(entry.id) else {
+                    return entry
+                }
+                return WindowDiscoveryEntry(
+                    id: entry.id,
+                    title: entry.title,
+                    cgWindowID: entry.cgWindowID,
+                    cgMatchFound: entry.cgMatchFound,
+                    included: false,
+                    reason: "droppedFinderDesktopOrUnidentifiedWindow"
+                )
+            }
+            summaries = previewableSummaries
+        }
+
         let droppedCount = entries.filter { !$0.included }.count
         let report = WindowAppDiscoveryReport(
             appName: appName,
@@ -535,6 +564,10 @@ final class WindowCatalogService: WindowCatalogProviding {
             return true
         }
         return false
+    }
+
+    private func filterPreviewableWindows(_ windows: [WindowSummary]) -> [WindowSummary] {
+        windows.filter { $0.isPreviewableAppWindow() }
     }
 
     private func filterSelfPreviewWindows(_ windows: [WindowSummary]) -> [WindowSummary] {
@@ -588,14 +621,18 @@ final class WindowCatalogService: WindowCatalogProviding {
             WindowSummary(
                 id: "\(app.processIdentifier)-\(cgWindow.windowID)-\(cgWindow.title)",
                 windowID: cgWindow.windowID,
+                axWindowID: nil,
                 appName: appName,
                 bundleIdentifier: app.bundleIdentifier,
                 title: cgWindow.title.isEmpty ? "Untitled Window" : cgWindow.title,
+                rawTitle: cgWindow.title,
                 processIdentifier: app.processIdentifier,
                 frame: cgWindow.frame,
                 isMinimized: false,
                 stackIndex: cgWindow.stackIndex,
-                axElement: nil
+                axElement: nil,
+                axRole: nil,
+                axSubrole: nil
             )
         }
     }
@@ -802,4 +839,52 @@ private struct CGWindowDescription {
     var title: String
     var frame: CGRect
     var stackIndex: Int
+}
+
+extension WindowSummary {
+    func isPreviewableAppWindow(screenFrames: [CGRect] = NSScreen.screens.map(\.frame)) -> Bool {
+        guard isFinderWindow else { return true }
+
+        let hasWindowIdentity = windowID != nil || axWindowID != nil
+        if isDesktopLikeFinderFrame(screenFrames: screenFrames), !hasWindowIdentity, !hasUsefulRawTitle {
+            return false
+        }
+
+        guard hasWindowIdentity else {
+            return false
+        }
+
+        if let axRole, axRole != kAXWindowRole as String {
+            return false
+        }
+
+        return true
+    }
+
+    private var isFinderWindow: Bool {
+        bundleIdentifier == "com.apple.finder" || appName == "Finder"
+    }
+
+    private var hasUsefulRawTitle: Bool {
+        guard let rawTitle else { return false }
+        return !rawTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func isDesktopLikeFinderFrame(screenFrames: [CGRect]) -> Bool {
+        screenFrames.contains { screenFrame in
+            frameOverlapRatio(frame, screenFrame) >= 0.96 &&
+                frame.width >= screenFrame.width * 0.96 &&
+                frame.height >= screenFrame.height * 0.90
+        }
+    }
+
+    private func frameOverlapRatio(_ lhs: CGRect, _ rhs: CGRect) -> Double {
+        guard lhs != .zero, rhs != .zero else { return 0 }
+        let intersection = lhs.intersection(rhs)
+        guard !intersection.isNull, intersection.width > 0, intersection.height > 0 else { return 0 }
+        let intersectionArea = intersection.width * intersection.height
+        let smallerArea = min(lhs.width * lhs.height, rhs.width * rhs.height)
+        guard smallerArea > 0 else { return 0 }
+        return intersectionArea / smallerArea
+    }
 }
