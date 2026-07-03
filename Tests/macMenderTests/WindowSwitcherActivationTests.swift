@@ -105,6 +105,91 @@ struct WindowSwitcherActivationTests {
         #expect(service.windows.map(\.id) == ["macmender-overview"])
     }
 
+    @Test("Dock preview context menu classifier detects secondary interactions")
+    func dockPreviewContextMenuClassifierDetectsSecondaryInteractions() {
+        #expect(DockPreviewContextMenuInteraction.isTrigger(eventType: .rightMouseDown, modifierFlags: []))
+        #expect(DockPreviewContextMenuInteraction.isTrigger(eventType: .otherMouseDown, modifierFlags: []))
+        #expect(DockPreviewContextMenuInteraction.isTrigger(eventType: .leftMouseDown, modifierFlags: [.control]))
+        #expect(!DockPreviewContextMenuInteraction.isTrigger(eventType: .leftMouseDown, modifierFlags: []))
+        #expect(!DockPreviewContextMenuInteraction.isTrigger(eventType: .mouseMoved, modifierFlags: [.control]))
+    }
+
+    @Test("Dock context menu suppression dismisses active preview")
+    func dockContextMenuSuppressionDismissesActivePreview() {
+        let windows = [
+            makeWindow(id: "terminal", title: "Terminal", pid: 501, windowID: 51)
+        ]
+        let catalog = RecordingWindowCatalog(windows: windows)
+        let service = WindowSwitcherService(catalog: catalog, presentsPanel: false)
+
+        service.showDockPreview(
+            identity: DockAppIdentity(title: "Terminal", bundleIdentifier: "com.example.terminal", processIdentifier: 501),
+            settings: .default,
+            anchorFrame: .zero
+        )
+
+        #expect(service.isShowing)
+
+        service.suppressDockPreviewPresentation(until: Date().addingTimeInterval(10))
+
+        #expect(!service.isShowing)
+        #expect(service.presentationStatus == "Dock preview suppressed during Dock context menu")
+    }
+
+    @Test("Dock preview does not re-present during context menu suppression")
+    func dockPreviewDoesNotRepresentDuringContextMenuSuppression() {
+        let windows = [
+            makeWindow(id: "terminal", title: "Terminal", pid: 601, windowID: 61)
+        ]
+        let catalog = RecordingWindowCatalog(windows: windows)
+        let service = WindowSwitcherService(catalog: catalog, presentsPanel: false)
+        let identity = DockAppIdentity(title: "Terminal", bundleIdentifier: "com.example.terminal", processIdentifier: 601)
+
+        service.suppressDockPreviewPresentation(until: Date().addingTimeInterval(10))
+        service.showDockPreview(identity: identity, settings: .default, anchorFrame: .zero)
+
+        #expect(!service.isShowing)
+        #expect(service.presentationStatus == "Dock preview suppressed during Dock context menu")
+    }
+
+    @Test("Dock preview can present after context menu suppression expires")
+    func dockPreviewCanPresentAfterContextMenuSuppressionExpires() {
+        let windows = [
+            makeWindow(id: "terminal", title: "Terminal", pid: 701, windowID: 71)
+        ]
+        let catalog = RecordingWindowCatalog(windows: windows)
+        let service = WindowSwitcherService(catalog: catalog, presentsPanel: false)
+
+        service.suppressDockPreviewPresentation(until: Date().addingTimeInterval(-1))
+        service.showDockPreview(
+            identity: DockAppIdentity(title: "Terminal", bundleIdentifier: "com.example.terminal", processIdentifier: 701),
+            settings: .default,
+            anchorFrame: .zero
+        )
+
+        #expect(service.isShowing)
+        #expect(service.isDockPreview)
+        #expect(service.windows.map(\.id) == ["terminal"])
+    }
+
+    @Test("normal Dock preview dismiss still hides preview")
+    func normalDockPreviewDismissStillHidesPreview() {
+        let windows = [
+            makeWindow(id: "terminal", title: "Terminal", pid: 801, windowID: 81)
+        ]
+        let catalog = RecordingWindowCatalog(windows: windows)
+        let service = WindowSwitcherService(catalog: catalog, presentsPanel: false)
+
+        service.showDockPreview(
+            identity: DockAppIdentity(title: "Terminal", bundleIdentifier: "com.example.terminal", processIdentifier: 801),
+            settings: .default,
+            anchorFrame: .zero
+        )
+        service.cancel()
+
+        #expect(!service.isShowing)
+    }
+
     private func makeWindow(id: String, title: String, pid: pid_t, windowID: CGWindowID) -> WindowSummary {
         WindowSummary(
             id: id,

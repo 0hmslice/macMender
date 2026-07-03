@@ -12,6 +12,7 @@ final class DockHoverService: ObservableObject {
     var hoverDelay: TimeInterval = 0.35
     var onHoverApp: ((DockAppIdentity, CGRect) -> Void)?
     var onExitDock: (() -> Void)?
+    var onContextMenuInteraction: (() -> Void)?
 
     private var globalMouseMonitor: Any?
     private var localMouseMonitor: Any?
@@ -20,6 +21,7 @@ final class DockHoverService: ObservableObject {
     private var hoverStart: Date?
     private var pendingApp: DockAppIdentity?
     private var displayedApp: DockAppIdentity?
+    private var suppressHoverUntil: Date?
     private var lastInsideDockAt: Date?
     private var cachedDockItems: [DockItem] = []
     private var lastDockItemRefresh: Date?
@@ -34,15 +36,23 @@ final class DockHoverService: ObservableObject {
     func start() {
         guard globalMouseMonitor == nil, localMouseMonitor == nil else { return }
 
-        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
-        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
+        let mask: NSEvent.EventTypeMask = [
+            .mouseMoved,
+            .leftMouseDragged,
+            .rightMouseDragged,
+            .otherMouseDragged,
+            .leftMouseDown,
+            .rightMouseDown,
+            .otherMouseDown
+        ]
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.poll()
+                self?.handleMonitoredEvent(event)
             }
         }
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.poll()
+                self?.handleMonitoredEvent(event)
             }
             return event
         }
@@ -74,6 +84,7 @@ final class DockHoverService: ObservableObject {
         displayedApp = nil
         hoverTask?.cancel()
         hoverTask = nil
+        suppressHoverUntil = nil
         cachedDockItems = []
         lastDockItemRefresh = nil
         onExitDock?()
@@ -81,6 +92,7 @@ final class DockHoverService: ObservableObject {
 
     private func poll(allowNewHover: Bool = true) {
         guard let item = dockItemUnderMouse() else {
+            suppressHoverUntil = nil
             clearPendingHover()
             if let lastInsideDockAt, Date().timeIntervalSince(lastInsideDockAt) < exitGrace {
                 return
@@ -94,6 +106,11 @@ final class DockHoverService: ObservableObject {
 
         lastInsideDockAt = Date()
         setLastHoveredApp(item.identity.displayName)
+        guard !isHoverSuppressed() else {
+            clearPendingHover()
+            displayedApp = nil
+            return
+        }
         guard allowNewHover || pendingApp != nil || displayedApp != nil else {
             return
         }
@@ -127,6 +144,7 @@ final class DockHoverService: ObservableObject {
             guard let self else { return }
             try? await Task.sleep(for: .milliseconds(Int(self.hoverDelay * 1000)))
             guard !Task.isCancelled,
+                  !self.isHoverSuppressed(),
                   self.pendingApp == item.identity,
                   self.displayedApp != item.identity,
                   let current = self.dockItemUnderMouse(),
@@ -137,6 +155,41 @@ final class DockHoverService: ObservableObject {
             self.displayedApp = item.identity
             self.onHoverApp?(item.identity, current.anchorFrame)
         }
+    }
+
+    private func handleMonitoredEvent(_ event: NSEvent) {
+        if handleContextMenuTriggerIfNeeded(event) {
+            return
+        }
+
+        switch event.type {
+        case .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+            poll()
+        default:
+            break
+        }
+    }
+
+    private func handleContextMenuTriggerIfNeeded(_ event: NSEvent) -> Bool {
+        guard DockPreviewContextMenuInteraction.isTrigger(eventType: event.type, modifierFlags: event.modifierFlags),
+              dockItemUnderMouse() != nil else {
+            return false
+        }
+
+        suppressHoverUntil = Date().addingTimeInterval(DockPreviewContextMenuInteraction.suppressionDuration)
+        clearPendingHover()
+        displayedApp = nil
+        onContextMenuInteraction?()
+        return true
+    }
+
+    private func isHoverSuppressed(now: Date = Date()) -> Bool {
+        guard let suppressHoverUntil else { return false }
+        guard suppressHoverUntil > now else {
+            self.suppressHoverUntil = nil
+            return false
+        }
+        return true
     }
 
     private func dockItemUnderMouse() -> DockItem? {

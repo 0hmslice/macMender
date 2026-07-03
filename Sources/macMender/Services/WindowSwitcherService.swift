@@ -31,6 +31,7 @@ final class WindowSwitcherService: ObservableObject {
     private var dockPreviewIdleTimeout: TimeInterval = DockPreviewSettings.default.previewIdleTimeout
     private var dockPreviewAnimationStyle = DockPreviewSettings.default.animationStyle
     private var dockPreviewAnimationDurationValue = DockPreviewSettings.default.animationDuration
+    private var dockPreviewSuppressedUntil: Date?
     private var panelAnimationGeneration = 0
     private var thumbnailCache: [WindowSummary.ID: ThumbnailCacheEntry] = [:]
     private var thumbnailCacheOrder: [WindowSummary.ID] = []
@@ -83,6 +84,12 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     func showDockPreview(identity: DockAppIdentity, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
+        guard !isDockPreviewPresentationSuppressed() else {
+            presentationStatus = "Dock preview suppressed during Dock context menu"
+            logger.debug("Dock preview suppressed for Dock context menu title=\(identity.displayName, privacy: .private)")
+            return
+        }
+
         guard identity.hasResolvedApplicationIdentity else {
             presentationStatus = "Dock preview skipped for unresolved Dock item \(identity.displayName)"
             logger.debug("Dock preview suppressed unresolved title=\(identity.displayName, privacy: .private)")
@@ -248,6 +255,14 @@ final class WindowSwitcherService: ObservableObject {
     func updateDockPreviewAnimation(style: DockPreviewAnimationStyle, duration: Double) {
         dockPreviewAnimationStyle = style.legacyMappedStyle
         dockPreviewAnimationDurationValue = DockPreviewSettings.clampedAnimationDuration(duration)
+    }
+
+    func suppressDockPreviewPresentation(until date: Date = Date().addingTimeInterval(DockPreviewContextMenuInteraction.suppressionDuration)) {
+        dockPreviewSuppressedUntil = date
+        if isDockPreview, isShowing {
+            cancel()
+        }
+        presentationStatus = "Dock preview suppressed during Dock context menu"
     }
 
     func scheduleDockPreviewDismiss() {
@@ -677,26 +692,42 @@ final class WindowSwitcherService: ObservableObject {
     private func startDockPreviewMouseTracking() {
         dockPreviewDismissTask?.cancel()
         if dockPreviewMouseMonitor == nil {
-            dockPreviewMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            dockPreviewMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
                 Task { @MainActor [weak self] in
                     guard let self, self.isDockPreview, self.isShowing else { return }
-                    if !self.isMouseInDockPreviewSafeArea() {
-                        self.scheduleDockPreviewDismiss()
-                    }
+                    self.handleDockPreviewMouseEvent(event)
                 }
             }
         }
         if dockPreviewLocalMouseMonitor == nil {
-            dockPreviewLocalMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
+            dockPreviewLocalMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
                 Task { @MainActor [weak self] in
                     guard let self, self.isDockPreview, self.isShowing else { return }
-                    if !self.isMouseInDockPreviewSafeArea() {
-                        self.scheduleDockPreviewDismiss()
-                    }
+                    self.handleDockPreviewMouseEvent(event)
                 }
                 return event
             }
         }
+    }
+
+    private func handleDockPreviewMouseEvent(_ event: NSEvent) {
+        if DockPreviewContextMenuInteraction.isTrigger(eventType: event.type, modifierFlags: event.modifierFlags) {
+            suppressDockPreviewPresentation()
+            return
+        }
+
+        if !isMouseInDockPreviewSafeArea() {
+            scheduleDockPreviewDismiss()
+        }
+    }
+
+    private func isDockPreviewPresentationSuppressed(now: Date = Date()) -> Bool {
+        guard let dockPreviewSuppressedUntil else { return false }
+        guard dockPreviewSuppressedUntil > now else {
+            self.dockPreviewSuppressedUntil = nil
+            return false
+        }
+        return true
     }
 
     private func isMouseInsidePanel(padding: CGFloat) -> Bool {
@@ -730,4 +761,19 @@ private struct PanelLayerState {
     var transform: CATransform3D
 
     static let identity = PanelLayerState(opacity: 1, transform: CATransform3DIdentity)
+}
+
+enum DockPreviewContextMenuInteraction {
+    static let suppressionDuration: TimeInterval = 1.2
+
+    static func isTrigger(eventType: NSEvent.EventType, modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        switch eventType {
+        case .rightMouseDown, .otherMouseDown:
+            return true
+        case .leftMouseDown:
+            return modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.control)
+        default:
+            return false
+        }
+    }
 }
