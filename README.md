@@ -86,6 +86,15 @@ To build and verify that the app launches, run:
 ./script/build_and_run.sh --verify
 ```
 
+To create a local release package, provide the version explicitly:
+
+```bash
+./script/package_release.sh 0.1.4
+```
+
+This builds `dist/macMender.app` with SwiftPM's Release configuration and writes
+`dist/macMender-v0.1.4.zip`.
+
 The build script is executable in this repository. If your checkout loses executable permissions and Terminal says `permission denied`, run:
 
 ```bash
