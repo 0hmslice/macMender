@@ -3,110 +3,95 @@ import SwiftUI
 struct ProfilesView: View {
     @ObservedObject var appModel: AppModel
     @State private var newProfileName = ""
+    @State private var selectedProfileID: UUID?
     @State private var profilePendingDeletion: MacMenderProfile?
 
     var body: some View {
-        PreferencesScrollView {
-            MendySectionHeader(
-                section: .profiles,
-                title: "Profiles",
-                subtitle: "Saved setups are optional and copy your current settings when created."
-            )
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: MacMenderSpacing.section) {
+                MacMenderPageHeader(
+                    title: "Profiles",
+                    subtitle: "Keep separate input, window, preview, and staged Dock setups.",
+                    systemImage: "square.stack.3d.up"
+                )
 
-            SectionCard(
-                title: "Current Profile",
-                subtitle: "Profile-specific input, Dock preview, and window switcher settings follow the selected profile.",
-                symbolName: "wrench.and.screwdriver"
-            ) {
-                HStack(spacing: 12) {
-                    Image(systemName: appModel.activeProfile.symbolName)
+                MacMenderCallout(systemImage: "info.circle") {
+                    Text("Input, Window Switcher, Dock Preview, and staged Dock values follow the active profile. General, privacy, Safe Mode, and Menu Bar Spacing settings remain app-wide.")
                         .foregroundStyle(.secondary)
-                        .frame(width: 24)
+                }
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(appModel.activeProfile.name)
-                            .font(.headline)
-                        Text(appModel.activeProfile.summary)
+                HStack(spacing: MacMenderSpacing.standard) {
+                    TextField("New profile name", text: $newProfileName)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(createProfile)
+                        .accessibilityLabel("New profile name")
+
+                    Button(action: createProfile) {
+                        Label("Create Profile", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(trimmedNewProfileName.isEmpty)
+                }
+
+                Text("A new profile copies the active profile's setup and becomes active immediately.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: 920, alignment: .leading)
+            .padding(.horizontal, MacMenderSpacing.page)
+            .padding(.vertical, MacMenderSpacing.section)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            Table(appModel.store.config.profiles, selection: $selectedProfileID) {
+                TableColumn("Profile") { profile in
+                    Label(profile.name, systemImage: profile.symbolName)
+                        .lineLimit(1)
+                }
+                .width(min: 150, ideal: 190)
+
+                TableColumn("Description") { profile in
+                    Text(profile.summary)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .help(profile.summary)
+                }
+
+                TableColumn("State") { profile in
+                    if profile.id == appModel.store.config.activeProfileID {
+                        MacMenderStatusLabel(title: "Active", tone: .active)
+                    } else if profile.id == MacMenderProfile.default.id {
+                        Text("Default")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Saved")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-
-                    Spacer()
-
-                    CapabilityBadge(title: "Active", systemImage: "checkmark.circle.fill", tone: .active)
                 }
+                .width(min: 90, ideal: 110, max: 130)
+            }
+            .frame(maxWidth: 920, maxHeight: .infinity)
+            .scrollContentBackground(.hidden)
+            .onAppear {
+                selectedProfileID = appModel.store.config.activeProfileID
+            }
+            .onChange(of: appModel.store.config.activeProfileID) { _, profileID in
+                selectedProfileID = profileID
             }
 
-            SectionCard(
-                title: "Create Another Profile",
-                subtitle: "Optional. New profiles copy the current settings so you can adjust them separately.",
-                symbolName: "plus.rectangle.on.rectangle"
-            ) {
-                HStack(spacing: 14) {
-                    if !appModel.shouldShowProfileSwitcher {
-                        MendyAvatarView(mood: .sleeping, size: MendyAvatarSize.compact)
-                    }
+            Divider()
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        if !appModel.shouldShowProfileSwitcher {
-                            Text("You only have the default setup. Mendy can create another one when you need a separate context.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack {
-                            TextField("Profile name", text: $newProfileName)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(maxWidth: 320)
-
-                            Button("Create Profile") {
-                                appModel.createProfile(named: newProfileName)
-                                newProfileName = ""
-                            }
-                            .disabled(newProfileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        }
-                    }
-                }
-            }
-
-            if appModel.shouldShowProfileSwitcher {
-                SectionCard(
-                    title: "Custom Profiles",
-                    subtitle: "Switch between only the profiles you created.",
-                    symbolName: "square.stack.3d.up"
-                ) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(appModel.store.config.profiles) { profile in
-                            HStack(spacing: 12) {
-                                Image(systemName: profile.symbolName)
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 24)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(profile.name)
-                                    Text(profile.summary)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if profile.id == appModel.store.config.activeProfileID {
-                                    CapabilityBadge(title: "Active", systemImage: "checkmark.circle.fill", tone: .active)
-                                } else {
-                                    Button("Switch") {
-                                        appModel.setActiveProfile(profile.id)
-                                    }
-                                }
-                                if profile.id != MacMenderProfile.default.id {
-                                    Button("Delete", role: .destructive) {
-                                        profilePendingDeletion = profile
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 5)
-                        }
-                    }
-                }
-            }
-
+            profileActions
+                .frame(maxWidth: 920, alignment: .leading)
+                .padding(.horizontal, MacMenderSpacing.page)
+                .padding(.vertical, MacMenderSpacing.standard)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .confirmationDialog(
             "Delete Profile?",
@@ -118,6 +103,7 @@ struct ProfilesView: View {
         ) { profile in
             Button("Delete \(profile.name)", role: .destructive) {
                 appModel.deleteProfile(profile.id)
+                selectedProfileID = appModel.store.config.activeProfileID
                 profilePendingDeletion = nil
             }
             Button("Cancel", role: .cancel) {
@@ -126,5 +112,62 @@ struct ProfilesView: View {
         } message: { profile in
             Text("This removes \"\(profile.name)\" and returns macMender to the remaining active setup.")
         }
+    }
+
+    private var profileActions: some View {
+        HStack(spacing: MacMenderSpacing.standard) {
+            VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
+                Text(selectedProfile?.name ?? "Select a profile")
+                    .font(.callout.weight(.medium))
+                Text(selectionDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: MacMenderSpacing.standard)
+
+            Button("Make Active") {
+                guard let selectedProfileID else { return }
+                appModel.setActiveProfile(selectedProfileID)
+            }
+            .disabled(selectedProfileID == nil || selectedProfileID == appModel.store.config.activeProfileID)
+
+            Button("Delete Profile", role: .destructive) {
+                profilePendingDeletion = selectedProfile
+            }
+            .foregroundStyle(.red)
+            .disabled(!canDeleteSelectedProfile)
+        }
+    }
+
+    private var selectedProfile: MacMenderProfile? {
+        guard let selectedProfileID else { return nil }
+        return appModel.store.config.profiles.first { $0.id == selectedProfileID }
+    }
+
+    private var canDeleteSelectedProfile: Bool {
+        guard let selectedProfile else { return false }
+        return selectedProfile.id != MacMenderProfile.default.id && appModel.store.config.profiles.count > 1
+    }
+
+    private var selectionDetail: String {
+        guard let selectedProfile else {
+            return "Choose a row to review or activate it."
+        }
+        if selectedProfile.id == appModel.store.config.activeProfileID {
+            return "This profile currently drives profile-specific features."
+        }
+        return "Selecting a row does not activate it until you choose Make Active."
+    }
+
+    private var trimmedNewProfileName: String {
+        newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func createProfile() {
+        guard !trimmedNewProfileName.isEmpty else { return }
+        appModel.createProfile(named: newProfileName)
+        selectedProfileID = appModel.store.config.activeProfileID
+        newProfileName = ""
     }
 }
