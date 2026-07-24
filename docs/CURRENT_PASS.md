@@ -4,110 +4,105 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/config-import-export-polish`
+`codex/macos27-compatibility`
 
 ## Focus
 
-This pass cleans up Advanced configuration actions so Save, Export, and Import form a complete and honest workflow.
+This is Phase A of the current work: macOS 27 compatibility and full regression QA. Phase B, the visual rebrand, has not started and must remain separate from the compatibility commits.
 
-The app now exposes safe Import Config behavior instead of only offering Save Configuration and Export Configuration. Import validates a selected JSON config, asks for confirmation before replacing current settings, creates a backup of the current config, refreshes UI/runtime state after import, and does not import macOS permission grants.
+Menu Bar management remains removed/deferred. Menu Bar Spacing remains a narrow app-wide utility that can only read, write, or delete the two global spacing preferences; it does not inspect or manage individual menu bar items.
 
-Menu Bar management remains removed/deferred. The limited Menu Bar Spacing page remains app-wide and only reads, writes, or resets the global menu bar item spacing defaults.
+## Test Environment
 
-## Configuration Behavior
+- macOS: 27.0
+- Build: `26A5388g`
+- Kernel: Darwin 27.0.0, `xnu-13432.0.94.501.4~1/RELEASE_ARM64_T8112`
+- Architecture: arm64
+- Xcode: 27.0 (`27A5228h`)
+- Swift: Apple Swift 6.4 (`swiftlang-6.4.0.27.1 clang-2100.3.27.1`)
+- Swift target: `arm64-apple-macosx27.0.0`
 
-- Save Now writes the current in-memory `AppConfig` to `~/Library/Application Support/macMender/config.json`.
-- Export Config writes the same JSON config to a user-selected file.
-- Import Config accepts a macMender JSON config, rejects invalid JSON, rejects configs from a newer unsupported schema, repairs missing/invalid selected profile state, and confirms before replacing current profiles and app settings.
-- Import creates a backup named `config-backup-<timestamp>-<id>.json` in the macMender Application Support folder before replacement.
-- Imported macOS permission-shaped JSON is ignored. Permission status remains live system state from Accessibility, Screen Recording, and Input Monitoring checks.
-- Imported Menu Bar Spacing is stored in app settings but does not write system defaults or refresh Control Center until the user explicitly presses Apply on the Menu Bar Spacing page.
-- After import, runtime services reapply the imported selected profile through the existing `AppModel.updateRuntime()` path without triggering Dock/window discovery or thumbnail capture.
+The selected developer directory is Command Line Tools. Xcode-based commands in this pass use `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` without changing the user's global `xcode-select` setting.
 
-## Profile State Source of Truth
+## Untouched Baseline
 
-- `AppConfig.activeProfileID` is the selected profile identifier.
-- `AppConfig.profiles` owns the saved profile list.
-- `AppConfig.activeProfile` is the single model-level lookup for the selected profile.
-- `ProfileStore.activeProfile` and `AppModel.activeProfile` delegate to `AppConfig.activeProfile`.
-- Profile switching calls `AppModel.setActiveProfile(_:)`, which updates the selected profile and reapplies runtime services without changing Dock preview identity, thumbnail capture/cache, or Option+Tab discovery/activation logic.
-- Profile edits call `AppModel.updateActiveProfile(_:)`, which writes to the selected saved profile and reapplies only the changed runtime areas.
+Before the compatibility implementation:
 
-## Settings Ownership
+- `swift build`: passed with Xcode 27 selected command-locally.
+- `swift test`: 72 tests in 8 suites passed.
+- `script/build_and_run.sh --verify`: passed.
+- Packaged app: launched and exposed its Overview window in approximately 1.43 seconds, including automation overhead.
+- Status item: present and opened the macMender popover.
+- Idle with preferences open: 0.0% sampled CPU and approximately 55–56 MB resident memory.
+- Idle with preferences closed: 0.0% sampled CPU and approximately 62 MB resident memory.
+- Current-host `NSStatusItemSpacing`: present integer `0`.
+- Current-host `NSStatusItemSelectionPadding`: present integer `0`.
+- Any-host/global versions of both spacing keys: absent.
 
-Profile-specific:
+The original spacing state was explicit `0/0`, not System Default, and the controlled diagnostic matrix restored that exact state.
 
-- Input and scrolling behavior.
-- Three-Finger Tap / Middle Click behavior.
-- Dock preview behavior, animation, hover, linger, and visual settings.
-- Window Switcher behavior and visual settings.
-- Dock profile values that require explicit Apply to the system Dock.
+## macOS 27 Menu Bar Spacing Result
 
-App-wide:
+Verified on build `26A5388g`:
 
-- Launch at Login.
-- Dock icon visibility.
-- Onboarding completion.
-- Safe Mode.
-- Permission status.
-- macMender status item behavior.
-- Menu Bar Spacing.
+- Changing the paired values in `AnyApplication / CurrentUser / CurrentHost` changes freshly created AppKit probe-item widths from System Default through `32`.
+- No replacement domain or host scope for Apple/system items was found. The paired-key probe does not prove that none exists.
+- Existing third-party items may need their owning app to recreate the status item before a new value appears; macMender does not do that automatically.
+- Apple items such as Wi-Fi, sound, battery, Control Center, and clock do not change at values `0`, `4`, `8`, `16`, `24`, or `32`.
+- The diagnostic found those Apple items in the macOS 27 `MenuBarAgent` accessibility tree.
+- At explicit value `32`, restarting Control Center or MenuBarAgent did not update those Apple item frames.
+- The diagnostic found no top-edge system-item tree under SystemUIServer. SystemUIServer was not restarted, so this pass makes no measured claim about its effectiveness.
 
-## Implemented
+The compatibility evidence, research sources, upstream licenses, and controlled measurements are recorded in `docs/MACOS_27_COMPATIBILITY.md`.
 
-1. Dock preview animations now animate the content layer only and keep the panel frame stable.
-2. Slide Up uses the Dock anchor direction for appear and matching dismiss motion.
-3. Dismissal uses each animation style's reverse state instead of a shared stale transform.
-4. Visible Dock preview animation styles are reduced to polished options: System, Fade, Scale, Slide Up, and None.
-5. Legacy saved Glass Pop values map to System; legacy saved Genie values map to Scale.
-6. Onboarding is a multi-step flow: Welcome, Input and Three-Finger Tap, Dock and Windows, Permissions, Local Privacy, and Finish.
-7. Onboarding uses real Accessibility, Screen Recording, and Input Monitoring permission status.
-8. Input Monitoring uses CoreGraphics listen-event access status and stays separate from gesture runtime state.
-9. The drag-to-add Privacy & Security guide is retained with a one-shot, Reduce Motion-safe nudge.
-10. Onboarding uses section-specific Mendy assets for Overview, Input, Dock & Windows, and Privacy steps.
-11. Onboarding header height is reduced so the step content has more room.
-12. The permission drag-to-add guide now uses an adaptive layout with stable fixed visual pieces and a compact fallback.
-13. The macMender status-item popover shows a glanceable running state, one Permissions summary row, Three-Finger Tap, Dock previews, Window Switcher, Open macMender, and a low-priority Quit control.
-14. The popover shows a Permissions action only when setup or permission review is useful.
-15. The top-right profile switcher uses a single profile-oriented symbol and keeps the active profile name compact.
-16. Menu Bar Spacing is its own sidebar section, not part of General.
-17. Menu Bar Spacing includes System Default, Compact, Comfortable, Wide, and Custom selections plus a precision slider.
-18. Menu Bar spacing writes only `NSStatusItemSpacing` and `NSStatusItemSelectionPadding` in the current-host global domain, and reset deletes those keys.
-19. Apply and Reset refresh Control Center only so menu bar icons can update without logout where macOS allows it.
-20. App defaults stay at true System Default; macMender does not write spacing keys until the user applies a preset or custom value.
-21. The macMender status item adapts its own length to match the effective spacing value while keeping the popover and status item identity intact.
-22. Decoded/imported configs now repair empty or invalid profile selections to a real saved profile.
-23. The top-right profile switcher uses live profile count and a stable toolbar slot so it appears immediately when multiple profiles exist.
-24. The Profiles page labels the selected setup as Current Profile instead of implying the visible settings are always the default profile.
-25. Menu Bar Spacing pending controls reload from app-wide stored behavior and do not follow profile switches.
-26. Focused tests cover profile selection repair, switcher visibility, per-profile setting isolation, and app-wide Menu Bar Spacing behavior.
-27. Advanced now has a dedicated Configuration section with Save Now, Export Config, Import Config, and Open Config Folder.
-28. Import Config validates JSON, rejects unsupported future schemas, confirms destructive replacement, and backs up the previous local config before applying.
-29. Focused tests cover export round-trip, invalid import rejection, unsupported schema rejection, selected-profile repair, ignored permission-shaped JSON, and Menu Bar Spacing import behavior.
+## Compatibility Strategy
 
-## Asset Folders
+- Earlier supported macOS versions retain the existing current-host preference and Control Center refresh strategy.
+- Exact build `26A5388g` writes and verifies the preference for AppKit compatibility, updates macMender's own status item, uses no host restart because no safe confirmed refresh path was established, and reports `Unsupported on this beta` for Apple items. Control Center and MenuBarAgent were ineffective at `32`; SystemUIServer was not tested.
+- Other macOS 27 builds remain unconfirmed until measured. They retain the preference without claiming Apple-item success or attempting an unverified host restart.
+- Apply writes both keys and reads them back before the app stores the selected preference.
+- A partial write or verification mismatch attempts to restore each key to its original value and reports failure instead of success.
+- System Default deletes both keys; no spacing keys are written for the default state.
+- Imported spacing remains stored only and is not applied until the user presses Apply.
 
-The root `Mendy/` folder is the source/reference folder for user-provided Mendy PNG assets. SwiftPM bundles runtime resources from `Sources/macMender/Resources/Mendy/`, so section assets are copied there with the same filenames and no generated replacements.
+The implementation does not automatically relaunch third-party apps.
 
-## Launch Notes
+## Post-Fix Verification Status
 
-Baseline packaged launch before edits observed process start at about 0.14s and first accessibility-visible window at about 7.8s in one shell/UI-scripting run. The visible UI still showed Menu Bar management and floating pause/refresh controls.
+- `swift build`: passed.
+- `swift test`: 95 tests in 9 suites passed. The Menu Bar Spacing suite contains 23 tests covering OS strategy selection, domain/value mapping, true System Default deletion, refresh selection, result copy, clamping, staged verification, rollback/readback ordering, failure handling, stale-read cancellation, production Apply ordering, and macMender status-item geometry.
+- `script/build_and_run.sh --verify`: passed.
+- Packaged first-visible window: approximately 1.009 seconds, including automation overhead.
+- Packaged spacing UI: presets, custom slider, Apply, Reset, and exact-build status copy passed.
+- Exact Beta 4 custom Apply: both current-host keys were verified; macMender updated immediately; Apple/system items remained unchanged; Control Center, MenuBarAgent, and SystemUIServer PIDs remained unchanged.
+- True System Default: both keys were absent. Explicit `16` and absent-key System Default both produced a 40-point macMender Accessibility frame, mirroring the controlled probe's Default-equals-`16` relationship; restored custom `0` produced the expected 24-point post-fix frame.
+- Launch, onboarding, Overview card routing, General, Input controls, Dock previews, Window Switcher, profiles, Privacy, Advanced, config import/export, status-item popover, light/dark appearance, Reduce Motion, and Reduce Transparency passed packaged-app QA.
+- Real Finder no-window/real-window filtering, browser multi-window previews and activation, macMender self-preview, adjacent Dock identity, Control-click Dock context-menu suppression, keyboard/mouse Option+Tab activation, active Escape dismissal, and inactive Escape passthrough passed.
+- Idle page samples settled at 0.0% CPU, except one transient 0.2% Advanced sample that returned to 0.0%. Clean-launch memory began at approximately 56 MB and reached approximately 88 MB after visiting every page and holding the popover open. A thumbnail-heavy run reached approximately 138 MB; a clean relaunch returned to baseline-range memory.
+- The live config is byte-identical to its pre-QA backup (`SHA-256 2b219eab20ea6d00912a67cdfbee03f99bfd8d25be31fbb296df88a43d1960c6`). Current-host spacing is restored to explicit `0/0`; both any-host/global keys are absent. Dark mode and the original accessibility-display preferences are restored.
 
-The suspected launch blockers were synchronous first-appear runtime refresh plus menu-bar scanner work. This pass removes menu-bar scanning and defers runtime startup after the first window render path.
+Primary manual hardware residuals are a physical three-finger tap, separate physical external-mouse/trackpad scrolling feel, a physical secondary-click Dock-menu check, and the documented pre-existing Magic-device rule-selection gap. Synthetic right-click was inconclusive; Control-click and the suppression classifier tests passed. No confirmed macOS 27 regression was found in those unchanged systems. The complete residual list is in `docs/MANUAL_QA.md`.
+
+## Settings Ownership Preserved
+
+Profile-specific settings remain Input and scrolling, Three-Finger Tap / Middle Click, Dock previews, Window Switcher, and Dock profile values.
+
+App-wide settings remain Launch at Login, Dock icon visibility, onboarding completion, Safe Mode, live permission status, the macMender status item, and Menu Bar Spacing.
+
+Profile switching must not write spacing defaults, restart a menu bar host, or change an app-wide spacing selection.
 
 ## Boundaries Preserved
 
-- Dock preview identity matching was not changed.
-- Title-only Dock preview eligibility was not reintroduced.
-- Dock thumbnail capture/cache logic was not changed.
-- Option+Tab activation/discovery logic was not changed.
-- Scrolling and MiddleClick runtime behavior were not changed.
-- Menu Bar management UI, scanner/runtime/mover, XPC/helper packaging, Command-drag setup, Mark to Review, hidden icon, Show/Tuck, and physical movement copy were not restored.
-- Menu Bar spacing does not scan, identify, move, hide, reveal, reorder, group, relaunch, or manage individual menu bar icons.
-- Some third-party status-item apps may need to refresh or relaunch before they reread the global spacing defaults; macMender does not relaunch them automatically.
-- Bundle identifier, signing identity selection, and entitlements were not changed.
-- `docs/qa/screenshots` was not modified.
+- No Menu Bar scanner, runtime, mover, hidden area, Show/Tuck, item grouping, searching, or XPC/helper system was restored.
+- Developer-only spacing probes are not part of the app target and do not create a shipping menu bar management path.
+- Menu Bar Spacing does not inspect third-party menu bar items or automatically relaunch, terminate, move, or hide a third-party app or item.
+- No GPL source was copied. GPL projects were inspected for behavior only.
+- Dock preview identity matching, Finder filtering, thumbnail capture/cache, Dock context-menu suppression, Option+Tab activation, and Escape routing were not changed.
+- Input, scrolling, Three-Finger Tap, profiles, config import/export, permissions, and Dock preference behavior were not changed.
+- Bundle identifier, signing, entitlements, repository structure, release artifacts, and public release state were not changed.
+- No analytics, telemetry, tracking, remote config, or network behavior was added.
+- Mendy assets were not deleted.
 
-## Manual QA Required
+## Remaining Manual/Hardware QA
 
-Use `docs/MANUAL_QA.md`. Confirm Advanced configuration actions are clear, export writes a JSON file, valid import shows confirmation and updates visible settings, invalid JSON is rejected with a readable message, permissions remain live system state, and no Menu Bar management UI is visible while the app’s own status item/popover still works.
+The packaged Phase A matrix is complete. The physical-device and subjective residuals are listed under `Remaining Manual/Hardware Checks` in `docs/MANUAL_QA.md`.

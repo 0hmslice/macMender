@@ -324,6 +324,93 @@ struct MenuBarSpacingServiceTests {
         #expect(snapshot.refreshStrategies.isEmpty)
     }
 
+    @Test("rollback operation errors still count as restored when final values match")
+    func rollbackOperationErrorWithRestoredState() async {
+        let original = MenuBarSpacingDefaultsValues(spacing: 7, selectionPadding: 7)
+        let harness = SpacingHarness(
+            values: original,
+            refreshResult: .notNeeded,
+            failingKey: "NSStatusItemSelectionPadding",
+            remainingOperationFailures: 2
+        )
+
+        let execution = await MenuBarSpacingCompatibility.execute(
+            plan: MenuBarSpacingCompatibility.defaultsPlan(for: .wide),
+            dependencies: makeDependencies(harness: harness, context: beta4Context)
+        )
+        let snapshot = await harness.snapshot()
+
+        #expect(!execution.preferenceVerified)
+        #expect(execution.rollbackSucceeded)
+        #expect(execution.currentValues == original)
+        #expect(execution.applicationResult.kind == .failed)
+        #expect(execution.applicationResult.detail.contains("original preference values were restored"))
+        #expect(snapshot.values == original)
+        #expect(snapshot.refreshStrategies.isEmpty)
+    }
+
+    @Test("latest rollback read confirms restoration after a transient read failure")
+    func latestRollbackReadConfirmsRestoration() async {
+        let original = MenuBarSpacingDefaultsValues(spacing: 7, selectionPadding: 7)
+        let harness = SpacingHarness(
+            values: original,
+            refreshResult: .notNeeded,
+            failingKey: "NSStatusItemSelectionPadding",
+            remainingOperationFailures: 1,
+            failingReadCalls: [2]
+        )
+
+        let execution = await MenuBarSpacingCompatibility.execute(
+            plan: MenuBarSpacingCompatibility.defaultsPlan(for: .wide),
+            dependencies: makeDependencies(harness: harness, context: beta4Context)
+        )
+        let snapshot = await harness.snapshot()
+
+        #expect(!execution.preferenceVerified)
+        #expect(execution.rollbackSucceeded)
+        #expect(execution.currentValues == original)
+        #expect(execution.applicationResult.kind == .failed)
+        #expect(execution.applicationResult.detail.contains("original preference values were restored"))
+        #expect(snapshot.values == original)
+        #expect(snapshot.readScopes == [
+            .currentHostGlobal,
+            .currentHostGlobal,
+            .currentHostGlobal
+        ])
+        #expect(snapshot.refreshStrategies.isEmpty)
+    }
+
+    @Test("latest rollback read rejects restoration when values changed again")
+    func latestRollbackReadRejectsChangedValues() async {
+        let original = MenuBarSpacingDefaultsValues(spacing: 7, selectionPadding: 7)
+        let changed = MenuBarSpacingDefaultsValues(spacing: 12, selectionPadding: 12)
+        let harness = SpacingHarness(
+            values: original,
+            refreshResult: .notNeeded,
+            failingKey: "NSStatusItemSelectionPadding",
+            remainingOperationFailures: 1,
+            readOverrides: [3: changed]
+        )
+
+        let execution = await MenuBarSpacingCompatibility.execute(
+            plan: MenuBarSpacingCompatibility.defaultsPlan(for: .wide),
+            dependencies: makeDependencies(harness: harness, context: beta4Context)
+        )
+        let snapshot = await harness.snapshot()
+
+        #expect(!execution.preferenceVerified)
+        #expect(!execution.rollbackSucceeded)
+        #expect(execution.currentValues == changed)
+        #expect(execution.applicationResult.kind == .failed)
+        #expect(execution.applicationResult.detail.contains("could not be fully restored"))
+        #expect(snapshot.readScopes == [
+            .currentHostGlobal,
+            .currentHostGlobal,
+            .currentHostGlobal
+        ])
+        #expect(snapshot.refreshStrategies.isEmpty)
+    }
+
     @Test("failed rollback and failed final read leave current values unknown")
     func failedRollbackAndReadYieldNilValues() async {
         let harness = SpacingHarness(
@@ -331,7 +418,7 @@ struct MenuBarSpacingServiceTests {
             refreshResult: .notNeeded,
             failingKey: "NSStatusItemSelectionPadding",
             remainingOperationFailures: 2,
-            failingReadCalls: [2]
+            failingReadCalls: [2, 3]
         )
 
         let execution = await MenuBarSpacingCompatibility.execute(
@@ -345,7 +432,11 @@ struct MenuBarSpacingServiceTests {
         #expect(execution.currentValues == nil)
         #expect(execution.applicationResult.kind == .failed)
         #expect(snapshot.operations.allSatisfy { $0.scope == .currentHostGlobal })
-        #expect(snapshot.readScopes == [.currentHostGlobal, .currentHostGlobal])
+        #expect(snapshot.readScopes == [
+            .currentHostGlobal,
+            .currentHostGlobal,
+            .currentHostGlobal
+        ])
         #expect(snapshot.refreshStrategies.isEmpty)
     }
 
@@ -392,6 +483,123 @@ struct MenuBarSpacingServiceTests {
         #expect(snapshot.operations.isEmpty)
         #expect(snapshot.readScopes == [.currentHostGlobal])
         #expect(snapshot.refreshStrategies.isEmpty)
+    }
+
+    @Test("production Apply publishes verified values before delayed refresh completes")
+    @MainActor
+    func productionApplyOrdersVerifiedStateBeforeRefreshCompletion() async {
+        let context = MenuBarSpacingSystemContext(
+            majorVersion: 26,
+            minorVersion: 6,
+            patchVersion: 0,
+            buildVersion: "25G100"
+        )
+        let initial = MenuBarSpacingDefaultsValues(spacing: 16, selectionPadding: 16)
+        let harness = SpacingHarness(
+            values: initial,
+            refreshResult: .refreshed,
+            delaysRefresh: true
+        )
+        let service = MenuBarSpacingService(
+            dependencies: makeDependencies(harness: harness, context: context),
+            initialValues: initial
+        )
+        var callbackCalled = false
+        var valuesAtCallback: MenuBarSpacingDefaultsValues?
+
+        service.apply(.compact, customValue: 8) {
+            callbackCalled = true
+            valuesAtCallback = service.currentValues
+        }
+
+        await harness.waitForRefreshStart()
+        let snapshotWhileRefreshing = await harness.snapshot()
+
+        #expect(callbackCalled)
+        #expect(valuesAtCallback == MenuBarSpacingDefaultsValues(spacing: 8, selectionPadding: 8))
+        #expect(service.currentValues == MenuBarSpacingDefaultsValues(spacing: 8, selectionPadding: 8))
+        #expect(service.isApplying)
+        #expect(service.resultKind == nil)
+        #expect(service.statusDescription == "Preference saved. Finishing menu bar update...")
+        #expect(snapshotWhileRefreshing.refreshStrategies == [.controlCenter])
+
+        await harness.completeRefresh(with: .refreshed)
+        let didFinish = await waitUntil { !service.isApplying }
+
+        #expect(didFinish)
+        #expect(service.resultKind == .appliedSomeAppsMayNeedRelaunch)
+        #expect(service.currentValues == MenuBarSpacingDefaultsValues(spacing: 8, selectionPadding: 8))
+    }
+
+    @Test("failed production Apply never invokes verified callback or refresh")
+    @MainActor
+    func failedProductionApplyDoesNotCallbackOrRefresh() async {
+        let initial = MenuBarSpacingDefaultsValues(spacing: 4, selectionPadding: 4)
+        let harness = SpacingHarness(
+            values: initial,
+            refreshResult: .refreshed,
+            failingKey: "NSStatusItemSelectionPadding",
+            remainingOperationFailures: 1
+        )
+        let service = MenuBarSpacingService(
+            dependencies: makeDependencies(harness: harness, context: beta4Context),
+            initialValues: initial
+        )
+        var callbackCalled = false
+
+        service.apply(.wide, customValue: 24) {
+            callbackCalled = true
+        }
+
+        let didFinish = await waitUntil { !service.isApplying }
+        let snapshot = await harness.snapshot()
+
+        #expect(didFinish)
+        #expect(!callbackCalled)
+        #expect(service.currentValues == initial)
+        #expect(service.resultKind == .failed)
+        #expect(service.statusDescription.contains("original preference values were restored"))
+        #expect(snapshot.refreshStrategies.isEmpty)
+    }
+
+    @Test("cancelled stale value refresh cannot overwrite a successful Apply")
+    @MainActor
+    func staleValueRefreshCannotOverwriteApply() async {
+        let initial = MenuBarSpacingDefaultsValues(spacing: 4, selectionPadding: 4)
+        let stale = MenuBarSpacingDefaultsValues(spacing: 8, selectionPadding: 8)
+        let harness = SpacingHarness(
+            values: initial,
+            refreshResult: .notNeeded,
+            staleFirstRead: stale
+        )
+        let service = MenuBarSpacingService(
+            dependencies: makeDependencies(harness: harness, context: beta4Context),
+            initialValues: initial
+        )
+
+        service.refreshCurrentValues()
+        await harness.waitForStaleReadStart()
+        service.apply(.wide, customValue: 24)
+
+        let applyDidFinish = await waitUntil { !service.isApplying }
+        let valuesAfterApply = service.currentValues
+        let resultAfterApply = service.resultKind
+        let statusAfterApply = service.statusDescription
+
+        #expect(applyDidFinish)
+        #expect(valuesAfterApply == MenuBarSpacingDefaultsValues(spacing: 24, selectionPadding: 24))
+        #expect(resultAfterApply == .unsupportedOnThisBeta)
+
+        await harness.completeStaleRead()
+        await harness.waitForStaleReadCompletion()
+        await Task.yield()
+        await Task.yield()
+
+        #expect(service.currentValues == valuesAfterApply)
+        #expect(service.resultKind == resultAfterApply)
+        #expect(service.statusDescription == statusAfterApply)
+        let snapshot = await harness.snapshot()
+        #expect(snapshot.refreshStrategies == [.none])
     }
 
     @Test("macMender status item geometry preserves the complete custom range")
@@ -484,8 +692,18 @@ private actor SpacingHarness {
     private let failingKey: String?
     private var remainingOperationFailures: Int
     private let failingReadCalls: Set<Int>
+    private let readOverrides: [Int: MenuBarSpacingDefaultsValues]
     private var readCallCount = 0
     private let ignoresOperations: Bool
+    private let delaysRefresh: Bool
+    private let staleFirstRead: MenuBarSpacingDefaultsValues?
+    private var refreshContinuation: CheckedContinuation<MenuBarSpacingRefreshResult, Never>?
+    private var refreshStartWaiters: [CheckedContinuation<Void, Never>] = []
+    private var staleReadContinuation: CheckedContinuation<MenuBarSpacingDefaultsValues, Never>?
+    private var staleReadStartWaiters: [CheckedContinuation<Void, Never>] = []
+    private var staleReadCompletionWaiters: [CheckedContinuation<Void, Never>] = []
+    private var staleReadStarted = false
+    private var staleReadCompleted = false
 
     init(
         values: MenuBarSpacingDefaultsValues,
@@ -493,23 +711,47 @@ private actor SpacingHarness {
         failingKey: String? = nil,
         remainingOperationFailures: Int = 0,
         failingReadCalls: Set<Int> = [],
-        ignoresOperations: Bool = false
+        readOverrides: [Int: MenuBarSpacingDefaultsValues] = [:],
+        ignoresOperations: Bool = false,
+        delaysRefresh: Bool = false,
+        staleFirstRead: MenuBarSpacingDefaultsValues? = nil
     ) {
         self.values = values
         self.refreshResult = refreshResult
         self.failingKey = failingKey
         self.remainingOperationFailures = remainingOperationFailures
         self.failingReadCalls = failingReadCalls
+        self.readOverrides = readOverrides
         self.ignoresOperations = ignoresOperations
+        self.delaysRefresh = delaysRefresh
+        self.staleFirstRead = staleFirstRead
     }
 
     func readValues(
         scope: MenuBarSpacingPreferenceScope
-    ) throws -> MenuBarSpacingDefaultsValues {
+    ) async throws -> MenuBarSpacingDefaultsValues {
         readScopes.append(scope)
         readCallCount += 1
         if failingReadCalls.contains(readCallCount) {
             throw SpacingHarnessError.plannedReadFailure
+        }
+        if let overriddenValues = readOverrides[readCallCount] {
+            return overriddenValues
+        }
+        if readCallCount == 1, staleFirstRead != nil {
+            staleReadStarted = true
+            let waiters = staleReadStartWaiters
+            staleReadStartWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+            let result = await withCheckedContinuation { continuation in
+                staleReadContinuation = continuation
+            }
+
+            staleReadCompleted = true
+            let completionWaiters = staleReadCompletionWaiters
+            staleReadCompletionWaiters.removeAll()
+            completionWaiters.forEach { $0.resume() }
+            return result
         }
         return values
     }
@@ -541,9 +783,49 @@ private actor SpacingHarness {
         }
     }
 
-    func refresh(_ strategy: MenuBarSpacingRefreshStrategy) -> MenuBarSpacingRefreshResult {
+    func refresh(_ strategy: MenuBarSpacingRefreshStrategy) async -> MenuBarSpacingRefreshResult {
         refreshStrategies.append(strategy)
-        return refreshResult
+        guard delaysRefresh else { return refreshResult }
+
+        let waiters = refreshStartWaiters
+        refreshStartWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        return await withCheckedContinuation { continuation in
+            refreshContinuation = continuation
+        }
+    }
+
+    func waitForRefreshStart() async {
+        guard refreshStrategies.isEmpty else { return }
+        await withCheckedContinuation { continuation in
+            refreshStartWaiters.append(continuation)
+        }
+    }
+
+    func completeRefresh(with result: MenuBarSpacingRefreshResult) {
+        let continuation = refreshContinuation
+        refreshContinuation = nil
+        continuation?.resume(returning: result)
+    }
+
+    func waitForStaleReadStart() async {
+        guard !staleReadStarted else { return }
+        await withCheckedContinuation { continuation in
+            staleReadStartWaiters.append(continuation)
+        }
+    }
+
+    func completeStaleRead() {
+        let continuation = staleReadContinuation
+        staleReadContinuation = nil
+        continuation?.resume(returning: staleFirstRead ?? values)
+    }
+
+    func waitForStaleReadCompletion() async {
+        guard !staleReadCompleted else { return }
+        await withCheckedContinuation { continuation in
+            staleReadCompletionWaiters.append(continuation)
+        }
     }
 
     func snapshot() -> SpacingHarnessSnapshot {
@@ -574,4 +856,16 @@ private func makeDependencies(
             context
         }
     )
+}
+
+@MainActor
+private func waitUntil(
+    timeout: Duration = .seconds(2),
+    _ condition: () -> Bool
+) async -> Bool {
+    let deadline = ContinuousClock.now.advanced(by: timeout)
+    while !condition(), ContinuousClock.now < deadline {
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return condition()
 }

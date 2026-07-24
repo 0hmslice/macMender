@@ -155,20 +155,14 @@ enum MenuBarSpacingCompatibility {
                 failureResult: nil
             )
         } catch {
-            let rollbackSucceeded = await restore(
+            let restoreReadbackMatched = await restore(
                 originalValues,
                 scope: scope,
                 dependencies: dependencies
             )
             let valuesAfterFailure = try? await dependencies.readValues(scope)
-            let knownValues: MenuBarSpacingDefaultsValues?
-            if let valuesAfterFailure {
-                knownValues = valuesAfterFailure
-            } else if rollbackSucceeded {
-                knownValues = originalValues
-            } else {
-                knownValues = nil
-            }
+            let rollbackSucceeded = valuesAfterFailure.map { $0 == originalValues } ?? restoreReadbackMatched
+            let knownValues = valuesAfterFailure ?? (restoreReadbackMatched ? originalValues : nil)
 
             return MenuBarSpacingPreferenceUpdateResult(
                 currentValues: knownValues,
@@ -254,7 +248,6 @@ enum MenuBarSpacingCompatibility {
         dependencies: MenuBarSpacingDependencies
     ) async -> Bool {
         let originalValues = [values.spacing, values.selectionPadding]
-        var operationFailed = false
 
         for (key, value) in zip(MenuBarSpacingDefaultsPlan.keys, originalValues) {
             do {
@@ -263,12 +256,12 @@ enum MenuBarSpacingCompatibility {
                 } ?? .delete
                 try await dependencies.applyOperation(operation, key, scope)
             } catch {
-                operationFailed = true
+                // A command can report failure even when the requested state was
+                // already present. The final readback is the source of truth.
             }
         }
 
-        guard !operationFailed,
-              let restoredValues = try? await dependencies.readValues(scope) else {
+        guard let restoredValues = try? await dependencies.readValues(scope) else {
             return false
         }
         return restoredValues == values
