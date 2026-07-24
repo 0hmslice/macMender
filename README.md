@@ -53,7 +53,7 @@ The primary distribution path is direct download or Homebrew with Developer ID s
 
 ## License
 
-macMender is GPL-3.0 licensed. See `THIRD_PARTY_NOTICES.md` and `docs/THIRD_PARTY_NOTICES.md` for current third-party notes.
+macMender is MIT licensed. See `THIRD_PARTY_NOTICES.md` and `docs/THIRD_PARTY_NOTICES.md` for current third-party notes.
 
 ## Build and Run
 
@@ -77,10 +77,19 @@ Build and launch as a local `.app` bundle:
 
 The generated app bundle is staged at `dist/macMender.app`.
 
+To create a local release package, provide the version explicitly:
+
+```bash
+./script/package_release.sh 0.1.4
+```
+
+This builds `dist/macMender.app` with SwiftPM's Release configuration and writes
+`dist/macMender-v0.1.4.zip`.
+
 Create a Homebrew-ready zip and local cask template:
 
 ```bash
-./script/package_brew.sh
+./script/package_brew.sh 0.1.4
 ```
 
 The archive, checksum, and cask template are written to `dist/release/`.

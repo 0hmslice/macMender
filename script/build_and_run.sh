@@ -8,6 +8,7 @@ MIN_SYSTEM_VERSION="14.0"
 ICON_NAME="AppIcon.icns"
 ICON_BUNDLE_NAME="AppIcon"
 BUILD_CONFIGURATION="${BUILD_CONFIGURATION:-debug}"
+STRIP_RELEASE_BINARY="${STRIP_RELEASE_BINARY:-1}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -41,8 +42,10 @@ while IFS= read -r -d '' resource_bundle; do
   cp -R "$resource_bundle" "$APP_RESOURCES/"
 done < <(find "$BUILD_PRODUCTS_DIR" -maxdepth 1 -type d -name '*.bundle' -print0)
 
-if [[ -d "$ROOT_DIR/Sources/macMender/Resources/Mendy" ]]; then
-  cp "$ROOT_DIR"/Sources/macMender/Resources/Mendy/*.png "$APP_RESOURCES/"
+if [[ "$BUILD_CONFIGURATION" == "release" && "$STRIP_RELEASE_BINARY" == "1" ]]; then
+  # Remove local symbols from release packages after copying the executable and
+  # before signing. Debug/dev builds keep symbols for local diagnostics.
+  /usr/bin/strip -x "$APP_BINARY"
 fi
 
 if [[ -f "$ROOT_DIR/Sources/macMender/Resources/PrivacyInfo.xcprivacy" ]]; then
