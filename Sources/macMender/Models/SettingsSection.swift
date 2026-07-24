@@ -1,6 +1,6 @@
 import Foundation
 
-enum SettingsSection: String, CaseIterable, Identifiable {
+enum SettingsSection: String, CaseIterable, Hashable, Identifiable {
     case overview
     case general
     case menuBarSpacing
