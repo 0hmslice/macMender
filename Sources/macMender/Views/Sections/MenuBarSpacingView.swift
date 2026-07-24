@@ -6,72 +6,20 @@ struct MenuBarSpacingView: View {
     @State private var pendingValue = Double(MenuBarSpacingPreference.systemDefaultNumericValue)
 
     var body: some View {
-        PreferencesScrollView {
-            MendySectionHeader(
-                section: .menuBarSpacing,
+        MacMenderScrollablePage(maxContentWidth: 760) {
+            MacMenderPageHeader(
                 title: "Menu Bar Spacing",
-                subtitle: "Adjust the spacing between menu bar icons."
+                subtitle: "Adjust one global spacing preference for compatible status items.",
+                systemImage: "arrow.left.and.right"
             )
 
-            SectionCard(
-                title: "Spacing",
-                subtitle: "This changes the system spacing preference. It does not move, hide, or manage individual icons.",
-                symbolName: "arrow.left.and.right"
-            ) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Picker("Preset", selection: presetSelection) {
-                        ForEach(MenuBarSpacingPreference.allCases) { preference in
-                            Text(preference.title).tag(preference)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .disabled(appModel.menuBarSpacing.isApplying)
-
-                    LabeledSlider(
-                        title: "Icon spacing",
-                        value: spacingValue,
-                        range: Double(MenuBarSpacingPreference.minimumValue)...Double(MenuBarSpacingPreference.maximumValue),
-                        step: 1,
-                        valueLabel: "\(Int(pendingValue.rounded()))"
-                    )
-                    .disabled(appModel.menuBarSpacing.isApplying)
-
-                    HStack(spacing: 8) {
-                        CapabilityBadge(title: pendingPreference.title, systemImage: "slider.horizontal.3", tone: .neutral)
-                        Text(currentDefaultsText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack {
-                        Button {
-                            appModel.applyMenuBarSpacing(pendingPreference, customValue: Int(pendingValue.rounded()))
-                        } label: {
-                            Label("Apply", systemImage: "checkmark.circle")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(appModel.menuBarSpacing.isApplying)
-
-                        Button {
-                            pendingPreference = .systemDefault
-                            pendingValue = Double(MenuBarSpacingPreference.systemDefaultNumericValue)
-                            appModel.applyMenuBarSpacing(.systemDefault, customValue: Int(pendingValue.rounded()))
-                        } label: {
-                            Label("Reset to Default", systemImage: "arrow.counterclockwise")
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(appModel.menuBarSpacing.isApplying)
-
-                        Spacer(minLength: 0)
-                    }
-
-                    Text(appModel.menuBarSpacing.statusDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                }
+            MacMenderCallout(systemImage: "info.circle") {
+                Text("This utility does not move, hide, group, search, or manage individual menu bar items.")
+                    .foregroundStyle(.secondary)
             }
+
+            spacingSection
+            compatibilitySection
         }
         .onAppear {
             appModel.refreshMenuBarSpacingStatus()
@@ -79,6 +27,120 @@ struct MenuBarSpacingView: View {
         }
         .onChange(of: appModel.store.config.appBehavior) { _, _ in
             loadPendingState()
+        }
+    }
+
+    private var spacingSection: some View {
+        MacMenderContentSection(
+            title: "Spacing",
+            subtitle: "Choose a preset or a precise value. Nothing changes until you press Apply.",
+            systemImage: "slider.horizontal.3"
+        ) {
+            VStack(alignment: .leading, spacing: MacMenderSpacing.section) {
+                MenuBarSpacingPreview(
+                    preference: pendingPreference,
+                    value: Int(pendingValue.rounded())
+                )
+
+                Picker("Preset", selection: presetSelection) {
+                    ForEach(MenuBarSpacingPreference.allCases) { preference in
+                        Text(preference.title).tag(preference)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(appModel.menuBarSpacing.isApplying)
+
+                LabeledSlider(
+                    title: "Icon Spacing",
+                    value: spacingValue,
+                    range: Double(MenuBarSpacingPreference.minimumValue)...Double(MenuBarSpacingPreference.maximumValue),
+                    step: 1,
+                    valueLabel: "\(Int(pendingValue.rounded()))"
+                )
+                .disabled(appModel.menuBarSpacing.isApplying)
+
+                HStack(spacing: MacMenderSpacing.small) {
+                    MacMenderStatusLabel(
+                        title: selectionTitle,
+                        tone: .neutral,
+                        systemImage: "slider.horizontal.3"
+                    )
+                    Text(selectionDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer(minLength: 0)
+                }
+
+                HStack {
+                    Button {
+                        appModel.applyMenuBarSpacing(
+                            pendingPreference,
+                            customValue: Int(pendingValue.rounded())
+                        )
+                    } label: {
+                        Label("Apply", systemImage: "checkmark.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(appModel.menuBarSpacing.isApplying)
+
+                    Button {
+                        pendingPreference = .systemDefault
+                        pendingValue = Double(MenuBarSpacingPreference.systemDefaultNumericValue)
+                        appModel.applyMenuBarSpacing(
+                            .systemDefault,
+                            customValue: Int(pendingValue.rounded())
+                        )
+                    } label: {
+                        Label("Reset to Default", systemImage: "arrow.counterclockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(appModel.menuBarSpacing.isApplying)
+
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    private var compatibilitySection: some View {
+        MacMenderContentSection(
+            title: "Compatibility",
+            subtitle: "macMender reports preference writes separately from Apple system item support.",
+            systemImage: "stethoscope"
+        ) {
+            VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+                HStack(spacing: MacMenderSpacing.small) {
+                    if appModel.menuBarSpacing.isApplying {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("Applying menu bar spacing")
+                        Text("Applying")
+                            .font(.callout.weight(.medium))
+                    } else {
+                        MacMenderStatusLabel(
+                            title: compatibilityTitle,
+                            tone: compatibilityTone,
+                            systemImage: compatibilitySymbol
+                        )
+                    }
+
+                    Spacer(minLength: 0)
+                }
+
+                Text(appModel.menuBarSpacing.statusDescription)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Divider()
+
+                LabeledContent("Tested system") {
+                    Text(systemDescription)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
         }
     }
 
@@ -107,8 +169,37 @@ struct MenuBarSpacingView: View {
         )
     }
 
-    private var currentDefaultsText: String {
-        appModel.menuBarSpacing.currentValues.description
+    private var compatibilityTitle: String {
+        appModel.menuBarSpacing.resultKind?.title ?? "Ready to Apply"
+    }
+
+    private var selectionTitle: String {
+        hasPendingPreferenceChange ? "Pending: \(pendingPreference.title)" : "Selected: \(pendingPreference.title)"
+    }
+
+    private var selectionDetail: String {
+        hasPendingPreferenceChange ? pendingPreference.detail : "Matches the saved preference."
+    }
+
+    private var hasPendingPreferenceChange: Bool {
+        let plan = MenuBarSpacingService.defaultsPlan(
+            for: pendingPreference,
+            customValue: Int(pendingValue.rounded())
+        )
+        return !appModel.menuBarSpacing.currentValues.matches(plan.operation)
+    }
+
+    private var compatibilityTone: MacMenderStatusTone {
+        MacMenderStatusTone(menuBarSpacingResultKind: appModel.menuBarSpacing.resultKind)
+    }
+
+    private var compatibilitySymbol: String {
+        appModel.menuBarSpacing.resultKind == nil ? "info.circle" : compatibilityTone.defaultSymbol
+    }
+
+    private var systemDescription: String {
+        let system = appModel.menuBarSpacing.systemContext
+        return "macOS \(system.majorVersion).\(system.minorVersion).\(system.patchVersion) · build \(system.buildVersion)"
     }
 
     private func loadPendingState() {
@@ -119,5 +210,62 @@ struct MenuBarSpacingView: View {
         pendingPreference = stored.menuBarSpacing == .custom ?
             MenuBarSpacingPreference.preference(matching: resolvedValue) :
             stored.menuBarSpacing
+    }
+}
+
+private struct MenuBarSpacingPreview: View {
+    var preference: MenuBarSpacingPreference
+    var value: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+            HStack {
+                VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
+                    Text("Preference Preview")
+                        .font(.subheadline.weight(.medium))
+                    Text(previewCaption)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: MacMenderSpacing.standard)
+
+                Text("Illustrative")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            HStack(spacing: previewSpacing) {
+                Image(systemName: "wifi")
+                Image(systemName: "speaker.wave.2.fill")
+                Image(systemName: "battery.75percent")
+                Image(systemName: "clock")
+            }
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: MacMenderRadius.control, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: MacMenderRadius.control, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
+            }
+            .accessibilityHidden(true)
+        }
+        .padding(MacMenderSpacing.standard)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .macMenderContentSurface(radius: MacMenderRadius.control)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Illustrative menu bar spacing preference preview. \(previewCaption)")
+    }
+
+    private var previewSpacing: CGFloat {
+        CGFloat(MenuBarSpacingPreference.clampedValue(value))
+    }
+
+    private var previewCaption: String {
+        if preference == .systemDefault {
+            return "System Default removes macMender's override; macOS controls the resulting spacing."
+        }
+        return "A \(MenuBarSpacingPreference.clampedValue(value))-point preference for compatible status items."
     }
 }

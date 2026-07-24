@@ -105,4 +105,17 @@ extension MacMenderStatusTone {
             self = .neutral
         }
     }
+
+    init(menuBarSpacingResultKind: MenuBarSpacingResultKind?) {
+        switch menuBarSpacingResultKind {
+        case .applied:
+            self = .active
+        case .appliedSomeAppsMayNeedRelaunch, .unsupportedOnThisBeta, .couldNotConfirmSystemItemUpdate:
+            self = .attention
+        case .failed:
+            self = .unavailable
+        case nil:
+            self = .neutral
+        }
+    }
 }
