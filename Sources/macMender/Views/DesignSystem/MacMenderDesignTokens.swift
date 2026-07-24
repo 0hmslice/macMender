@@ -28,7 +28,7 @@ enum MacMenderMotion {
     }
 }
 
-enum MacMenderStatusTone: Sendable {
+enum MacMenderStatusTone: Equatable, Sendable {
     case active
     case attention
     case paused
@@ -82,6 +82,19 @@ enum MacMenderStatusTone: Sendable {
 }
 
 extension MacMenderStatusTone {
+    init(featureStatusKind: FeatureStatusKind) {
+        switch featureStatusKind {
+        case .active, .ready:
+            self = .active
+        case .paused:
+            self = .paused
+        case .needsAttention:
+            self = .attention
+        case .off, .optional:
+            self = .neutral
+        }
+    }
+
     init(capabilityTone: CapabilityBadge.Tone) {
         switch capabilityTone {
         case .active:

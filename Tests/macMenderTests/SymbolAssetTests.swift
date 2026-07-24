@@ -18,7 +18,9 @@ struct SymbolAssetTests {
     func commonViewSymbolsResolve() {
         let symbols = [
             "accessibility",
+            "app",
             "app.connected.to.app.below.fill",
+            "arrow.clockwise",
             "arrow.counterclockwise",
             "arrow.right",
             "bolt",
@@ -27,6 +29,7 @@ struct SymbolAssetTests {
             "checkmark.circle.fill",
             "checkmark.shield",
             "chevron.left",
+            "circle.fill",
             "circle.dashed",
             "circle.grid.cross",
             "clock.badge.checkmark",
@@ -44,6 +47,8 @@ struct SymbolAssetTests {
             "hand.draw",
             "hand.raised",
             "hand.tap",
+            "hand.tap.fill",
+            "info.circle",
             "list.bullet.rectangle",
             "lock",
             "lock.shield",
@@ -73,7 +78,8 @@ struct SymbolAssetTests {
             "tray",
             "wrench.and.screwdriver",
             "wrench.and.screwdriver.fill",
-            "xmark.circle"
+            "xmark.circle",
+            "xmark.circle.fill"
         ]
 
         for symbol in symbols {
