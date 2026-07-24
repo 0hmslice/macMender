@@ -6,8 +6,6 @@ import SwiftUI
 final class MacMenderStatusItemController: NSObject {
     private static let statusItemAutosaveName = "macMender.StatusItem"
     private static let statusItemImageSize = NSSize(width: 22, height: 18)
-    private static let minimumStatusItemLength: CGFloat = 24
-    private static let maximumStatusItemLength: CGFloat = 42
 
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
@@ -66,33 +64,41 @@ final class MacMenderStatusItemController: NSObject {
 
     private func updateStatusItemLength() {
         guard let statusItem else { return }
-        guard let spacingValue = effectiveSpacingValue() else {
+        guard let spacingService = appModel?.menuBarSpacing,
+              let spacingValue = Self.effectiveSpacingValue(
+                for: spacingService.currentValues,
+                strategy: spacingService.compatibilityStrategy
+              ) else {
             statusItem.length = NSStatusItem.variableLength
             return
         }
-        let horizontalPadding = CGFloat(MenuBarSpacingPreference.clampedValue(spacingValue))
-        let length = Self.statusItemImageSize.width + horizontalPadding
-        statusItem.length = min(Self.maximumStatusItemLength, max(Self.minimumStatusItemLength, length))
+        statusItem.length = Self.statusItemLength(
+            imageWidth: Self.statusItemImageSize.width,
+            spacingValue: spacingValue
+        )
     }
 
-    private func effectiveSpacingValue() -> Int? {
-        guard let appModel else { return nil }
-        let behavior = appModel.store.config.appBehavior
-        if let configuredValue = behavior.menuBarSpacing.resolvedDefaultsValue(customValue: behavior.menuBarSpacingCustomValue) {
-            return configuredValue
+    nonisolated static func statusItemLength(
+        imageWidth: CGFloat,
+        spacingValue: Int
+    ) -> CGFloat {
+        imageWidth + CGFloat(MenuBarSpacingPreference.clampedValue(spacingValue))
+    }
+
+    nonisolated static func effectiveSpacingValue(
+        for values: MenuBarSpacingDefaultsValues,
+        strategy: MenuBarSpacingCompatibilityStrategy
+    ) -> Int? {
+        if values.spacing == nil, values.selectionPadding == nil {
+            return strategy.systemItemSupport == .unsupportedOnThisBeta ?
+                MenuBarSpacingPreference.systemDefaultNumericValue :
+                nil
         }
-        return MenuBarSpacingService.currentDefaultsValues().sharedValue
+        return values.sharedValue
     }
 
     private func bindSpacingUpdates(from appModel: AppModel) {
         cancellables.removeAll()
-
-        appModel.store.$config
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.updateStatusItemLength()
-            }
-            .store(in: &cancellables)
 
         appModel.menuBarSpacing.$currentValues
             .receive(on: RunLoop.main)

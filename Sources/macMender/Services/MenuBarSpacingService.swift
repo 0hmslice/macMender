@@ -1,158 +1,189 @@
-import AppKit
+import Combine
 import Foundation
-
-struct MenuBarSpacingDefaultsPlan: Equatable {
-    enum Operation: Equatable {
-        case write(Int)
-        case delete
-    }
-
-    static let keys = [
-        "NSStatusItemSpacing",
-        "NSStatusItemSelectionPadding"
-    ]
-
-    var preference: MenuBarSpacingPreference
-    var operation: Operation
-}
-
-struct MenuBarSpacingDefaultsValues: Equatable {
-    var spacing: Int?
-    var selectionPadding: Int?
-
-    var sharedValue: Int? {
-        guard let spacing,
-              let selectionPadding,
-              spacing == selectionPadding else {
-            return nil
-        }
-        return spacing
-    }
-
-    var description: String {
-        switch (spacing, selectionPadding) {
-        case (nil, nil):
-            "Current system value: Default"
-        case let (spacing?, selectionPadding?) where spacing == selectionPadding:
-            "Current system value: \(spacing)"
-        case let (spacing, selectionPadding):
-            "Current system values: spacing \(spacing.map(String.init) ?? "default"), selection padding \(selectionPadding.map(String.init) ?? "default")"
-        }
-    }
-}
 
 @MainActor
 final class MenuBarSpacingService: ObservableObject {
     @Published private(set) var isApplying = false
-    @Published private(set) var statusDescription = "System spacing"
-    @Published private(set) var currentValues = MenuBarSpacingDefaultsValues(spacing: nil, selectionPadding: nil)
+    @Published private(set) var statusDescription: String
+    @Published private(set) var resultKind: MenuBarSpacingResultKind?
+    @Published private(set) var currentValues: MenuBarSpacingDefaultsValues
 
-    nonisolated static func defaultsPlan(for preference: MenuBarSpacingPreference, customValue: Int = MenuBarSpacingPreference.systemDefaultNumericValue) -> MenuBarSpacingDefaultsPlan {
-        if let value = preference.resolvedDefaultsValue(customValue: customValue) {
-            return MenuBarSpacingDefaultsPlan(preference: preference, operation: .write(value))
-        }
-        return MenuBarSpacingDefaultsPlan(preference: preference, operation: .delete)
+    let systemContext: MenuBarSpacingSystemContext
+    let compatibilityStrategy: MenuBarSpacingCompatibilityStrategy
+
+    private let dependencies: MenuBarSpacingDependencies
+    private var refreshTask: Task<Void, Never>?
+
+    init(
+        dependencies: MenuBarSpacingDependencies = .live,
+        initialValues: MenuBarSpacingDefaultsValues? = nil
+    ) {
+        self.dependencies = dependencies
+        systemContext = dependencies.systemContext()
+        compatibilityStrategy = MenuBarSpacingCompatibility.strategy(for: systemContext)
+
+        let values = initialValues ?? MenuBarSpacingSystemClient.currentDefaultsValues(
+            scope: compatibilityStrategy.preferenceScope
+        )
+        currentValues = values
+        let idleStatus = MenuBarSpacingCompatibility.idleStatus(
+            for: values,
+            strategy: compatibilityStrategy
+        )
+        statusDescription = idleStatus.description
+        resultKind = idleStatus.kind
     }
 
-    func refreshCurrentValues() {
-        currentValues = Self.currentDefaultsValues()
-        statusDescription = currentValues.description
-    }
-
-    func apply(_ preference: MenuBarSpacingPreference, customValue: Int) {
-        guard !isApplying else { return }
-        isApplying = true
-        statusDescription = "Applying \(preference.title.lowercased()) spacing..."
-        let plan = Self.defaultsPlan(for: preference, customValue: customValue)
-
-        Task { [weak self] in
-            let result = await Self.apply(plan)
-            let currentValues = Self.currentDefaultsValues()
-            await MainActor.run {
-                self?.isApplying = false
-                self?.currentValues = currentValues
-                self?.statusDescription = result
-            }
-        }
-    }
-
-    private nonisolated static func apply(_ plan: MenuBarSpacingDefaultsPlan) async -> String {
-        do {
-            for key in MenuBarSpacingDefaultsPlan.keys {
-                try await runDefaults(arguments(for: plan.operation, key: key), allowsNonzeroExit: plan.operation == .delete)
-            }
-            let refreshResult = await refreshControlCenter()
-            switch plan.operation {
-            case .delete:
-                return "System default restored. \(refreshResult)"
-            case .write:
-                return "\(plan.preference.title) spacing applied. \(refreshResult)"
-            }
-        } catch {
-            return "Spacing update failed."
-        }
-    }
-
-    nonisolated static func currentDefaultsValues() -> MenuBarSpacingDefaultsValues {
-        MenuBarSpacingDefaultsValues(
-            spacing: currentValue(for: MenuBarSpacingDefaultsPlan.keys[0]),
-            selectionPadding: currentValue(for: MenuBarSpacingDefaultsPlan.keys[1])
+    nonisolated static func defaultsPlan(
+        for preference: MenuBarSpacingPreference,
+        customValue: Int = MenuBarSpacingPreference.systemDefaultNumericValue
+    ) -> MenuBarSpacingDefaultsPlan {
+        MenuBarSpacingCompatibility.defaultsPlan(
+            for: preference,
+            customValue: customValue
         )
     }
 
-    private nonisolated static func currentValue(for key: String) -> Int? {
-        CFPreferencesCopyValue(
-            key as CFString,
-            kCFPreferencesAnyApplication,
-            kCFPreferencesCurrentUser,
-            kCFPreferencesCurrentHost
-        ) as? Int
+    nonisolated static func compatibilityStrategy(
+        for context: MenuBarSpacingSystemContext
+    ) -> MenuBarSpacingCompatibilityStrategy {
+        MenuBarSpacingCompatibility.strategy(for: context)
     }
 
-    private nonisolated static func arguments(for operation: MenuBarSpacingDefaultsPlan.Operation, key: String) -> [String] {
-        switch operation {
-        case .delete:
-            ["-currentHost", "delete", "-globalDomain", key]
-        case .write(let value):
-            ["-currentHost", "write", "-globalDomain", key, "-int", "\(value)"]
+    nonisolated static func applicationResult(
+        for plan: MenuBarSpacingDefaultsPlan,
+        strategy: MenuBarSpacingCompatibilityStrategy,
+        refreshResult: MenuBarSpacingRefreshResult,
+        allItemsConfirmed: Bool = false
+    ) -> MenuBarSpacingApplicationResult {
+        MenuBarSpacingCompatibility.applicationResult(
+            for: plan,
+            strategy: strategy,
+            refreshResult: refreshResult,
+            allItemsConfirmed: allItemsConfirmed
+        )
+    }
+
+    nonisolated static func arguments(
+        for operation: MenuBarSpacingDefaultsPlan.Operation,
+        key: String,
+        scope: MenuBarSpacingPreferenceScope = .currentHostGlobal
+    ) -> [String] {
+        MenuBarSpacingCompatibility.arguments(
+            for: operation,
+            key: key,
+            scope: scope
+        )
+    }
+
+    nonisolated static func execute(
+        plan: MenuBarSpacingDefaultsPlan,
+        dependencies: MenuBarSpacingDependencies
+    ) async -> MenuBarSpacingExecutionResult {
+        await MenuBarSpacingCompatibility.execute(
+            plan: plan,
+            dependencies: dependencies
+        )
+    }
+
+    nonisolated static func currentDefaultsValues(
+        scope: MenuBarSpacingPreferenceScope = .currentHostGlobal
+    ) -> MenuBarSpacingDefaultsValues {
+        MenuBarSpacingSystemClient.currentDefaultsValues(scope: scope)
+    }
+
+    nonisolated static func currentSystemContext() -> MenuBarSpacingSystemContext {
+        MenuBarSpacingSystemClient.currentSystemContext()
+    }
+
+    func refreshCurrentValues() {
+        guard !isApplying else { return }
+        refreshTask?.cancel()
+
+        let dependencies = dependencies
+        let strategy = compatibilityStrategy
+        refreshTask = Task { @MainActor [weak self] in
+            do {
+                let values = try await dependencies.readValues(strategy.preferenceScope)
+                guard !Task.isCancelled,
+                      let self,
+                      !self.isApplying else {
+                    return
+                }
+
+                let idleStatus = MenuBarSpacingCompatibility.idleStatus(
+                    for: values,
+                    strategy: strategy
+                )
+                self.currentValues = values
+                self.statusDescription = idleStatus.description
+                self.resultKind = idleStatus.kind
+            } catch {
+                guard !Task.isCancelled,
+                      let self,
+                      !self.isApplying else {
+                    return
+                }
+                self.resultKind = .failed
+                self.statusDescription = "Could not read the current menu bar spacing preference."
+            }
         }
     }
 
-    private nonisolated static func runDefaults(_ arguments: [String], allowsNonzeroExit: Bool) async throws {
-        try await Task.detached {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-            process.arguments = arguments
-            try process.run()
-            process.waitUntilExit()
-            if process.terminationStatus != 0, !allowsNonzeroExit {
-                throw CocoaError(.fileWriteUnknown)
-            }
-        }.value
-    }
+    func apply(
+        _ preference: MenuBarSpacingPreference,
+        customValue: Int,
+        onPreferenceVerified: (@MainActor () -> Void)? = nil
+    ) {
+        guard !isApplying else { return }
+        refreshTask?.cancel()
+        refreshTask = nil
 
-    private nonisolated static func refreshControlCenter() async -> String {
-        await Task.detached {
-            guard let controlCenter = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first else {
-                return "Menu bar refresh requested."
-            }
-            if controlCenter.terminate() {
-                waitForTermination(controlCenter, timeout: .seconds(1))
-            }
-            if !controlCenter.isTerminated {
-                controlCenter.forceTerminate()
-                waitForTermination(controlCenter, timeout: .milliseconds(300))
-            }
-            return controlCenter.isTerminated ?
-                "Control Center was refreshed; icons may briefly reload." :
-                "Menu bar refresh requested; Control Center may need a moment to update."
-        }.value
-    }
+        isApplying = true
+        resultKind = nil
+        statusDescription = "Applying \(preference.title.lowercased()) spacing..."
 
-    private nonisolated static func waitForTermination(_ app: NSRunningApplication, timeout: Duration) {
-        let deadline = ContinuousClock.now.advanced(by: timeout)
-        while !app.isTerminated, ContinuousClock.now < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
+        let plan = Self.defaultsPlan(for: preference, customValue: customValue)
+        let dependencies = dependencies
+        let strategy = compatibilityStrategy
+
+        Task { @MainActor [weak self] in
+            let update = await MenuBarSpacingCompatibility.updatePreferences(
+                plan: plan,
+                strategy: strategy,
+                dependencies: dependencies
+            )
+            guard let self else { return }
+
+            guard update.preferenceVerified else {
+                self.isApplying = false
+                if let values = update.currentValues {
+                    self.currentValues = values
+                }
+                let failure = update.failureResult ?? MenuBarSpacingApplicationResult(
+                    kind: .failed,
+                    detail: "The preference update did not complete."
+                )
+                self.resultKind = failure.kind
+                self.statusDescription = failure.message
+                return
+            }
+
+            if let values = update.currentValues {
+                self.currentValues = values
+            }
+            onPreferenceVerified?()
+            self.statusDescription = "Preference saved. Finishing menu bar update..."
+
+            let refreshResult = await dependencies.refresh(strategy.refreshStrategy)
+            let result = MenuBarSpacingCompatibility.applicationResult(
+                for: plan,
+                strategy: strategy,
+                refreshResult: refreshResult
+            )
+            self.isApplying = false
+            self.resultKind = result.kind
+            self.statusDescription = result.message
         }
     }
 }

@@ -198,16 +198,22 @@ final class AppModel: ObservableObject {
     }
 
     func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference) {
-        store.config.appBehavior.menuBarSpacing = preference
-        store.save()
-        menuBarSpacing.apply(preference, customValue: store.config.appBehavior.menuBarSpacingCustomValue)
+        let customValue = store.config.appBehavior.menuBarSpacingCustomValue
+        menuBarSpacing.apply(preference, customValue: customValue) { [weak self] in
+            guard let self else { return }
+            store.config.appBehavior.menuBarSpacing = preference
+            store.save()
+        }
     }
 
     func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference, customValue: Int) {
-        store.config.appBehavior.menuBarSpacing = preference
-        store.config.appBehavior.menuBarSpacingCustomValue = MenuBarSpacingPreference.clampedValue(customValue)
-        store.save()
-        menuBarSpacing.apply(preference, customValue: store.config.appBehavior.menuBarSpacingCustomValue)
+        let clampedValue = MenuBarSpacingPreference.clampedValue(customValue)
+        menuBarSpacing.apply(preference, customValue: clampedValue) { [weak self] in
+            guard let self else { return }
+            store.config.appBehavior.menuBarSpacing = preference
+            store.config.appBehavior.menuBarSpacingCustomValue = clampedValue
+            store.save()
+        }
     }
 
     func refreshMenuBarSpacingStatus() {
