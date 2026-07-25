@@ -8,14 +8,7 @@ enum MacMenderBrandAssets {
     }
 
     static var statusItemImage: NSImage {
-        let image = NSImage(
-            systemSymbolName: "laptopcomputer",
-            accessibilityDescription: "macMender"
-        )?.withSymbolConfiguration(
-            NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
-        ) ?? applicationIconImage
-        image.isTemplate = true
-        return image
+        MacMenderStatusIcon.makeImage()
     }
 
     static func image(named name: String) -> NSImage? {

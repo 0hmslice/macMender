@@ -105,10 +105,13 @@ struct SymbolAssetTests {
         }
     }
 
-    @Test("brand icon and native status symbol resolve")
+    @Test("brand and authored status icons resolve")
     func brandAssetsResolve() {
         #expect(MacMenderBrandAssets.image(named: MacMenderBrandAssets.appIcon) != nil)
-        #expect(NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: nil) != nil)
+        let statusImage = MacMenderBrandAssets.statusItemImage
+        #expect(statusImage.isTemplate)
+        #expect(statusImage.size == MacMenderStatusIcon.size)
+        #expect(statusImage.tiffRepresentation?.isEmpty == false)
     }
 
     @Test("Mendy resources are bundled")
