@@ -2,7 +2,7 @@
 
 Mendy is now a selective product character rather than macMender's primary identity.
 
-- App icon: the active source is `Sources/macMender/Resources/Brand/MacMenderAppIcon.png`. It depicts a modern notched MacBook with a sewn repair in its upper-right display corner. The source is rendered into the standard app icon set, `icon.icns`, `icons/icon.icns`, and `icons/NEWICON.png`.
+- App icon: the active source is `Sources/macMender/Resources/Brand/MacMenderAppIcon.png`. It depicts a modern notched MacBook with a sewn repair in its upper-right display corner. Its blue/slate lighting is tuned to stay visible in both light and dark Docks. The source is rendered into the standard app icon set, `icon.icns`, `icons/icon.icns`, and `icons/NEWICON.png`.
 - Status item icon: `MacMenderBrandAssets.statusItemImage` uses Apple's `laptopcomputer` SF Symbol as a monochrome template image. The menu bar intentionally uses this optically tuned native glyph instead of shrinking the detailed app artwork or Mendy into an unreadable custom bitmap.
 - Mendy appears only in onboarding Welcome and Finish. Routine pages, navigation, Overview, and the status-item popover do not load or display Mendy.
 - Existing Mendy source and runtime assets remain in the repository for selective guidance, About/credits, and future approved moments.
