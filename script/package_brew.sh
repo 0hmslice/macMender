@@ -2,8 +2,7 @@
 set -euo pipefail
 
 APP_NAME="macMender"
-# This creates a local Homebrew cask template. Replace OWNER/REPO before
-# using the generated cask for a public release.
+# This creates a local Homebrew cask template for the public GitHub release.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
@@ -20,7 +19,7 @@ ZIP_NAME="$APP_NAME-v$VERSION.zip"
 ZIP_PATH="$RELEASE_DIR/$ZIP_NAME"
 CASK_PATH="$RELEASE_DIR/macmender.rb"
 
-BUILD_CONFIGURATION=release "$ROOT_DIR/script/build_and_run.sh" --build-only
+APP_VERSION="$VERSION" BUILD_CONFIGURATION=release "$ROOT_DIR/script/build_and_run.sh" --build-only
 
 mkdir -p "$RELEASE_DIR"
 rm -f "$ZIP_PATH" "$CASK_PATH" "$RELEASE_DIR/SHA256SUMS"
@@ -38,10 +37,10 @@ cask "macmender" do
   version "$VERSION"
   sha256 "$SHA256"
 
-  url "https://github.com/OWNER/REPO/releases/download/v#{version}/$ZIP_NAME"
+  url "https://github.com/0hmslice/macMender/releases/download/v#{version}/$ZIP_NAME"
   name "macMender"
   desc "Privacy-first macOS utility for input, Dock, and window quality-of-life fixes"
-  homepage "https://github.com/OWNER/REPO"
+  homepage "https://github.com/0hmslice/macMender"
 
   depends_on macos: ">= :sonoma"
 
