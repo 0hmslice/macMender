@@ -8,7 +8,11 @@ macMender is a free, open-source macOS utility for better Dock previews, window 
 
 **v0.9.0 is a public preview.** It is staying pre-1.0 while Menu Bar Spacing remains limited on the current macOS beta.
 
-[Download macMender](https://github.com/0hmslice/macMender/releases) · [Report an issue](https://github.com/0hmslice/macMender/issues)
+[Download macMender](https://github.com/0hmslice/macMender/releases/tag/v0.9.0) · [Report an issue](https://github.com/0hmslice/macMender/issues)
+
+## Download
+
+Download [`macMender-v0.9.0.zip`](https://github.com/0hmslice/macMender/releases/download/v0.9.0/macMender-v0.9.0.zip) from the [v0.9.0 release](https://github.com/0hmslice/macMender/releases/tag/v0.9.0), unzip it, and move `macMender.app` to Applications.
 
 ## Features
 
