@@ -47,6 +47,8 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - With Accessibility missing or Safe Mode active, confirm the header shows one concise actionable warning; healthy state should show no status ornament.
 - Confirm the popover has no Menu Bar management rows, setup copy, Command-drag copy, Mark to Review, hidden icon language, Show/Tuck, scanner/discovery language, diagnostics, or thumbnail/discovery work.
 - Confirm every quick switch updates the active profile and runtime immediately, Open macMender restores Overview with the sidebar visible, and Quit exits the app.
+- Hide the sidebar, navigate to Profiles from an in-content action, and confirm the complete sidebar returns. Repeat by reopening the app while Profiles was the last destination.
+- Confirm the popover footer fits Open macMender and Quit without an empty lower chin, and that its ultra-thin material remains legible in light/dark appearances and becomes opaque with Reduce Transparency.
 - Confirm Privacy contains the compact privacy promise, local data disclosure, Accessibility, Screen Recording, Input Monitoring, gesture runtime status, and permission refresh action.
 - Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Ready, Off, Paused, or Needs Accessibility.
 - Confirm Launch at Login is in General.

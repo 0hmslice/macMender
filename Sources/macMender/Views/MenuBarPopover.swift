@@ -52,7 +52,10 @@ struct MenuBarPopover: View {
 
             footer
         }
-        .frame(width: 304, height: 274, alignment: .topLeading)
+        .frame(width: 304, height: 236, alignment: .topLeading)
+        .background {
+            PopoverGlassBackdrop()
+        }
     }
 
     private var header: some View {
@@ -122,7 +125,8 @@ struct MenuBarPopover: View {
             .controlSize(.small)
             .accessibilityLabel("Quit macMender")
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private var threeFingerTapBinding: Binding<Bool> {
@@ -171,6 +175,22 @@ struct MenuBarPopover: View {
                 }
                 appModel.activateApp()
             }
+        }
+    }
+}
+
+private struct PopoverGlassBackdrop: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        if reduceTransparency {
+            Color(nsColor: .windowBackgroundColor)
+        } else {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    Color.white.opacity(0.08)
+                }
         }
     }
 }

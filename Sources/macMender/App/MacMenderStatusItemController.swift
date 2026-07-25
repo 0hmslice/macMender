@@ -114,7 +114,7 @@ final class MacMenderStatusItemController: NSObject {
         let popover = popover ?? NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 304, height: 274)
+        popover.contentSize = NSSize(width: 304, height: 236)
         popover.contentViewController = NSHostingController(
             rootView: MenuBarPopover(
                 appModel: appModel,

@@ -22,6 +22,9 @@ struct PreferencesWindow: View {
                     }
             }
             .navigationSplitViewStyle(.balanced)
+            .onChange(of: appModel.selectedSection) {
+                columnVisibility = .all
+            }
             .onChange(of: appModel.navigationPresentationID) {
                 columnVisibility = .all
             }
