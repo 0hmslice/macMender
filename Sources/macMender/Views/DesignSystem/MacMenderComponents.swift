@@ -117,26 +117,33 @@ struct MacMenderSettingsRow<Accessory: View>: View {
 struct MacMenderStatusLabel: View {
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
     @Environment(\.accessibilityShowBorders) private var showBorders
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     var title: String
     var tone: MacMenderStatusTone
     var systemImage: String? = nil
 
     var body: some View {
-        Label(title, systemImage: resolvedSymbol)
-            .font(.caption.weight(.medium))
-            .foregroundStyle(tone.color)
-            .padding(.horizontal, MacMenderSpacing.small)
-            .padding(.vertical, MacMenderSpacing.compact)
-            .background(tone.color.opacity(0.12), in: Capsule())
-            .overlay {
-                Capsule()
-                    .strokeBorder(
-                        tone.color.opacity(strongBorder ? 0.65 : 0.28),
-                        lineWidth: strongBorder ? 1.5 : 1
-                    )
-            }
-            .accessibilityElement(children: .combine)
+        HStack(spacing: MacMenderSpacing.compact) {
+            Image(systemName: resolvedSymbol)
+                .foregroundStyle(tone.color)
+                .accessibilityHidden(true)
+
+            Text(title)
+                .foregroundStyle(.primary)
+        }
+        .font(.caption.weight(.medium))
+        .padding(.horizontal, MacMenderSpacing.small)
+        .padding(.vertical, MacMenderSpacing.compact)
+        .background(tone.color.opacity(0.12), in: Capsule())
+        .overlay {
+            Capsule()
+                .strokeBorder(
+                    tone.color.opacity(strongBorder ? 0.65 : 0.28),
+                    lineWidth: strongBorder ? 1.5 : 1
+                )
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private var resolvedSymbol: String {
@@ -144,11 +151,15 @@ struct MacMenderStatusLabel: View {
     }
 
     private var strongBorder: Bool {
-        differentiateWithoutColor || showBorders
+        differentiateWithoutColor || showBorders || colorSchemeContrast == .increased
     }
 }
 
 struct MacMenderCallout<Content: View>: View {
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.accessibilityShowBorders) private var showBorders
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
     var systemImage: String
     var tone: MacMenderStatusTone = .neutral
     @ViewBuilder var content: Content
@@ -168,11 +179,21 @@ struct MacMenderCallout<Content: View>: View {
         }
         .padding(MacMenderSpacing.standard)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tone.color.opacity(0.08), in: RoundedRectangle(cornerRadius: MacMenderRadius.content, style: .continuous))
+        .background(
+            tone.color.opacity(strongBorder ? 0.12 : 0.08),
+            in: RoundedRectangle(cornerRadius: MacMenderRadius.content, style: .continuous)
+        )
         .overlay {
             RoundedRectangle(cornerRadius: MacMenderRadius.content, style: .continuous)
-                .strokeBorder(tone.color.opacity(0.18), lineWidth: 1)
+                .strokeBorder(
+                    tone.color.opacity(strongBorder ? 0.65 : 0.18),
+                    lineWidth: strongBorder ? 1.5 : 1
+                )
         }
+    }
+
+    private var strongBorder: Bool {
+        differentiateWithoutColor || showBorders || colorSchemeContrast == .increased
     }
 }
 

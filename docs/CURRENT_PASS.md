@@ -4,11 +4,13 @@ Most complete working copy:
 `/Users/ryan/Documents/macMender`
 
 Branch:
-`codex/macos27-compatibility`
+`codex/macos27-ui-rebrand`
 
 ## Focus
 
-This is Phase A of the current work: macOS 27 compatibility and full regression QA. Phase B, the visual rebrand, has not started and must remain separate from the compatibility commits.
+Phase A macOS 27 compatibility was completed and committed separately on `codex/macos27-compatibility` through `487a832`. Phase B is the current visual rebrand. Its presentation milestone is `b4c2707` (`Restyle onboarding popover and overlays`), followed by the final accessibility/performance QA milestone. Compatibility and presentation changes remain separated in Git history.
+
+Final packaged Phase B QA is recorded in `docs/UI_REBRAND_QA.md`. Build, tests, package verification, targeted packaged UI, targeted dark/light appearance, and page performance passed. The evidence record marks carried-forward Phase A checks and named physical-device, spoken-VoiceOver, global-accessibility-mode, final popover, minimum-size-onboarding, and ScreenCaptureKit-redacted Profiles checks as partial/manual.
 
 Menu Bar management remains removed/deferred. Menu Bar Spacing remains a narrow app-wide utility that can only read, write, or delete the two global spacing preferences; it does not inspect or manage individual menu bar items.
 
@@ -24,7 +26,19 @@ Menu Bar management remains removed/deferred. Menu Bar Spacing remains a narrow 
 
 The selected developer directory is Command Line Tools. Xcode-based commands in this pass use `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` without changing the user's global `xcode-select` setting.
 
-## Untouched Baseline
+## Phase B Implementation Status
+
+- Design research and sources are recorded in `docs/UI_REBRAND_RESEARCH.md`.
+- The app uses a native `NavigationSplitView`, sidebar `List`, toolbar profile picker, shared semantic design tokens, restrained content surfaces, and functional glass for navigation and overlays.
+- Overview, General, Input, Dock & Windows, Menu Bar Spacing, Profiles, Privacy, Advanced, onboarding, the status-item popover, Dock previews, and Option+Tab presentation have been redesigned.
+- Mendy is absent from routine pages and the popover. It remains only in onboarding Welcome/Finish and as the existing status-item icon. Mendy assets were not deleted.
+- Dock preview and Option+Tab presentation changed visually only. Identity, discovery, Finder filtering, thumbnail capture/cache, activation, panel lifetime, Dock context-menu suppression, and Escape routing remain unchanged.
+- Final source verification: `swift build` passed and 97 tests in 10 suites passed with Xcode 27 selected command-locally.
+- `script/build_and_run.sh --verify` passed. The packaged app launched, every destination was inspected through visual capture or its complete accessibility tree, the isolated standard-size onboarding flow passed, targeted light/dark checks passed with documented capture limitations, and every page settled to 0.0% CPU. Final `top` memory ranged from approximately 51 MB at clean Overview to 95 MB at the heaviest page sample.
+- Accessibility audit fixes use semantic primary status text, stronger contrast-aware borders, contextual Input labels/values/hints, native selected onboarding rows with a non-color checkmark, and wrapping/scrolling popover fallbacks. Full spoken/global-mode checks remain manual because the macOS Accessibility settings pane closed the Computer Use connection.
+- Profiles currently supports create, select, Make Active, and delete. Rename and Duplicate remain unimplemented; this is a disclosed Phase B gap and must not be reported as complete.
+
+## Phase A Untouched Baseline (Historical)
 
 Before the compatibility implementation:
 
@@ -67,7 +81,7 @@ The compatibility evidence, research sources, upstream licenses, and controlled 
 
 The implementation does not automatically relaunch third-party apps.
 
-## Post-Fix Verification Status
+## Phase A Post-Fix Verification (Historical)
 
 - `swift build`: passed.
 - `swift test`: 95 tests in 9 suites passed. The Menu Bar Spacing suite contains 23 tests covering OS strategy selection, domain/value mapping, true System Default deletion, refresh selection, result copy, clamping, staged verification, rollback/readback ordering, failure handling, stale-read cancellation, production Apply ordering, and macMender status-item geometry.
@@ -97,12 +111,12 @@ Profile switching must not write spacing defaults, restart a menu bar host, or c
 - Developer-only spacing probes are not part of the app target and do not create a shipping menu bar management path.
 - Menu Bar Spacing does not inspect third-party menu bar items or automatically relaunch, terminate, move, or hide a third-party app or item.
 - No GPL source was copied. GPL projects were inspected for behavior only.
-- Dock preview identity matching, Finder filtering, thumbnail capture/cache, Dock context-menu suppression, Option+Tab activation, and Escape routing were not changed.
+- Phase B restyled the Dock preview and Option+Tab views, but did not change Dock identity matching, discovery, Finder filtering, thumbnail capture/cache, Dock context-menu suppression, activation, panel lifetime, or Escape routing.
 - Input, scrolling, Three-Finger Tap, profiles, config import/export, permissions, and Dock preference behavior were not changed.
-- Bundle identifier, signing, entitlements, repository structure, release artifacts, and public release state were not changed.
+- Bundle identifier, signing, entitlements, public/top-level packaging structure, release artifacts, and public release state were not changed. Internal modular source, test, and documentation files were added.
 - No analytics, telemetry, tracking, remote config, or network behavior was added.
 - Mendy assets were not deleted.
 
-## Remaining Manual/Hardware QA
+## Phase B Final QA Result
 
-The packaged Phase A matrix is complete. The physical-device and subjective residuals are listed under `Remaining Manual/Hardware Checks` in `docs/MANUAL_QA.md`.
+The automated and targeted packaged Phase B pass is complete. `docs/UI_REBRAND_QA.md` is the evidence record and distinguishes fresh passes from partial/carried-forward checks. Remaining manual work includes physical devices/gestures; minimum-size onboarding; full spoken VoiceOver and Full Keyboard Access; global accessibility-display toggles; final status-item popover interaction/large text; direct Profiles light/dark and light Option+Tab inspection; final packaged reruns of the carried-forward Dock, keyboard/Escape, animation, and Advanced stateful checks; and optional GPU/Instruments profiling.

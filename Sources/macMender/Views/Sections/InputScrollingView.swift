@@ -48,14 +48,18 @@ struct InputScrollingView: View {
                         Text("Vertical")
                             .fontWeight(.medium)
                         Toggle("Smooth", isOn: binding(\.scroll.verticalSmoothingEnabled))
+                            .accessibilityLabel("Smooth vertical scrolling")
                         Toggle("Reverse", isOn: binding(\.scroll.reverseVertical))
+                            .accessibilityLabel("Reverse vertical scrolling")
                     }
 
                     GridRow {
                         Text("Horizontal")
                             .fontWeight(.medium)
                         Toggle("Smooth", isOn: binding(\.scroll.horizontalSmoothingEnabled))
+                            .accessibilityLabel("Smooth horizontal scrolling")
                         Toggle("Reverse", isOn: binding(\.scroll.reverseHorizontal))
+                            .accessibilityLabel("Reverse horizontal scrolling")
                     }
                 }
 

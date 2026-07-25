@@ -51,8 +51,11 @@ struct DeviceRuleRow: View {
 
             HStack(spacing: MacMenderSpacing.section) {
                 Toggle("Smooth", isOn: smoothing)
+                    .accessibilityLabel("Smooth scrolling for \(rule.displayName)")
                 Toggle("Reverse Vertical", isOn: reverseVertical)
+                    .accessibilityLabel("Reverse vertical scrolling for \(rule.displayName)")
                 Toggle("Reverse Horizontal", isOn: reverseHorizontal)
+                    .accessibilityLabel("Reverse horizontal scrolling for \(rule.displayName)")
             }
         }
         .padding(.vertical, MacMenderSpacing.standard)
@@ -97,12 +100,25 @@ struct AppOverrideRow: View {
                 Spacer()
 
                 Button("Remove", role: .destructive, action: deleteAction)
+                    .accessibilityLabel("Remove scroll override for \(rule.appName)")
             }
 
             HStack(spacing: MacMenderSpacing.standard) {
-                TriStateOverridePicker(title: "Smoothing", value: smoothing)
-                TriStateOverridePicker(title: "Reverse Vertical", value: reverseVertical)
-                TriStateOverridePicker(title: "Reverse Horizontal", value: reverseHorizontal)
+                TriStateOverridePicker(
+                    title: "Smoothing",
+                    accessibilityLabel: "Smoothing override for \(rule.appName)",
+                    value: smoothing
+                )
+                TriStateOverridePicker(
+                    title: "Reverse Vertical",
+                    accessibilityLabel: "Reverse vertical scrolling override for \(rule.appName)",
+                    value: reverseVertical
+                )
+                TriStateOverridePicker(
+                    title: "Reverse Horizontal",
+                    accessibilityLabel: "Reverse horizontal scrolling override for \(rule.appName)",
+                    value: reverseHorizontal
+                )
             }
         }
         .padding(.vertical, MacMenderSpacing.standard)
@@ -121,6 +137,7 @@ struct AppOverrideRow: View {
 
 private struct TriStateOverridePicker: View {
     var title: String
+    var accessibilityLabel: String
     var value: Binding<Bool?>
 
     var body: some View {
@@ -134,6 +151,8 @@ private struct TriStateOverridePicker: View {
         }
         .pickerStyle(.menu)
         .frame(minWidth: 150)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(OverrideValue(value.wrappedValue).title)
     }
 }
 
@@ -188,6 +207,15 @@ struct ScrollPreview: View {
         )
     }
 
+    private var accessibilityValue: String {
+        let smoothing = settings.verticalSmoothingEnabled ? "Vertical smoothing on" : "Vertical smoothing off"
+        let response = settings.duration > 0
+            ? "response tapers over \(settings.duration.sliderValueLabel) seconds"
+            : "response is immediate with no smoothing tail"
+
+        return "\(settings.preset.title) preset. \(smoothing). Gain \(settings.gain.sliderValueLabel); \(response)."
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: MacMenderSpacing.small) {
             Text("Response Preview")
@@ -210,7 +238,9 @@ struct ScrollPreview: View {
         .padding(MacMenderSpacing.standard)
         .frame(maxWidth: .infinity, alignment: .leading)
         .macMenderContentSurface(radius: MacMenderRadius.control)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Scroll response preview")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Taller early bars mean a more immediate response; a longer tail means smoother scrolling.")
     }
 }

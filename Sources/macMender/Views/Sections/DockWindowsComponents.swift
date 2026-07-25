@@ -42,7 +42,7 @@ struct WindowDiscoveryDiagnosticsView: View {
                             if let reason = appReport.appDropReason {
                                 Text("App drop reason: \(reason)")
                                     .font(.caption2.monospaced())
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(.primary)
                                     .textSelection(.enabled)
                             }
                         }
@@ -72,7 +72,7 @@ private struct WindowDiscoveryEntryLineView: View {
     var body: some View {
         Text(entryLine)
             .font(.caption2.monospaced())
-            .foregroundStyle(entry.included ? Color.secondary : Color.orange)
+            .foregroundStyle(entry.included ? Color.secondary : Color.primary)
             .textSelection(.enabled)
     }
 

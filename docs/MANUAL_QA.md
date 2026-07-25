@@ -18,32 +18,37 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Do not use `script/build_and_run.sh --fresh` without an explicit restoration plan; it moves the live config aside and does not restore it automatically.
 - The untouched baseline passed 72 tests in 8 suites and packaged verification. It showed an Overview window in approximately 1.43 seconds, sampled 0.0% idle CPU, and used approximately 55–56 MB resident memory with preferences open and approximately 62 MB with preferences closed.
 - The final Phase A build passed `swift build`, 95 tests in 9 suites, and packaged verification. The packaged app showed its first window in approximately 1.009 seconds, and the detailed live results and residuals are recorded below.
+- Phase B's presentation milestone is `b4c2707`, followed by the final accessibility/performance QA milestone. Final verification passed `swift build`, 97 tests in 10 suites, `script/build_and_run.sh --verify`, targeted packaged UI, isolated onboarding, dark/light page inspection, and settled page CPU. Exact evidence and partial/manual checks are in `docs/UI_REBRAND_QA.md`.
 
-## Current Pass Checklist
+## Phase B Final QA Checklist
 
-- Launch `dist/macMender.app` and inspect onboarding, Overview, General, Input, Dock & Windows, Profiles, Privacy, and Advanced.
+- Run `script/build_and_run.sh --verify`, launch `dist/macMender.app`, and inspect onboarding, Overview, General, Input, Dock & Windows, Menu Bar Spacing, Profiles, Privacy, Advanced, the status-item popover, Dock previews, and Option+Tab.
+- Confirm the app uses a native sidebar and toolbar profile picker, has no mascot sidebar/header or decorative service block, and keeps ordinary settings content on quiet semantic surfaces rather than nested glass cards.
 - Confirm onboarding is a multi-step flow with Welcome, Input and Three-Finger Tap, Dock and Windows, Permissions, Local Privacy, and Finish.
-- Confirm the onboarding header is compact and does not crowd the step content.
+- Confirm onboarding uses a native step rail and compact page headers without a persistent mascot header.
 - Confirm onboarding has no Menu Bar management content.
 - Confirm onboarding reports Accessibility, Screen Recording, and Input Monitoring from real permission status.
-- Confirm Input Monitoring is separate from three-finger gesture runtime state.
+- Confirm Input Monitoring remains separate from Three-Finger Tap runtime status, including Active, Ready, Off, Paused, and Needs Accessibility states where applicable.
 - Confirm onboarding `Recheck Permissions` refreshes permission status without running window discovery or thumbnail capture.
+- For every non-granted permission, confirm both Request Access and Open Settings remain reachable; granted permissions may show Open Settings alone.
+- Confirm onboarding Three-Finger Tap, Dock Previews, Window Switcher, and overall permission summaries match Overview and the popover under Off, Safe Mode, missing Accessibility, inactive runtime, active runtime, and optional-permission states.
 - Confirm drag-to-add Privacy & Security guidance is present and phrases drag-to-add as conditional guidance, with + button fallback.
 - Confirm the Permissions drag-to-add guide stays stable at the intended packaged-app window size and when resized slightly smaller; it must not overlap or clip the app tile, arrow, mock permission list, or numbered guidance.
-- Confirm onboarding uses section-specific Mendy assets: Overview for Welcome/Finish, Input for Three-Finger Tap, Dock & Windows for Dock/Window setup, and Privacy for permissions/privacy.
+- Confirm Mendy appears only in Welcome and Finish, uses greeting/success-or-error state assets, remains absent from intermediate steps and the drag guide, and has no repeat-forever animation.
 - Confirm onboarding can be skipped or finished even when permissions are deferred.
 - Confirm Advanced `Reset to Onboarding` still returns to the multi-step flow.
 - Confirm the sidebar has a Menu Bar Spacing section but no Menu Bar management section.
 - Confirm Overview has no Menu Bar setup card, chip, status row, scanner status, hidden-area language, Command-drag tutorial, Mark to Review checklist, or menu-bar icon hiding claim.
-- Confirm Overview shows Permissions, Three-Finger Tap, Window Switcher, and Dock Previews as key status cards.
+- Confirm Overview shows Permissions, Three-Finger Tap, Window Switcher, and Dock Previews as concise status rows with accurate text, symbols, and color-independent status labels.
 - Confirm Overview does not show `Status Refresh` or a `Services` technical disclosure.
 - Confirm the app still has its own macMender status item in the macOS menu bar.
 - Confirm the status-item popover is compact, opens quickly, has no clipped text, and shows only: running state, Permissions summary, Three-Finger Tap, Dock previews, Window Switcher, Open macMender, an as-needed Permissions button, and low-priority Quit.
+- Confirm the popover contains no Mendy artwork and reports Setup Required, Paused, Needs Accessibility, Starting, and Running states accurately.
 - Confirm the popover does not show separate Accessibility and Screen Recording rows when permissions are healthy.
 - Confirm the popover has no Menu Bar management rows, setup copy, Command-drag copy, Mark to Review, hidden icon language, Show/Tuck, scanner/discovery language, diagnostics, or thumbnail/discovery work.
 - Confirm popover actions work: Open macMender focuses the settings window, Permissions opens Privacy when shown, and Quit exits the app.
-- Confirm Privacy contains only the privacy promise, local data details, Accessibility, Screen Recording, and Input Monitoring permission/runtime status.
-- Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Off, or Needs Permission.
+- Confirm Privacy contains the compact privacy promise, local data disclosure, Accessibility, Screen Recording, Input Monitoring, gesture runtime status, and permission refresh action.
+- Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Ready, Off, Paused, or Needs Accessibility.
 - Confirm Launch at Login is in General.
 - Confirm Dock icon behavior is in General.
 - Confirm General no longer contains Menu Bar Spacing.
@@ -64,12 +69,13 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Use Reset to Default and confirm the status says System Default was restored while continuing to describe the Apple-item beta limitation honestly; it must not claim a host refresh occurred on `26A5388g`.
 - After Reset to Default, confirm `defaults -currentHost read -globalDomain NSStatusItemSpacing` and `defaults -currentHost read -globalDomain NSStatusItemSelectionPadding` both fail/miss, and relaunching macMender does not rewrite them.
 - Restore the exact original key state after the matrix. For this Phase A run that means explicit current-host `0/0`, not missing keys.
-- Confirm Reset to Onboarding is in Advanced Recovery Tools.
+- Confirm Advanced separates Status, Configuration, Troubleshooting, Diagnostics, and Reset.
+- Confirm Reset macMender opens a destructive confirmation whose final action is Reset to Onboarding.
 - Confirm Safe Mode is in Advanced and explains that it pauses active input monitoring, Dock previews, Window Switcher shortcuts, and experimental input features.
 - Confirm the floating top-right shell pause/refresh controls are gone.
 - Confirm Advanced `Status Refresh` shows progress and then `Updated just now`; it must not trigger window discovery or thumbnail capture.
-- Confirm Advanced contains Services/Technical Status details.
-- Confirm Advanced has a Configuration section separate from Recovery Tools.
+- Confirm Advanced keeps Local Messages, Service Status, and Technical Details behind disclosures.
+- Confirm Advanced keeps Configuration separate from Troubleshooting, Diagnostics, and Reset.
 - Confirm Save Now reports that current settings were written to disk.
 - Confirm Export Config can write a `macMender-config.json` file.
 - Confirm Import Config opens a file picker for JSON files and shows confirmation before replacing current profiles and app settings.
@@ -79,12 +85,14 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm imported macOS permission-shaped JSON does not make permissions appear granted; Privacy must continue to show live system permission status.
 - Confirm importing Menu Bar Spacing stores the setting but does not write `NSStatusItemSpacing` or `NSStatusItemSelectionPadding` until the user presses Apply on the Menu Bar Spacing page.
 - Confirm default/new profile Middle Click behavior is enabled three-finger tap mapped to middle click.
-- Confirm section-specific Mendy art appears on Overview, General, Input, Dock & Windows, Privacy, Advanced, and Profiles, using generic Mendy only for compact state accents.
-- With two or more profiles, confirm the top-right profile switcher uses one profile-oriented symbol, opens the profile menu, switches profiles, and has no clipped text.
+- Confirm Overview, General, Input, Dock & Windows, Menu Bar Spacing, Profiles, Privacy, Advanced, and the status-item popover contain no routine Mendy artwork.
+- With two or more profiles, confirm the native toolbar profile picker shows the active profile name, opens the profile menu, switches profiles, and has no clipped text.
 - Create Profile A and Profile B. Change Profile A's Dock preview animation style, animation duration, and Three-Finger Tap / Middle Click setting, switch to Profile B, and confirm those visible controls update to Profile B's values.
 - Change Profile B's Dock preview and Three-Finger Tap / Middle Click values, switch back to Profile A, and confirm Profile A's values return without needing an app relaunch.
 - Confirm Overview and the status-item popover update their Three-Finger Tap, Dock previews, and Window Switcher summaries after each profile switch.
 - Confirm the top-right profile switcher appears immediately after creating a second profile and disappears only after returning to one profile.
+- Confirm the Profiles table supports selection without implicit activation, Make Active, protected default-profile deletion, and destructive delete confirmation.
+- Known gap: Rename and Duplicate are not implemented. Do not mark those Phase B profile requirements complete or imply that they were tested.
 - Confirm Launch at Login, Dock icon visibility, Safe Mode, permission status, onboarding completion, and Menu Bar Spacing behave as app-wide settings rather than per-profile settings.
 - Confirm Menu Bar Spacing does not silently write or refresh system defaults when switching profiles.
 - Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation.
@@ -104,7 +112,11 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Dock preview hover still uses correct app/window identity and does not show neighboring Dock item previews.
 - While a Dock preview is visible, right-click its Dock icon and confirm the preview dismisses, the real Dock context menu remains usable, and the preview does not immediately re-present over the menu.
 - Repeat the Dock context-menu check with Control-click, then confirm normal preview presentation resumes after the interaction ends.
+- Confirm Dock preview and Option+Tab use one outer glass surface, opaque semantic window cards, a visible Selected label/border, and no selection magnification.
+- With Increase Contrast and Differentiate Without Color enabled, confirm selection remains obvious without relying on accent color alone.
+- With Reduce Motion enabled, confirm overlay selection feedback is immediate and Dock preview presentation uses its reduced-motion path.
 - Confirm settings stay responsive while changing visual-only Dock preview settings.
+- Verify VoiceOver labels and values, full keyboard navigation, native focus rings, light and dark appearance, Increase Contrast, Reduce Transparency, Reduce Motion, Show Borders, Differentiate Without Color, practical hit targets, and text clipping at the minimum supported window size.
 - Confirm packaged-app idle CPU settles near baseline after the window is idle for several seconds. Recheck with `top -l 5 -s 1 -pid $(pgrep -x macMender | head -n1)` or Activity Monitor.
 - Sample idle CPU on every page and while the status-item popover is open; no page or popover should sustain an update loop after interaction stops.
 - Recheck resident memory after Dock previews, browser windows, Finder filtering, and Option+Tab use; record any persistent growth relative to the untouched baseline.
@@ -132,7 +144,9 @@ Historical menu-bar research and QA scripts live under `docs/archive/menu-bar-re
 
 Root `Mendy/` contains the user-provided source/reference PNGs. `Sources/macMender/Resources/Mendy/` contains the copied runtime resources bundled by SwiftPM with matching filenames.
 
-## Phase A Packaged Result
+## Historical Phase A Packaged Result (Pre-Rebrand)
+
+These results verify the compatibility branch before the Phase B visual changes. They do not verify the rebranded packaged app.
 
 - Launch, first-visible timing, status-item presence, every page, the popover, onboarding, profiles, config import/export, live permission status/actions, Safe Mode, and Overview card navigation passed.
 - Dock hover and adjacent-item identity, Finder fake-window filtering with and without a real Finder window, browser multi-window previews/activation, macMender self-preview, preview animation, and Control-click context-menu suppression passed.
@@ -147,6 +161,10 @@ Root `Mendy/` contains the user-provided source/reference PNGs. `Sources/macMend
 - Perform an actual three-finger tap on hardware and compare physical external-mouse versus built-in-trackpad scrolling feel. Automation verified the controls and runtime status but cannot reproduce those gestures faithfully.
 - Test any exposed Magic Mouse or Magic Trackpad-specific rule on the matching hardware. Static review found that the current event classifier selects built-in trackpad or external mouse at runtime and does not independently select the saved Magic-device rule types. This predates Phase A and was not changed because no macOS 27 compatibility regression was confirmed.
 - Perform a physical secondary-click on the macMender Dock icon while its preview is visible. Synthetic right-click was inconclusive; Control-click produced the real Dock menu and suppression/recovery passed, and the secondary-interaction classifier is unit-tested.
-- Resize onboarding slightly below the intended packaged window size and visually confirm that the drag-to-add permission guide remains unclipped. The complete flow and intended-size/scrolled layout passed automation.
+- Repeat the redesigned onboarding pass at the minimum practical window size; the intended 980×680 packaged layout passed, but the smaller-size rail, dual permission actions, drag guide, numbered instructions, and footer still need direct visual confirmation.
+- Complete a spoken VoiceOver and Full Keyboard Access traversal, including native focus rings, popover reading order, and destructive confirmation focus.
+- Enable Increase Contrast, Show Borders, Differentiate Without Color, Reduce Transparency, and Reduce Motion globally and perform the final visual pass, then restore the original values. The System Settings Accessibility pane closed the Computer Use connection during this run, so those global toggles were not changed.
+- Open the final status-item popover by hand and check large-text wrapping/scrolling plus popover-open CPU. Its controller/action path is unchanged, but Computer Use could not press the MenuBarAgent item after the final popover-only accessibility patch.
+- Inspect Profiles directly on screen in light and dark appearance. Its full accessibility tree passed, but macOS 27's screen-capture path privacy-redacted the window while its profile-name text field was present.
 - Optionally relaunch one suitable third-party status-item app by hand to compare it with the fresh AppKit probe. Do not generalize one app's behavior to all third-party frameworks.
 - A human can still perform a subjective cursor/beachball feel check and a dedicated GPU/Instruments trace. Automation observed a responsive first window and no sustained CPU update loop.

@@ -3,6 +3,9 @@ import SwiftUI
 
 struct OnboardingStepRail: View {
     @Binding var selection: OnboardingStep?
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.accessibilityShowBorders) private var showBorders
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     private var currentStep: OnboardingStep {
         selection ?? .welcome
@@ -21,36 +24,42 @@ struct OnboardingStepRail: View {
             .padding(.top, MacMenderSpacing.section)
             .padding(.bottom, MacMenderSpacing.small)
 
-            List {
+            List(selection: $selection) {
                 ForEach(OnboardingStep.allCases) { candidate in
-                    Button {
-                        selection = candidate
-                    } label: {
-                        HStack(spacing: MacMenderSpacing.standard) {
-                            Image(systemName: candidate.systemImage)
-                                .font(.callout.weight(.medium))
-                                .frame(width: 20)
-                                .foregroundStyle(candidate == currentStep ? Color.accentColor : Color.secondary)
-                                .accessibilityHidden(true)
+                    HStack(spacing: MacMenderSpacing.standard) {
+                        Image(systemName: candidate.systemImage)
+                            .font(.callout.weight(.medium))
+                            .frame(width: 20)
+                            .foregroundStyle(stepIconColor(for: candidate))
+                            .accessibilityHidden(true)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(candidate.shortTitle)
-                                    .font(.callout.weight(.medium))
-                                Text(candidate.railSubtitle)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(candidate.shortTitle)
+                                .font(.callout.weight(.medium))
+                            Text(candidate.railSubtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                        .padding(.vertical, MacMenderSpacing.compact)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(.rect)
+
+                        Spacer(minLength: MacMenderSpacing.compact)
+
+                        if candidate == currentStep {
+                            Image(systemName: "checkmark")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(emphasizesSelection ? Color.primary : Color.accentColor)
+                                .accessibilityHidden(true)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .listRowBackground(candidate == currentStep ? Color.accentColor.opacity(0.12) : Color.clear)
+                    .padding(.vertical, MacMenderSpacing.compact)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+                    .tag(candidate)
+                    .listRowBackground(stepBackground(for: candidate))
                     .accessibilityLabel(
                         "Step \(candidate.rawValue + 1), \(candidate.shortTitle), \(candidate.railSubtitle)\(candidate == currentStep ? ", current step" : "")"
                     )
+                    .accessibilityAddTraits(candidate == currentStep ? .isSelected : [])
                 }
             }
             .listStyle(.sidebar)
@@ -69,6 +78,31 @@ struct OnboardingStepRail: View {
         }
         .frame(width: 238)
         .macMenderGlassSurface(radius: 0)
+    }
+
+    private var emphasizesSelection: Bool {
+        differentiateWithoutColor || showBorders || colorSchemeContrast == .increased
+    }
+
+    private func stepIconColor(for candidate: OnboardingStep) -> Color {
+        guard candidate == currentStep else { return .secondary }
+        return emphasizesSelection ? .primary : .accentColor
+    }
+
+    @ViewBuilder
+    private func stepBackground(for candidate: OnboardingStep) -> some View {
+        if candidate == currentStep {
+            RoundedRectangle(cornerRadius: MacMenderRadius.control, style: .continuous)
+                .fill(Color.accentColor.opacity(emphasizesSelection ? 0.20 : 0.12))
+                .overlay {
+                    if emphasizesSelection {
+                        RoundedRectangle(cornerRadius: MacMenderRadius.control, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.8), lineWidth: 2)
+                    }
+                }
+        } else {
+            Color.clear
+        }
     }
 }
 

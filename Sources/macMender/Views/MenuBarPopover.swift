@@ -14,27 +14,34 @@ struct MenuBarPopover: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
-            header
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 8) {
+                    header
 
-            Divider()
+                    Divider()
 
-            VStack(spacing: 0) {
-                PopoverStatusLine(item: permissionsItem)
-                Divider().padding(.leading, 25)
-                PopoverStatusLine(item: middleClickItem)
-                Divider().padding(.leading, 25)
-                PopoverStatusLine(item: dockPreviewItem)
-                Divider().padding(.leading, 25)
-                PopoverStatusLine(item: windowSwitcherItem)
+                    VStack(spacing: 0) {
+                        PopoverStatusLine(item: permissionsItem)
+                        Divider().padding(.leading, 25)
+                        PopoverStatusLine(item: middleClickItem)
+                        Divider().padding(.leading, 25)
+                        PopoverStatusLine(item: dockPreviewItem)
+                        Divider().padding(.leading, 25)
+                        PopoverStatusLine(item: windowSwitcherItem)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollIndicators(.automatic)
 
             actionRow
 
-            HStack {
+            HStack(alignment: .top) {
                 Text(footerStatus)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
                 Spacer(minLength: 8)
                 Button {
                     NSApp.terminate(nil)
@@ -67,12 +74,11 @@ struct MenuBarPopover: View {
                     .font(.headline)
                 Text(appModel.runningStatusTitle)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(overallTone.color)
+                    .foregroundStyle(.primary)
                 Text(appModel.runningStatusDetail)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 0)
@@ -173,29 +179,48 @@ struct MenuBarPopover: View {
     }
 
     private var actionRow: some View {
-        HStack(spacing: 6) {
-            Button {
-                openSettings()
-            } label: {
-                Label("Open macMender", systemImage: "arrow.right")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .accessibilityHint("Opens the macMender settings window")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                openMacMenderButton
 
-            if shouldShowPermissionsAction {
-                Button {
-                    appModel.selectedSection = .privacy
-                    openSettings()
-                } label: {
-                    Label("Permissions", systemImage: "lock.shield")
+                if shouldShowPermissionsAction {
+                    permissionsButton
                 }
-                .buttonStyle(.borderless)
-                .controlSize(.small)
-                .accessibilityHint("Opens the Privacy page in macMender")
+            }
+
+            VStack(spacing: 6) {
+                openMacMenderButton
+
+                if shouldShowPermissionsAction {
+                    permissionsButton
+                }
             }
         }
+    }
+
+    private var openMacMenderButton: some View {
+        Button {
+            openSettings()
+        } label: {
+            Label("Open macMender", systemImage: "arrow.right")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.small)
+        .accessibilityHint("Opens the macMender settings window")
+    }
+
+    private var permissionsButton: some View {
+        Button {
+            appModel.selectedSection = .privacy
+            openSettings()
+        } label: {
+            Label("Permissions", systemImage: "lock.shield")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .accessibilityHint("Opens the Privacy page in macMender")
     }
 
     private func openSettings() {
@@ -225,7 +250,27 @@ private struct PopoverStatusLine: View {
     var item: PopoverStatusItem
 
     var body: some View {
-        HStack(spacing: 7) {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                statusTitle
+                Spacer(minLength: 8)
+                statusValue
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                statusTitle
+                statusValue
+                    .padding(.leading, 25)
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.title)
+        .accessibilityValue(item.value)
+    }
+
+    private var statusTitle: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
             Image(systemName: item.symbolName)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -235,19 +280,23 @@ private struct PopoverStatusLine: View {
             Text(item.title)
                 .font(.caption)
                 .foregroundStyle(.primary)
-                .lineLimit(1)
-
-            Spacer(minLength: 8)
-
-            Label(item.value, systemImage: item.tone.defaultSymbol)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(item.tone.color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.title)
-        .accessibilityValue(item.value)
+    }
+
+    private var statusValue: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Image(systemName: item.tone.defaultSymbol)
+                .foregroundStyle(item.tone.color)
+                .accessibilityHidden(true)
+
+            Text(item.value)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.caption2.weight(.semibold))
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(item.tone.color.opacity(0.12), in: Capsule())
     }
 }
