@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastStatusRefreshSummary = "Not refreshed yet"
     @Published private(set) var firstWindowReadyAt: Date?
     @Published private(set) var runtimeStartedAt: Date?
+    @Published private(set) var navigationPresentationID = 0
 
     let store: ProfileStore
     let permissions: PermissionService
@@ -198,16 +199,22 @@ final class AppModel: ObservableObject {
     }
 
     func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference) {
-        store.config.appBehavior.menuBarSpacing = preference
-        store.save()
-        menuBarSpacing.apply(preference, customValue: store.config.appBehavior.menuBarSpacingCustomValue)
+        let customValue = store.config.appBehavior.menuBarSpacingCustomValue
+        menuBarSpacing.apply(preference, customValue: customValue) { [weak self] in
+            guard let self else { return }
+            store.config.appBehavior.menuBarSpacing = preference
+            store.save()
+        }
     }
 
     func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference, customValue: Int) {
-        store.config.appBehavior.menuBarSpacing = preference
-        store.config.appBehavior.menuBarSpacingCustomValue = MenuBarSpacingPreference.clampedValue(customValue)
-        store.save()
-        menuBarSpacing.apply(preference, customValue: store.config.appBehavior.menuBarSpacingCustomValue)
+        let clampedValue = MenuBarSpacingPreference.clampedValue(customValue)
+        menuBarSpacing.apply(preference, customValue: clampedValue) { [weak self] in
+            guard let self else { return }
+            store.config.appBehavior.menuBarSpacing = preference
+            store.config.appBehavior.menuBarSpacingCustomValue = clampedValue
+            store.save()
+        }
     }
 
     func refreshMenuBarSpacingStatus() {
@@ -217,6 +224,11 @@ final class AppModel: ObservableObject {
     func setActiveProfile(_ profileID: UUID) {
         store.setActiveProfile(profileID)
         updateRuntime()
+    }
+
+    func requestMainWindow(section: SettingsSection) {
+        selectedSection = section
+        navigationPresentationID &+= 1
     }
 
     func completeOnboarding() {
@@ -248,6 +260,34 @@ final class AppModel: ObservableObject {
         let updatedProfile = activeProfile
         guard previousProfile != updatedProfile else { return }
         updateRuntimeAfterProfileChange(from: previousProfile, to: updatedProfile)
+    }
+
+    func setThreeFingerTapEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.setThreeFingerTapEnabled(isEnabled)
+        updateActiveProfile(profile)
+    }
+
+    var isExternalMouseReverseScrollingEnabled: Bool {
+        activeProfile.isExternalMouseReverseScrollingEnabled
+    }
+
+    func setExternalMouseReverseScrollingEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.setExternalMouseReverseScrollingEnabled(isEnabled)
+        updateActiveProfile(profile)
+    }
+
+    func setDockPreviewsEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.dockPreviews.enabled = isEnabled
+        updateActiveProfile(profile)
+    }
+
+    func setWindowSwitcherEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.windowSwitcher.enabled = isEnabled
+        updateActiveProfile(profile)
     }
 
     func activateApp() {

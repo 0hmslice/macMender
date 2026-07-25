@@ -3,49 +3,39 @@ import SwiftUI
 
 struct InputScrollingView: View {
     @ObservedObject var appModel: AppModel
-    @State private var tab = InputTab.global
     @State private var selectedRunningAppBundleID = ""
-
-    enum InputTab: String, CaseIterable, Identifiable {
-        case global = "Global"
-        case devices = "Devices"
-        case apps = "Apps"
-        case middleClick = "Middle Click"
-        var id: String { rawValue }
-    }
+    @State private var runningAppOptions: [RunningAppOption] = []
 
     var body: some View {
-        PreferencesScrollView {
-            MendySectionHeader(
-                section: .input,
-                title: "Input",
-                subtitle: "Mouse, trackpad, scrolling, and three-finger middle-click behavior."
+        MacMenderScrollablePage(maxContentWidth: 860) {
+            MacMenderPageHeader(
+                title: "Mouse & Trackpad",
+                subtitle: "Tune scrolling and Three-Finger Tap for the active profile.",
+                systemImage: SettingsSection.input.symbolName
             )
 
-            Picker("Input Area", selection: $tab) {
-                ForEach(InputTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
+            MacMenderCallout(systemImage: SettingsSection.profiles.symbolName) {
+                Text("These settings follow the **\(appModel.activeProfile.name)** profile.")
+                    .foregroundStyle(.secondary)
             }
-            .pickerStyle(.segmented)
 
-            switch tab {
-            case .global:
-                globalView
-            case .devices:
-                devicesView
-            case .apps:
-                appsView
-            case .middleClick:
-                middleClickView
-            }
+            scrollingSection
+            deviceRulesSection
+            appOverridesSection
+            middleClickSection
         }
+        .onAppear(perform: refreshRunningApps)
     }
 
-    private var globalView: some View {
-        SectionCard(title: "Scroll Feel", subtitle: "Per-axis direction and smoothing. Event modification remains off while Safe Mode is enabled.", symbolName: "scroll") {
+    private var scrollingSection: some View {
+        MacMenderContentSection(
+            title: "Scrolling",
+            subtitle: "Set direction and smoothing for each axis. Safe Mode pauses event modification.",
+            systemImage: "scroll"
+        ) {
             let profile = appModel.activeProfile
-            VStack(alignment: .leading, spacing: 14) {
+
+            VStack(alignment: .leading, spacing: MacMenderSpacing.section) {
                 Picker("Preset", selection: presetBinding) {
                     ForEach(SmoothingPreset.allCases) { preset in
                         Text(preset.title).tag(preset)
@@ -53,84 +43,125 @@ struct InputScrollingView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 10) {
+                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
                     GridRow {
                         Text("Vertical")
+                            .fontWeight(.medium)
                         Toggle("Smooth", isOn: binding(\.scroll.verticalSmoothingEnabled))
+                            .accessibilityLabel("Smooth vertical scrolling")
                         Toggle("Reverse", isOn: binding(\.scroll.reverseVertical))
+                            .accessibilityLabel("Reverse vertical scrolling")
                     }
+
                     GridRow {
                         Text("Horizontal")
+                            .fontWeight(.medium)
                         Toggle("Smooth", isOn: binding(\.scroll.horizontalSmoothingEnabled))
+                            .accessibilityLabel("Smooth horizontal scrolling")
                         Toggle("Reverse", isOn: binding(\.scroll.reverseHorizontal))
+                            .accessibilityLabel("Reverse horizontal scrolling")
                     }
                 }
 
-                LabeledSlider(title: "Step", value: binding(\.scroll.step), range: 0.25...6, step: 0.25, valueLabel: profile.scroll.step.sliderValueLabel)
-                LabeledSlider(title: "Gain", value: binding(\.scroll.gain), range: 0.5...3, step: 0.05, valueLabel: profile.scroll.gain.sliderValueLabel)
-                LabeledSlider(title: "Duration", value: binding(\.scroll.duration), range: 0...0.5, step: 0.01, valueLabel: "\(profile.scroll.duration.sliderValueLabel)s")
+                Text("Reverse changes the natural scroll direction for the selected axis.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                LabeledSlider(
+                    title: "Step",
+                    value: binding(\.scroll.step),
+                    range: 0.25...6,
+                    step: 0.25,
+                    valueLabel: profile.scroll.step.sliderValueLabel
+                )
+                LabeledSlider(
+                    title: "Gain",
+                    value: binding(\.scroll.gain),
+                    range: 0.5...3,
+                    step: 0.05,
+                    valueLabel: profile.scroll.gain.sliderValueLabel
+                )
+                LabeledSlider(
+                    title: "Duration",
+                    value: binding(\.scroll.duration),
+                    range: 0...0.5,
+                    step: 0.01,
+                    valueLabel: "\(profile.scroll.duration.sliderValueLabel)s"
+                )
 
                 ScrollPreview(settings: profile.scroll)
             }
         }
     }
 
-    private var devicesView: some View {
-        SectionCard(title: "Device Rules", subtitle: "Physical-device matching is best-effort with public APIs.", symbolName: "sensor") {
-            VStack(spacing: 8) {
-                ForEach(appModel.activeProfile.scroll.deviceRules) { rule in
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Image(systemName: rule.deviceKind == .builtInTrackpad ? "rectangle.and.hand.point.up.left" : "computermouse")
-                                .foregroundStyle(.secondary)
-                                .frame(width: 28)
-                            VStack(alignment: .leading) {
-                                Text(rule.displayName)
-                                Text(rule.deviceKind.title)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            CapabilityBadge(title: rule.isPhysicalDeviceSpecific ? "Device-specific" : "Device type", systemImage: "sensor", tone: .neutral)
-                        }
+    private var deviceRulesSection: some View {
+        MacMenderContentSection(
+            title: "Device Behavior",
+            subtitle: "Trackpads and mice can use different direction and smoothing rules.",
+            systemImage: "sensor"
+        ) {
+            VStack(spacing: 0) {
+                ForEach(Array(appModel.activeProfile.scroll.deviceRules.enumerated()), id: \.element.id) { index, rule in
+                    DeviceRuleRow(
+                        rule: rule,
+                        smoothing: deviceRuleBinding(rule.id, \.smoothingEnabled),
+                        reverseVertical: deviceRuleBinding(rule.id, \.reverseVertical),
+                        reverseHorizontal: deviceRuleBinding(rule.id, \.reverseHorizontal)
+                    )
 
-                        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                            GridRow {
-                                Toggle("Smooth", isOn: deviceRuleBinding(rule.id, \.smoothingEnabled))
-                                Toggle("Reverse Vertical", isOn: deviceRuleBinding(rule.id, \.reverseVertical))
-                                Toggle("Reverse Horizontal", isOn: deviceRuleBinding(rule.id, \.reverseHorizontal))
-                            }
-                        }
+                    if index < appModel.activeProfile.scroll.deviceRules.count - 1 {
+                        Divider()
                     }
-                    .padding(10)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
+
+            Text("Physical-device matching is best-effort with public macOS APIs.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
-    private var appsView: some View {
-        SectionCard(title: "Per-App Overrides", subtitle: "Overrides are matched by bundle identifier.", symbolName: "app.connected.to.app.below.fill") {
-            VStack(alignment: .leading, spacing: 14) {
+    private var appOverridesSection: some View {
+        MacMenderContentSection(
+            title: "App Overrides",
+            subtitle: "Choose different scroll behavior for a specific application.",
+            systemImage: "app.connected.to.app.below.fill"
+        ) {
+            VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
                 HStack {
                     Picker("Running App", selection: selectedRunningAppBinding) {
-                        ForEach(runningAppOptions) { option in
-                            Text(option.name).tag(option.bundleIdentifier)
+                        if runningAppOptions.isEmpty {
+                            Text("No running apps").tag("")
+                        } else {
+                            ForEach(runningAppOptions) { option in
+                                Text(option.name).tag(option.bundleIdentifier)
+                            }
                         }
                     }
-                    .frame(maxWidth: 320)
+                    .frame(maxWidth: 340)
 
                     Button("Add Override") {
                         addSelectedRunningAppRule()
                     }
                     .disabled(selectedRunningAppBinding.wrappedValue.isEmpty || selectedRunningAppAlreadyExists)
+
+                    Button {
+                        refreshRunningApps()
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+                    .help("Refresh running applications")
                 }
 
                 if appModel.activeProfile.scroll.appRules.isEmpty {
-                    EmptyStateView(title: "No App Overrides", message: "Apps inherit the current profile until you add a focused override.", symbolName: "square.stack.3d.up.slash")
+                    MacMenderEmptyState(
+                        title: "No App Overrides",
+                        message: "Applications inherit this profile until you add an override.",
+                        systemImage: "square.stack.3d.up.slash"
+                    )
                 } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(appModel.activeProfile.scroll.appRules) { rule in
+                    VStack(spacing: 0) {
+                        ForEach(Array(appModel.activeProfile.scroll.appRules.enumerated()), id: \.element.id) { index, rule in
                             AppOverrideRow(
                                 rule: rule,
                                 smoothing: appRuleBinding(rule.id, \.smoothingOverride),
@@ -138,6 +169,10 @@ struct InputScrollingView: View {
                                 reverseHorizontal: appRuleBinding(rule.id, \.reverseHorizontalOverride),
                                 deleteAction: { deleteAppRule(rule.id) }
                             )
+
+                            if index < appModel.activeProfile.scroll.appRules.count - 1 {
+                                Divider()
+                            }
                         }
                     }
                 }
@@ -145,26 +180,37 @@ struct InputScrollingView: View {
         }
     }
 
-    private var middleClickView: some View {
-        SectionCard(title: "Three-Finger Tap", subtitle: middleClickSubtitle, symbolName: "hand.tap") {
-            VStack(alignment: .leading, spacing: 14) {
-                Toggle("Enable Middle Click", isOn: binding(\.middleClick.enabled))
+    private var middleClickSection: some View {
+        MacMenderContentSection(
+            title: "Three-Finger Tap",
+            subtitle: middleClickSubtitle,
+            systemImage: "hand.tap"
+        ) {
+            VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+                Toggle("Enable Three-Finger Tap", isOn: binding(\.middleClick.enabled))
+
                 Picker("Trigger", selection: binding(\.middleClick.trigger)) {
                     ForEach(MiddleClickTrigger.runtimeSupportedCases) { trigger in
                         Text(trigger.title).tag(trigger)
                     }
                 }
+
                 Picker("Action", selection: binding(\.middleClick.action)) {
                     ForEach(MiddleClickAction.runtimeSupportedCases) { action in
                         Text(action.title).tag(action)
                     }
                 }
+
                 HStack {
-                    CapabilityBadge(title: "Requires Accessibility", systemImage: "lock.shield", tone: appModel.permissions.accessibility == .granted ? .active : .warning)
-                    CapabilityBadge(
+                    MacMenderStatusLabel(
+                        title: appModel.permissions.accessibility == .granted ? "Accessibility granted" : "Needs Accessibility",
+                        tone: appModel.permissions.accessibility == .granted ? .active : .attention,
+                        systemImage: "lock.shield"
+                    )
+                    MacMenderStatusLabel(
                         title: middleClickRuntimeTitle,
-                        systemImage: middleClickRuntimeSymbol,
-                        tone: middleClickRuntimeTone
+                        tone: middleClickRuntimeTone,
+                        systemImage: middleClickRuntimeSymbol
                     )
                 }
             }
@@ -190,7 +236,7 @@ struct InputScrollingView: View {
 
     private var middleClickRuntimeTitle: String {
         let settings = appModel.activeProfile.middleClick
-        guard settings.enabled else { return "Disabled" }
+        guard settings.enabled else { return "Off" }
         guard appModel.permissions.accessibility == .granted else { return "Waiting for Accessibility" }
         guard !appModel.store.config.safeModeEnabled else { return "Paused by Safe Mode" }
 
@@ -207,20 +253,20 @@ struct InputScrollingView: View {
         if settings.trigger == .experimentalThreeFinger {
             return appModel.multitouchMiddleClick.isRunning ? "hand.tap.fill" : "hand.tap"
         }
-        return appModel.systemEvents.status.eventTapRunning ? "checkmark.circle.fill" : "circle.dashed"
+        return appModel.systemEvents.status.eventTapRunning ? "dot.radiowaves.left.and.right" : "circle.dashed"
     }
 
-    private var middleClickRuntimeTone: CapabilityBadge.Tone {
+    private var middleClickRuntimeTone: MacMenderStatusTone {
         let settings = appModel.activeProfile.middleClick
-        guard settings.enabled,
-              appModel.permissions.accessibility == .granted,
-              !appModel.store.config.safeModeEnabled else {
-            return .neutral
-        }
+        guard settings.enabled else { return .neutral }
+        guard appModel.permissions.accessibility == .granted else { return .attention }
+        guard !appModel.store.config.safeModeEnabled else { return .paused }
+
         if settings.trigger == .experimentalThreeFinger {
-            return appModel.multitouchMiddleClick.isRunning ? .active : .warning
+            return appModel.multitouchMiddleClick.isRunning ? .active : .attention
         }
-        return appModel.systemEvents.status.eventTapRunning ? .active : .warning
+
+        return appModel.systemEvents.status.eventTapRunning ? .active : .attention
     }
 
     private func binding<Value>(_ keyPath: WritableKeyPath<MacMenderProfile, Value>) -> Binding<Value> {
@@ -273,7 +319,10 @@ struct InputScrollingView: View {
         }
     }
 
-    private func deviceRuleBinding<Value>(_ ruleID: UUID, _ keyPath: WritableKeyPath<DeviceScrollRule, Value>) -> Binding<Value> {
+    private func deviceRuleBinding<Value>(
+        _ ruleID: UUID,
+        _ keyPath: WritableKeyPath<DeviceScrollRule, Value>
+    ) -> Binding<Value> {
         Binding {
             guard let rule = appModel.activeProfile.scroll.deviceRules.first(where: { $0.id == ruleID }) else {
                 return DeviceScrollRule.defaults[0][keyPath: keyPath]
@@ -288,25 +337,11 @@ struct InputScrollingView: View {
         }
     }
 
-    private var runningAppOptions: [RunningAppOption] {
-        NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular }
-            .compactMap { app -> RunningAppOption? in
-                guard let bundleIdentifier = app.bundleIdentifier else { return nil }
-                return RunningAppOption(
-                    bundleIdentifier: bundleIdentifier,
-                    name: app.localizedName ?? bundleIdentifier
-                )
-            }
-            .uniquedByBundleIdentifier()
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
     private var selectedRunningAppBinding: Binding<String> {
         Binding {
-            let options = runningAppOptions
-            if selectedRunningAppBundleID.isEmpty || !options.contains(where: { $0.bundleIdentifier == selectedRunningAppBundleID }) {
-                return options.first?.bundleIdentifier ?? ""
+            if selectedRunningAppBundleID.isEmpty ||
+                !runningAppOptions.contains(where: { $0.bundleIdentifier == selectedRunningAppBundleID }) {
+                return runningAppOptions.first?.bundleIdentifier ?? ""
             }
             return selectedRunningAppBundleID
         } set: { newValue in
@@ -317,6 +352,24 @@ struct InputScrollingView: View {
     private var selectedRunningAppAlreadyExists: Bool {
         appModel.activeProfile.scroll.appRules.contains {
             $0.bundleIdentifier == selectedRunningAppBinding.wrappedValue
+        }
+    }
+
+    private func refreshRunningApps() {
+        runningAppOptions = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap { app -> RunningAppOption? in
+                guard let bundleIdentifier = app.bundleIdentifier else { return nil }
+                return RunningAppOption(
+                    bundleIdentifier: bundleIdentifier,
+                    name: app.localizedName ?? bundleIdentifier
+                )
+            }
+            .uniquedByBundleIdentifier()
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+        if !runningAppOptions.contains(where: { $0.bundleIdentifier == selectedRunningAppBundleID }) {
+            selectedRunningAppBundleID = runningAppOptions.first?.bundleIdentifier ?? ""
         }
     }
 
@@ -347,10 +400,18 @@ struct InputScrollingView: View {
         appModel.updateActiveProfile(profile)
     }
 
-    private func appRuleBinding<Value>(_ ruleID: UUID, _ keyPath: WritableKeyPath<AppScrollRule, Value>) -> Binding<Value> {
+    private func appRuleBinding<Value>(
+        _ ruleID: UUID,
+        _ keyPath: WritableKeyPath<AppScrollRule, Value>
+    ) -> Binding<Value> {
         Binding {
             guard let rule = appModel.activeProfile.scroll.appRules.first(where: { $0.id == ruleID }) else {
-                return AppScrollRule(bundleIdentifier: "", appName: "", smoothingOverride: nil, reverseVerticalOverride: nil)[keyPath: keyPath]
+                return AppScrollRule(
+                    bundleIdentifier: "",
+                    appName: "",
+                    smoothingOverride: nil,
+                    reverseVerticalOverride: nil
+                )[keyPath: keyPath]
             }
             return rule[keyPath: keyPath]
         } set: { newValue in
@@ -358,147 +419,6 @@ struct InputScrollingView: View {
             guard let index = profile.scroll.appRules.firstIndex(where: { $0.id == ruleID }) else { return }
             profile.scroll.appRules[index][keyPath: keyPath] = newValue
             appModel.updateActiveProfile(profile)
-        }
-    }
-}
-
-private struct RunningAppOption: Identifiable {
-    var id: String { bundleIdentifier }
-    var bundleIdentifier: String
-    var name: String
-}
-
-private extension Array where Element == RunningAppOption {
-    func uniquedByBundleIdentifier() -> [RunningAppOption] {
-        var seen = Set<String>()
-        return filter { option in
-            guard !seen.contains(option.bundleIdentifier) else { return false }
-            seen.insert(option.bundleIdentifier)
-            return true
-        }
-    }
-}
-
-private struct AppOverrideRow: View {
-    var rule: AppScrollRule
-    var smoothing: Binding<Bool?>
-    var reverseVertical: Binding<Bool?>
-    var reverseHorizontal: Binding<Bool?>
-    var deleteAction: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(nsImage: icon)
-                    .resizable()
-                    .frame(width: 28, height: 28)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(rule.appName)
-                        .font(.headline)
-                    Text(rule.bundleIdentifier)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                }
-
-                Spacer()
-
-                Button("Remove", role: .destructive, action: deleteAction)
-            }
-
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                GridRow {
-                    TriStateOverridePicker(title: "Smoothing", value: smoothing)
-                    TriStateOverridePicker(title: "Reverse Vertical", value: reverseVertical)
-                    TriStateOverridePicker(title: "Reverse Horizontal", value: reverseHorizontal)
-                }
-            }
-        }
-        .padding(10)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private var icon: NSImage {
-        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: rule.bundleIdentifier) {
-            return NSWorkspace.shared.icon(forFile: appURL.path)
-        }
-        return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage()
-    }
-}
-
-private struct TriStateOverridePicker: View {
-    var title: String
-    var value: Binding<Bool?>
-
-    var body: some View {
-        Picker(title, selection: Binding(
-            get: { OverrideValue(value.wrappedValue) },
-            set: { value.wrappedValue = $0.boolValue }
-        )) {
-            ForEach(OverrideValue.allCases) { option in
-                Text(option.title).tag(option)
-            }
-        }
-        .pickerStyle(.menu)
-        .frame(minWidth: 150)
-    }
-}
-
-private enum OverrideValue: String, CaseIterable, Identifiable {
-    case inherit
-    case on
-    case off
-
-    init(_ value: Bool?) {
-        switch value {
-        case true: self = .on
-        case false: self = .off
-        case nil: self = .inherit
-        }
-    }
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .inherit: "Inherit"
-        case .on: "On"
-        case .off: "Off"
-        }
-    }
-
-    var boolValue: Bool? {
-        switch self {
-        case .inherit: nil
-        case .on: true
-        case .off: false
-        }
-    }
-}
-
-private struct ScrollPreview: View {
-    var settings: ScrollSettings
-
-    private var samples: [ScrollSample] {
-        ScrollTransformer(settings: settings).projectedSamples(from: ScrollSample(x: 0, y: 120), count: 10)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Curve Preview")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(Array(samples.enumerated()), id: \.offset) { _, sample in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(.blue.opacity(0.65))
-                        .frame(width: 14, height: max(4, min(80, abs(sample.y))))
-                }
-            }
-            .frame(height: 90, alignment: .bottom)
-            .padding(10)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
     }
 }

@@ -165,7 +165,11 @@ struct LabeledSlider: View {
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
             }
+            .accessibilityHidden(true)
+
             Slider(value: $value, in: range, step: step)
+                .accessibilityLabel(title)
+                .accessibilityValue(valueLabel)
         }
     }
 }

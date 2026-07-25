@@ -11,6 +11,7 @@ BUILD_CONFIGURATION="${BUILD_CONFIGURATION:-debug}"
 STRIP_RELEASE_BINARY="${STRIP_RELEASE_BINARY:-1}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION_FILE="$ROOT_DIR/VERSION"
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
@@ -18,6 +19,24 @@ APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+
+if [[ ! -f "$VERSION_FILE" ]]; then
+  echo "missing version file: $VERSION_FILE" >&2
+  exit 2
+fi
+
+APP_VERSION="${APP_VERSION:-$(tr -d '[:space:]' < "$VERSION_FILE")}"
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
+
+if [[ ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "APP_VERSION must use major.minor.patch format" >&2
+  exit 2
+fi
+
+if [[ ! "$BUILD_NUMBER" =~ ^[0-9]+([.][0-9]+){0,2}$ ]]; then
+  echo "BUILD_NUMBER must contain one to three period-separated integers" >&2
+  exit 2
+fi
 
 SWIFT_BUILD_ARGS=""
 if [[ "$BUILD_CONFIGURATION" == "release" ]]; then
@@ -72,9 +91,9 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>$APP_VERSION</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>$BUILD_NUMBER</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
   <key>NSPrincipalClass</key>

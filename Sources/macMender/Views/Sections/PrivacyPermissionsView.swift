@@ -4,73 +4,178 @@ struct PrivacyPermissionsView: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
-        PreferencesScrollView {
-            SectionCard(title: "macMender runs locally.", subtitle: "No analytics. No tracking. No remote APIs by default.", symbolName: "hand.raised") {
-                HStack(alignment: .top, spacing: 16) {
-                    MendySectionImageView(section: .privacy, size: MendyAvatarSize.panel)
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+                    Text("macMender does not send analytics, usage, or settings off this Mac. Permissions are used only by the local features you enable.")
+                        .fixedSize(horizontal: false, vertical: true)
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Permissions are only used for the features you enable. Window thumbnails stay on your Mac and configuration stays local.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        HStack {
-                            CapabilityBadge(title: "No analytics", systemImage: "chart.bar.xaxis", tone: .active)
-                            CapabilityBadge(title: "No tracking", systemImage: "eye.slash", tone: .active)
-                            CapabilityBadge(title: "Local settings", systemImage: "externaldrive", tone: .neutral)
-                            Spacer()
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: MacMenderSpacing.small) {
+                            privacyStatusLabels
+                        }
+                        VStack(alignment: .leading, spacing: MacMenderSpacing.small) {
+                            privacyStatusLabels
                         }
                     }
-
-                    Spacer(minLength: 0)
                 }
+                .padding(.vertical, MacMenderSpacing.compact)
+            } header: {
+                Label("Local by Design", systemImage: "hand.raised")
             }
 
-            SectionCard(title: "Local Details", subtitle: "Technical privacy details are here when you need them.", symbolName: "externaldrive") {
-                DisclosureGroup("Show local paths and data use") {
-                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
-                        PrivacyPromiseRow(title: "Remote APIs", value: "None by default")
-                        PrivacyPromiseRow(title: "Configuration", value: appModel.store.configURL.path)
-                        PrivacyPromiseRow(title: "Window thumbnails", value: "Used locally for Dock previews")
+            Section {
+                accessibilityPermissionRow
+                screenRecordingPermissionRow
+                inputMonitoringPermissionRow
+
+                Button {
+                    appModel.permissions.refresh()
+                } label: {
+                    Label("Refresh Permission Status", systemImage: "arrow.clockwise")
+                }
+                .accessibilityLabel("Refresh Permission Status")
+            } header: {
+                Label("Permissions", systemImage: "lock.shield")
+            } footer: {
+                Text("Accessibility is required for core window and shortcut features. Screen Recording and Input Monitoring are optional enhancements.")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
+            }
+
+            Section {
+                DisclosureGroup("Show Local Paths and Data Use") {
+                    VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+                        LabeledContent("Network features", value: "None")
+                        LabeledContent("Configuration") {
+                            Text(appModel.store.configURL.path)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        LabeledContent("Window thumbnails", value: "Used locally for previews")
                     }
-                    .padding(.top, 6)
+                    .padding(.top, MacMenderSpacing.small)
                 }
-                .font(.callout)
-            }
-
-            PreferencesSectionGrid(minimumColumnWidth: 280) {
-                PermissionCard(
-                    title: "Accessibility",
-                    subtitle: "Shortcuts and window actions",
-                    symbolName: "accessibility",
-                    state: appModel.permissions.accessibility,
-                    primaryActionTitle: "Request Access",
-                    secondaryActionTitle: "Open Settings",
-                    primaryAction: { appModel.permissions.requestAccessibility() },
-                    secondaryAction: { appModel.permissions.openAccessibilitySettings() }
-                )
-
-                PermissionCard(
-                    title: "Screen Recording",
-                    subtitle: "Optional local window thumbnails",
-                    symbolName: "rectangle.on.rectangle",
-                    state: appModel.permissions.screenRecording,
-                    summary: PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording),
-                    primaryActionTitle: "Request Access",
-                    secondaryActionTitle: "Open Settings",
-                    primaryAction: { appModel.permissions.requestScreenRecording() },
-                    secondaryAction: { appModel.permissions.openScreenRecordingSettings() }
-                )
-
-                InputMonitoringCard(
-                    permissionState: appModel.permissions.inputMonitoring,
-                    gestureRuntimeState: gestureRuntimeState,
-                    requestAccess: { appModel.permissions.requestInputMonitoring() },
-                    openSettings: { appModel.permissions.openInputMonitoringSettings() }
-                )
+            } header: {
+                Label("Local Details", systemImage: "externaldrive")
             }
         }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .frame(maxWidth: 780)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var privacyStatusLabels: some View {
+        MacMenderStatusLabel(title: "No analytics", tone: .active, systemImage: "chart.bar.xaxis")
+        MacMenderStatusLabel(title: "No tracking", tone: .active, systemImage: "eye.slash")
+        MacMenderStatusLabel(title: "Local settings", tone: .neutral, systemImage: "externaldrive")
+    }
+
+    private var accessibilityPermissionRow: some View {
+        VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+            PermissionRowHeader(
+                title: "Accessibility",
+                purpose: "Required · Shortcuts, Dock hover, and window actions",
+                systemImage: "accessibility",
+                statusTitle: appModel.permissions.accessibility.title,
+                statusTone: permissionTone(appModel.permissions.accessibility)
+            )
+
+            HStack {
+                Spacer(minLength: 0)
+                if appModel.permissions.accessibility != .granted {
+                    Button("Request Access") {
+                        appModel.permissions.requestAccessibility()
+                    }
+                    .accessibilityLabel("Request Accessibility")
+                }
+                Button("Open Settings") {
+                    appModel.permissions.openAccessibilitySettings()
+                }
+                .accessibilityLabel("Open Accessibility Settings")
+            }
+        }
+        .padding(.vertical, MacMenderSpacing.small)
+    }
+
+    private var screenRecordingPermissionRow: some View {
+        let summary = PermissionStatusPolicy.screenRecordingSummary(appModel.permissions.screenRecording)
+
+        return VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+            PermissionRowHeader(
+                title: "Screen Recording",
+                purpose: "Optional · Local window thumbnails",
+                systemImage: "rectangle.on.rectangle",
+                statusTitle: summary.title,
+                statusTone: MacMenderStatusTone(featureStatusKind: summary.kind),
+                statusDetail: summary.detail
+            )
+
+            HStack {
+                Spacer(minLength: 0)
+                if appModel.permissions.screenRecording != .granted {
+                    Button("Request Access") {
+                        appModel.permissions.requestScreenRecording()
+                    }
+                    .accessibilityLabel("Request Screen Recording")
+                }
+                Button("Open Settings") {
+                    appModel.permissions.openScreenRecordingSettings()
+                }
+                .accessibilityLabel("Open Screen Recording Settings")
+            }
+        }
+        .padding(.vertical, MacMenderSpacing.small)
+    }
+
+    private var inputMonitoringPermissionRow: some View {
+        let summary = PermissionStatusPolicy.inputMonitoringSummary(appModel.permissions.inputMonitoring)
+
+        return VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
+            PermissionRowHeader(
+                title: "Input Monitoring",
+                purpose: "Optional · macOS listen-event permission",
+                systemImage: "keyboard",
+                statusTitle: summary.title,
+                statusTone: MacMenderStatusTone(featureStatusKind: summary.kind),
+                statusDetail: summary.detail
+            )
+
+            HStack(spacing: MacMenderSpacing.small) {
+                Text("Three-Finger Tap")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                MacMenderStatusLabel(
+                    title: gestureRuntimeState.title,
+                    tone: gestureRuntimeState.tone,
+                    systemImage: gestureRuntimeState.symbolName
+                )
+                Text(gestureRuntimeState.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: MacMenderSpacing.small) {
+                Spacer(minLength: 0)
+                if appModel.permissions.inputMonitoring != .granted {
+                    Button("Request Access") {
+                        appModel.permissions.requestInputMonitoring()
+                    }
+                    .accessibilityLabel("Request Input Monitoring")
+                }
+                Button("Open Settings") {
+                    appModel.permissions.openInputMonitoringSettings()
+                }
+                .accessibilityLabel("Open Input Monitoring Settings")
+            }
+        }
+        .padding(.vertical, MacMenderSpacing.small)
     }
 
     private var gestureRuntimeState: GestureRuntimeState {
@@ -82,114 +187,59 @@ struct PrivacyPermissionsView: View {
             return .needsPermission("Needs Accessibility")
         }
         guard !appModel.store.config.safeModeEnabled else {
-            return .off("Paused by Safe Mode")
+            return .paused("Paused by Safe Mode")
         }
         if appModel.multitouchMiddleClick.isRunning {
             return .active(appModel.multitouchMiddleClick.lastStatus)
         }
         return .off(appModel.multitouchMiddleClick.lastStatus)
     }
+
+    private func permissionTone(_ state: PermissionState) -> MacMenderStatusTone {
+        switch state {
+        case .granted:
+            .active
+        case .missing:
+            .attention
+        case .unavailable:
+            .unavailable
+        }
+    }
 }
 
-private struct PrivacyPromiseRow: View {
+private struct PermissionRowHeader: View {
     var title: String
-    var value: String
+    var purpose: String
+    var systemImage: String
+    var statusTitle: String
+    var statusTone: MacMenderStatusTone
+    var statusDetail: String? = nil
 
     var body: some View {
-        GridRow {
-            Text(title)
-            Text(value)
+        HStack(alignment: .top, spacing: MacMenderSpacing.standard) {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-        }
-    }
-}
+                .frame(width: 26)
+                .accessibilityHidden(true)
 
-private struct PermissionCard: View {
-    var title: String
-    var subtitle: String
-    var symbolName: String
-    var state: PermissionState
-    var summary: FeatureStatusSummary? = nil
-    var primaryActionTitle: String
-    var secondaryActionTitle: String
-    var primaryAction: () -> Void
-    var secondaryAction: () -> Void
-
-    var body: some View {
-        SoftStatusCard(
-            title: title,
-            subtitle: subtitle,
-            systemImage: symbolName,
-            tone: tone
-        ) {
-            HStack(spacing: 8) {
-                CapabilityBadge(
-                    title: summary?.title ?? state.title,
-                    systemImage: state == .granted ? "checkmark.circle.fill" : "exclamationmark.circle",
-                    tone: tone
-                )
-                Spacer()
-                if state != .granted {
-                    Button(primaryActionTitle, action: primaryAction)
-                } else {
-                    Button(secondaryActionTitle, action: secondaryAction)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
-    private var tone: CapabilityBadge.Tone {
-        if let summary {
-            return CapabilityBadge.Tone(featureStatusKind: summary.kind)
-        }
-        return state == .granted ? .active : .warning
-    }
-}
-
-private struct InputMonitoringCard: View {
-    var permissionState: PermissionState
-    var gestureRuntimeState: GestureRuntimeState
-    var requestAccess: () -> Void
-    var openSettings: () -> Void
-
-    var body: some View {
-        let summary = PermissionStatusPolicy.inputMonitoringSummary(permissionState)
-        SoftStatusCard(
-            title: "Input Monitoring",
-            subtitle: "Optional listen-event permission",
-            systemImage: "keyboard",
-            tone: CapabilityBadge.Tone(featureStatusKind: summary.kind)
-        ) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    CapabilityBadge(
-                        title: "Permission: \(summary.title)",
-                        systemImage: permissionState == .granted ? "checkmark.circle.fill" : "exclamationmark.circle",
-                        tone: CapabilityBadge.Tone(featureStatusKind: summary.kind)
-                    )
-                    CapabilityBadge(
-                        title: "Gesture: \(gestureRuntimeState.title)",
-                        systemImage: gestureRuntimeState.symbolName,
-                        tone: gestureRuntimeState.tone
-                    )
-                }
-
-                Text(gestureRuntimeState.detail)
+            VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
+                Text(title)
+                    .font(.body.weight(.medium))
+                Text(purpose)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack {
-                    if permissionState != .granted {
-                        Button("Request Access", action: requestAccess)
-                    }
-                    Spacer()
-                    Button("Open Settings", action: openSettings)
+                if let statusDetail {
+                    Text(statusDetail)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+
+            Spacer(minLength: MacMenderSpacing.standard)
+
+            MacMenderStatusLabel(title: statusTitle, tone: statusTone)
         }
     }
 }
@@ -197,6 +247,7 @@ private struct InputMonitoringCard: View {
 private enum GestureRuntimeState {
     case active(String)
     case off(String)
+    case paused(String)
     case needsPermission(String)
 
     var title: String {
@@ -205,6 +256,8 @@ private enum GestureRuntimeState {
             "Active"
         case .off:
             "Off"
+        case .paused:
+            "Paused"
         case .needsPermission:
             "Needs Permission"
         }
@@ -212,7 +265,7 @@ private enum GestureRuntimeState {
 
     var detail: String {
         switch self {
-        case let .active(detail), let .off(detail), let .needsPermission(detail):
+        case let .active(detail), let .off(detail), let .paused(detail), let .needsPermission(detail):
             detail
         }
     }
@@ -221,21 +274,23 @@ private enum GestureRuntimeState {
         switch self {
         case .active:
             "checkmark.circle.fill"
-        case .off:
+        case .off, .paused:
             "pause.circle"
         case .needsPermission:
             "exclamationmark.circle"
         }
     }
 
-    var tone: CapabilityBadge.Tone {
+    var tone: MacMenderStatusTone {
         switch self {
         case .active:
             .active
         case .off:
             .neutral
+        case .paused:
+            .paused
         case .needsPermission:
-            .warning
+            .attention
         }
     }
 }

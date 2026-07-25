@@ -1,6 +1,6 @@
 import Foundation
 
-enum SettingsSection: String, CaseIterable, Identifiable {
+enum SettingsSection: String, CaseIterable, Hashable, Identifiable {
     case overview
     case general
     case menuBarSpacing
@@ -40,14 +40,14 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
     var symbolName: String {
         switch self {
-        case .overview: "gauge.with.dots.needle.33percent"
+        case .overview: "rectangle.grid.2x2"
         case .general: "gearshape"
         case .menuBarSpacing: "arrow.left.and.right"
-        case .input: "computermouse"
+        case .input: "cursorarrow.motionlines"
         case .dockWindows: "dock.rectangle"
-        case .profiles: "person.2.badge.gearshape"
-        case .privacy: "lock.shield"
-        case .advanced: "gearshape.2"
+        case .profiles: "square.stack.3d.up"
+        case .privacy: "hand.raised"
+        case .advanced: "wrench.and.screwdriver"
         }
     }
 }

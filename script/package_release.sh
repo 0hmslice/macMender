@@ -16,7 +16,7 @@ fi
 VERSION="${VERSION#v}"
 ZIP_PATH="$DIST_DIR/$APP_NAME-v$VERSION.zip"
 
-BUILD_CONFIGURATION=release "$ROOT_DIR/script/build_and_run.sh" --build-only
+APP_VERSION="$VERSION" BUILD_CONFIGURATION=release "$ROOT_DIR/script/build_and_run.sh" --build-only
 
 rm -f "$ZIP_PATH"
 

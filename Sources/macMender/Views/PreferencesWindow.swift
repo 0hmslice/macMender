@@ -2,141 +2,34 @@ import SwiftUI
 
 struct PreferencesWindow: View {
     @ObservedObject var appModel: AppModel
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
         if appModel.store.config.hasCompletedOnboarding {
-            NavigationSplitView {
-                VStack(spacing: 0) {
-                    MendySidebarHeader(appModel: appModel)
-                        .padding(.bottom, 4)
-                    SidebarView(selection: $appModel.selectedSection)
-                    SidebarStatusSummary(appModel: appModel)
-                }
-                .background {
-                    Rectangle()
-                        .fill(.thinMaterial)
-                        .ignoresSafeArea(edges: .top)
-                }
-                .navigationSplitViewColumnWidth(min: 230, ideal: 260)
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                SidebarView(selection: $appModel.selectedSection)
+                    .navigationTitle("macMender")
+                    .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 260)
             } detail: {
-                PreferencesDetailShell(appModel: appModel)
+                DetailRouter(appModel: appModel)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(nsColor: .windowBackgroundColor))
                     .navigationTitle(appModel.selectedSection.title)
                     .toolbar {
-                        ToolbarItem {
+                        ToolbarItem(placement: .primaryAction) {
                             ProfilePicker(appModel: appModel)
                         }
                     }
             }
+            .navigationSplitViewStyle(.balanced)
+            .onChange(of: appModel.selectedSection) {
+                columnVisibility = .all
+            }
+            .onChange(of: appModel.navigationPresentationID) {
+                columnVisibility = .all
+            }
         } else {
             OnboardingView(appModel: appModel)
-        }
-    }
-}
-
-private struct MendySidebarHeader: View {
-    @ObservedObject var appModel: AppModel
-
-    var body: some View {
-        HStack(spacing: 12) {
-            MendyAvatarView(mood: appModel.mendyMood, size: MendyAvatarSize.sidebar)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("macMender")
-                    .font(.headline)
-                Text(headerDetail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
-    }
-
-    private var headerDetail: String {
-        switch appModel.selectedSection {
-        case .overview:
-            "Keeping your Mac working beautifully."
-        case .general:
-            "Launch and app behavior."
-        case .menuBarSpacing:
-            "Menu bar icon spacing."
-        case .input:
-            "Mouse and trackpad tools."
-        case .dockWindows:
-            "Previews and switching."
-        case .profiles:
-            "Saved setups."
-        case .privacy:
-            appModel.permissions.needsAttention ? "Needs one permission." : "Access looks good."
-        case .advanced:
-            "Diagnostics and recovery."
-        }
-    }
-}
-
-private struct SidebarStatusSummary: View {
-    @ObservedObject var appModel: AppModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                    .shadow(color: statusColor.opacity(0.45), radius: 4)
-                Text(statusTitle)
-                    .font(.caption.weight(.medium))
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .liquidGlass(.row, radius: 12)
-        }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 14)
-    }
-
-    private var statusTitle: String {
-        if appModel.store.config.safeModeEnabled { return "Safe Mode on" }
-        if appModel.permissions.needsAttention { return "Needs attention" }
-        return "All services running"
-    }
-
-    private var statusColor: Color {
-        if appModel.store.config.safeModeEnabled { return .orange }
-        if appModel.permissions.needsAttention { return .orange }
-        return .green
-    }
-}
-
-private struct PreferencesDetailShell: View {
-    @ObservedObject var appModel: AppModel
-
-    var body: some View {
-        VStack(spacing: 0) {
-            DetailRouter(appModel: appModel)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            ZStack {
-                Color(nsColor: .windowBackgroundColor)
-                    .opacity(0.22)
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.075),
-                        Color.accentColor.opacity(0.055),
-                        Color.clear
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-            .ignoresSafeArea()
         }
     }
 }
@@ -172,31 +65,26 @@ private struct ProfilePicker: View {
     var body: some View {
         Group {
             if appModel.shouldShowProfileSwitcher {
-                Menu {
+                Picker("Profile", selection: activeProfileSelection) {
                     ForEach(appModel.store.config.profiles) { profile in
-                        Button {
-                            appModel.setActiveProfile(profile.id)
-                        } label: {
-                            if profile.id == appModel.store.config.activeProfileID {
-                                Label(profile.name, systemImage: "checkmark")
-                            } else {
-                                Text(profile.name)
-                            }
-                        }
+                        Text(profile.name).tag(profile.id)
                     }
-                } label: {
-                    Label(appModel.activeProfile.name, systemImage: "person.crop.circle")
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.82)
                 }
-                .menuStyle(.button)
-                .buttonStyle(.bordered)
+                .pickerStyle(.menu)
                 .controlSize(.regular)
-                .frame(maxWidth: 168)
+                .frame(width: 172)
                 .help("Switch profile")
-                .accessibilityLabel("Current profile: \(appModel.activeProfile.name). Switch profile.")
+                .accessibilityLabel("Profile")
+                .accessibilityValue(appModel.activeProfile.name)
                 .id(appModel.profileSwitcherIdentity)
             }
         }
+    }
+
+    private var activeProfileSelection: Binding<UUID> {
+        Binding(
+            get: { appModel.store.config.activeProfileID },
+            set: { appModel.setActiveProfile($0) }
+        )
     }
 }
