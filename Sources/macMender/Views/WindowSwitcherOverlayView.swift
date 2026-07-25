@@ -36,11 +36,7 @@ struct WindowSwitcherOverlayView: View {
             .padding(2)
         }
         .padding(18)
-        .liquidGlass(.preview)
-        .overlay {
-            RoundedRectangle(cornerRadius: LiquidGlassSurface.preview.radius, style: .continuous)
-                .stroke(Color.accentColor.opacity(service.isDockPreview ? 0.18 : 0.12), lineWidth: 1)
-        }
+        .macMenderGlassSurface(radius: MacMenderRadius.prominent)
     }
 
     private var cards: some View {
@@ -63,6 +59,10 @@ struct WindowSwitcherOverlayView: View {
 }
 
 private struct WindowSwitcherCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityShowBorders) private var showBorders
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
     var window: WindowSummary
     var image: NSImage?
     var isSelected: Bool
@@ -77,7 +77,7 @@ private struct WindowSwitcherCard: View {
             VStack(alignment: .leading, spacing: 9) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(.black.opacity(0.12))
+                        .fill(Color(nsColor: .underPageBackgroundColor))
 
                     if let image {
                         Image(nsImage: image)
@@ -94,14 +94,35 @@ private struct WindowSwitcherCard: View {
                         }
                         .foregroundStyle(.secondary)
                     }
+
+                    if isSelected {
+                        Label("Selected", systemImage: "checkmark.circle.fill")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 4)
+                            .background(Color(nsColor: .windowBackgroundColor), in: Capsule())
+                            .overlay {
+                                Capsule()
+                                    .strokeBorder(Color.accentColor, lineWidth: 1)
+                            }
+                            .padding(7)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                            .accessibilityHidden(true)
+                    }
                 }
                 .frame(width: thumbnailSize, height: thumbnailSize * 0.68)
-                .liquidGlass(.preview)
+                .clipShape(.rect(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor).opacity(strongBorder ? 0.9 : 0.45), lineWidth: strongBorder ? 1.5 : 1)
+                }
 
                 HStack(alignment: .center, spacing: 8) {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: NSRunningApplication(processIdentifier: window.processIdentifier)?.bundleURL?.path ?? ""))
                         .resizable()
                         .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(window.title)
                             .font(.caption.weight(.semibold))
@@ -116,17 +137,18 @@ private struct WindowSwitcherCard: View {
             }
             .padding(10)
             .frame(width: thumbnailSize + 22, alignment: .leading)
-            .liquidGlass(.row)
-            .background(isSelected ? Color.accentColor.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(cardBackground, in: RoundedRectangle(cornerRadius: MacMenderRadius.content, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(isSelected ? Color.accentColor : .white.opacity(0.12), lineWidth: isSelected ? 2 : 1)
+                RoundedRectangle(cornerRadius: MacMenderRadius.content, style: .continuous)
+                    .strokeBorder(cardBorder, lineWidth: cardBorderWidth)
             }
-            .shadow(color: Color.accentColor.opacity(isSelected ? 0.18 : 0), radius: 12, y: 5)
-            .scaleEffect(isSelected ? 1.03 : 1)
-            .animation(LiquidGlassMotion.quick, value: isSelected)
+            .animation(MacMenderMotion.feedback(reduceMotion: reduceMotion), value: isSelected)
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(accessibilityHint)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onHover { hovering in
             if hovering {
                 select()
@@ -137,5 +159,47 @@ private struct WindowSwitcherCard: View {
             Button("Minimize", action: minimize)
             Button("Close", role: .destructive, action: close)
         }
+    }
+
+    private var strongBorder: Bool {
+        colorSchemeContrast == .increased || showBorders
+    }
+
+    private var cardBackground: Color {
+        if isSelected {
+            return Color.accentColor.opacity(strongBorder ? 0.20 : 0.12)
+        }
+        return Color(nsColor: .controlBackgroundColor)
+    }
+
+    private var cardBorder: Color {
+        isSelected
+            ? Color.accentColor
+            : Color(nsColor: .separatorColor).opacity(strongBorder ? 1 : 0.6)
+    }
+
+    private var cardBorderWidth: CGFloat {
+        if isSelected {
+            return strongBorder ? 3 : 2
+        }
+        return strongBorder ? 1.5 : 1
+    }
+
+    private var accessibilityLabel: String {
+        var parts = [window.title, window.appName]
+        if window.isMinimized {
+            parts.append("Minimized")
+        }
+        if isSelected {
+            parts.append("Selected")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    private var accessibilityHint: String {
+        if isSelected {
+            return "Activates the selected window. Use the context menu to minimize or close it."
+        }
+        return "Selects and activates this window. Use the context menu to minimize or close it."
     }
 }
