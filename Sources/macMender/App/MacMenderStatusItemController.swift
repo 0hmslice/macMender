@@ -54,7 +54,8 @@ final class MacMenderStatusItemController: NSObject {
 
     private func updateIcon() {
         guard let button = statusItem?.button else { return }
-        let image = MendyAssets.menuBarImage.copy() as? NSImage ?? MendyAssets.menuBarImage
+        let brandImage = MacMenderBrandAssets.statusItemImage
+        let image = brandImage.copy() as? NSImage ?? brandImage
         image.isTemplate = true
         image.size = Self.statusItemImageSize
         button.image = image
@@ -113,7 +114,7 @@ final class MacMenderStatusItemController: NSObject {
         let popover = popover ?? NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 292, height: 236)
+        popover.contentSize = NSSize(width: 312, height: 286)
         popover.contentViewController = NSHostingController(
             rootView: MenuBarPopover(
                 appModel: appModel,

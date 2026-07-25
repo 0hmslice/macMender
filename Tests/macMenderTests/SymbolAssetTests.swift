@@ -41,6 +41,7 @@ struct SymbolAssetTests {
             "dock.arrow.up.rectangle",
             "dock.rectangle",
             "dot.radiowaves.left.and.right",
+            "ellipsis",
             "exclamationmark.circle",
             "exclamationmark.triangle",
             "exclamationmark.triangle.fill",
@@ -56,6 +57,7 @@ struct SymbolAssetTests {
             "hand.tap.fill",
             "info.circle",
             "keyboard",
+            "laptopcomputer",
             "list.bullet.rectangle",
             "lock",
             "lock.shield",
@@ -71,6 +73,7 @@ struct SymbolAssetTests {
             "power",
             "rectangle.3.group",
             "rectangle.3.group.fill",
+            "rectangle.grid.2x2",
             "rectangle.and.hand.point.up.left",
             "rectangle.on.rectangle",
             "rectangle.on.rectangle.angled",
@@ -100,6 +103,12 @@ struct SymbolAssetTests {
                 "Missing SF Symbol: \(symbol)"
             )
         }
+    }
+
+    @Test("brand icon and native status symbol resolve")
+    func brandAssetsResolve() {
+        #expect(MacMenderBrandAssets.image(named: MacMenderBrandAssets.appIcon) != nil)
+        #expect(NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: nil) != nil)
     }
 
     @Test("Mendy resources are bundled")

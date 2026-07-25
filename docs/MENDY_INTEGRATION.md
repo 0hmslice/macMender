@@ -1,11 +1,12 @@
 # Mendy Integration
 
-Mendy is treated as a product character, not only an icon.
+Mendy is now a selective product character rather than macMender's primary identity.
 
-- App icon: `NEWICON.png` is processed into `icon.icns` for the SwiftPM-built app bundle. The same source is mirrored into `Sources/macMender/Resources/Assets.xcassets/AppIcon.appiconset` so an Xcode target can use the standard macOS app icon set.
-- Status item icon: the current macMender control-center source art lives in the project root at `macos_menubar_robot_icon_assets/`. It is processed into `Sources/macMender/Resources/Assets.xcassets/MendyStatusItem.imageset` as a template-capable 1x/2x/3x image set and loaded through `MendyAssets.menuBarTemplate`. A raw fallback copy also lives at `Sources/macMender/Resources/Mendy/MendyStatusItem.png` for SwiftPM/test resource lookup.
-- Menu Bar management layout chips were removed with the deferred Menu Bar feature.
-- UI avatar: `MendyAvatarView` renders the clean robot-head asset `MendyRobotHead.png` on a glass surface and decorates that base pose with SF Symbol badges for moods. The square app icon background is intentionally not used inside the app UI.
+- App icon: the active source is `Sources/macMender/Resources/Brand/MacMenderAppIcon.png`. It depicts a modern notched MacBook with a sewn repair in its upper-right display corner. The source is rendered into the standard app icon set, `icon.icns`, `icons/icon.icns`, and `icons/NEWICON.png`.
+- Status item icon: `MacMenderBrandAssets.statusItemImage` uses Apple's `laptopcomputer` SF Symbol as a monochrome template image. The menu bar intentionally uses this optically tuned native glyph instead of shrinking the detailed app artwork or Mendy into an unreadable custom bitmap.
+- Mendy appears only in onboarding Welcome and Finish. Routine pages, navigation, Overview, and the status-item popover do not load or display Mendy.
+- Existing Mendy source and runtime assets remain in the repository for selective guidance, About/credits, and future approved moments.
+- Menu Bar management layout chips remain removed with the deferred Menu Bar feature.
 
 ## Extending Moods
 
@@ -14,4 +15,4 @@ Add new states to `MendyMood`, then provide either:
 - A new pose image in `Sources/macMender/Resources/Mendy`, mapped through `MendyAssets`; or
 - A badge, tint, and subtle animation using the existing base pose.
 
-Keep animations low-frequency and opt-in. Mendy should confirm app state and reduce confusion without competing with the settings controls.
+Keep animations low-frequency and opt-in. Mendy should mark a meaningful moment without competing with settings or becoming the default app identity.
