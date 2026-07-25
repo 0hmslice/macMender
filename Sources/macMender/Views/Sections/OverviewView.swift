@@ -5,7 +5,31 @@ struct OverviewView: View {
 
     var body: some View {
         MacMenderScrollablePage(maxContentWidth: 820) {
-            OverviewSummary(appModel: appModel)
+            MacMenderPageHeader(
+                title: "Overview",
+                subtitle: "Review the current profile and open the features you want to adjust.",
+                systemImage: SettingsSection.overview.symbolName
+            )
+
+            OverviewProfileSummary(appModel: appModel)
+
+            if appModel.permissions.needsAttention {
+                MacMenderCallout(systemImage: "exclamationmark.circle", tone: .attention) {
+                    HStack {
+                        Text("Accessibility is required for shortcuts, Dock previews, and window actions.")
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: MacMenderSpacing.standard)
+                        Button("Review Permissions") {
+                            appModel.selectedSection = .privacy
+                        }
+                    }
+                }
+            } else if appModel.store.config.safeModeEnabled {
+                MacMenderCallout(systemImage: "pause.circle", tone: .paused) {
+                    Text("Safe Mode is pausing input and window helpers.")
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             MacMenderContentSection(
                 title: "Features",
@@ -43,7 +67,7 @@ struct OverviewView: View {
                     OverviewFeatureRow(
                         title: "Dock Previews",
                         summary: dockPreviewSummary,
-                        systemImage: "dock.rectangle",
+                        systemImage: "dock.arrow.up.rectangle",
                         action: { appModel.selectedSection = .dockWindows }
                     )
                 }
@@ -86,80 +110,37 @@ struct OverviewView: View {
         )
     }
 }
-private struct OverviewSummary: View {
+
+private struct OverviewProfileSummary: View {
     @ObservedObject var appModel: AppModel
 
     var body: some View {
-        HStack(alignment: .center, spacing: MacMenderSpacing.section) {
-            Image(systemName: summarySymbol)
-                .font(.system(size: 25, weight: .semibold))
-                .foregroundStyle(summaryTone.color)
-                .frame(width: 48, height: 48)
-                .background(summaryTone.color.opacity(0.12), in: Circle())
+        HStack(alignment: .center, spacing: MacMenderSpacing.standard) {
+            Image(systemName: SettingsSection.profiles.symbolName)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 28)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                Text(summaryTitle)
-                    .font(.title2.weight(.semibold))
-                    .accessibilityAddTraits(.isHeader)
-
-                Text(summaryDetail)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Label("Profile: \(appModel.activeProfile.name)", systemImage: appModel.activeProfile.symbolName)
+                Text(appModel.activeProfile.name)
+                    .font(.headline)
+                Text("Current profile · Input, Dock, and window settings")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer(minLength: MacMenderSpacing.standard)
 
-            if appModel.permissions.needsAttention {
-                Button("Review Permissions") {
-                    appModel.selectedSection = .privacy
-                }
-                .buttonStyle(.borderedProminent)
+            Button("Manage Profiles") {
+                appModel.selectedSection = .profiles
             }
+            .controlSize(.small)
         }
-        .padding(MacMenderSpacing.section)
+        .padding(MacMenderSpacing.standard)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .macMenderContentSurface(radius: MacMenderRadius.prominent)
+        .macMenderContentSurface()
         .accessibilityElement(children: .contain)
-    }
-
-    private var summaryTitle: String {
-        if appModel.permissions.needsAttention {
-            return "One action needs attention"
-        }
-        if appModel.store.config.safeModeEnabled {
-            return "Safe Mode is on"
-        }
-        return "macMender is ready"
-    }
-
-    private var summaryDetail: String {
-        if appModel.permissions.needsAttention {
-            return "Accessibility is required before shortcuts, Dock previews, and window actions can run."
-        }
-        if appModel.store.config.safeModeEnabled {
-            return "Active system helpers are paused until you turn Safe Mode off."
-        }
-        return "Your enabled helpers are available and macMender is running normally."
-    }
-
-    private var summaryTone: MacMenderStatusTone {
-        if appModel.permissions.needsAttention {
-            return .attention
-        }
-        if appModel.store.config.safeModeEnabled {
-            return .paused
-        }
-        return .active
-    }
-
-    private var summarySymbol: String {
-        summaryTone.defaultSymbol
     }
 }
 
@@ -193,10 +174,12 @@ private struct OverviewFeatureRow: View {
 
                 Spacer(minLength: MacMenderSpacing.standard)
 
-                MacMenderStatusLabel(
-                    title: summary.title,
-                    tone: MacMenderStatusTone(featureStatusKind: summary.kind)
-                )
+                if shouldShowStatus {
+                    MacMenderStatusLabel(
+                        title: summary.title,
+                        tone: MacMenderStatusTone(featureStatusKind: summary.kind)
+                    )
+                }
 
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
@@ -216,5 +199,14 @@ private struct OverviewFeatureRow: View {
         .onHover { isHovered = $0 }
         .accessibilityLabel("\(title), \(summary.title). \(summary.detail)")
         .accessibilityHint("Open settings")
+    }
+
+    private var shouldShowStatus: Bool {
+        switch summary.kind {
+        case .active, .ready:
+            false
+        case .paused, .needsAttention, .off, .optional:
+            true
+        }
     }
 }

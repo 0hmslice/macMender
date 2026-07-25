@@ -12,7 +12,7 @@ struct ProfilesView: View {
                 MacMenderPageHeader(
                     title: "Profiles",
                     subtitle: "Keep separate input, window, preview, and staged Dock setups.",
-                    systemImage: "square.stack.3d.up"
+                    systemImage: SettingsSection.profiles.symbolName
                 )
 
                 MacMenderCallout(systemImage: "info.circle") {
@@ -62,7 +62,9 @@ struct ProfilesView: View {
 
                 TableColumn("State") { profile in
                     if profile.id == appModel.store.config.activeProfileID {
-                        MacMenderStatusLabel(title: "Active", tone: .active)
+                        Text("Current")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     } else if profile.id == MacMenderProfile.default.id {
                         Text("Default")
                             .font(.caption)

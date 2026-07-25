@@ -18,7 +18,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Do not use `script/build_and_run.sh --fresh` without an explicit restoration plan; it moves the live config aside and does not restore it automatically.
 - The untouched baseline passed 72 tests in 8 suites and packaged verification. It showed an Overview window in approximately 1.43 seconds, sampled 0.0% idle CPU, and used approximately 55–56 MB resident memory with preferences open and approximately 62 MB with preferences closed.
 - The final Phase A build passed `swift build`, 95 tests in 9 suites, and packaged verification. The packaged app showed its first window in approximately 1.009 seconds, and the detailed live results and residuals are recorded below.
-- Phase B's presentation milestone is `b4c2707`, followed by the final accessibility/performance QA milestone. Final verification passed `swift build`, 97 tests in 10 suites, `script/build_and_run.sh --verify`, targeted packaged UI, isolated onboarding, dark/light page inspection, and settled page CPU. Exact evidence and partial/manual checks are in `docs/UI_REBRAND_QA.md`.
+- Phase B's presentation milestone is `b4c2707`, followed by the final accessibility/performance QA milestone and the identity/navigation polish follow-up. Final verification passed `swift build`, 99 tests in 10 suites, `script/build_and_run.sh --verify`, targeted packaged UI, isolated onboarding, dark/light page inspection, and settled page CPU. Exact evidence and partial/manual checks are in `docs/UI_REBRAND_QA.md`.
 
 ## Phase B Final QA Checklist
 
@@ -164,7 +164,7 @@ These results verify the compatibility branch before the Phase B visual changes.
 - Repeat the redesigned onboarding pass at the minimum practical window size; the intended 980×680 packaged layout passed, but the smaller-size rail, dual permission actions, drag guide, numbered instructions, and footer still need direct visual confirmation.
 - Complete a spoken VoiceOver and Full Keyboard Access traversal, including native focus rings, popover reading order, and destructive confirmation focus.
 - Enable Increase Contrast, Show Borders, Differentiate Without Color, Reduce Transparency, and Reduce Motion globally and perform the final visual pass, then restore the original values. The System Settings Accessibility pane closed the Computer Use connection during this run, so those global toggles were not changed.
-- Open the final status-item popover by hand and check large-text wrapping/scrolling plus popover-open CPU. Its controller/action path is unchanged, but Computer Use could not press the MenuBarAgent item after the final popover-only accessibility patch.
+- Check the final status-item popover with unusually large accessibility text and spoken VoiceOver. Normal-size packaged interaction, navigation, collapsed-sidebar recovery, and popover-open presentation passed through Computer Use.
 - Inspect Profiles directly on screen in light and dark appearance. Its full accessibility tree passed, but macOS 27's screen-capture path privacy-redacted the window while its profile-name text field was present.
 - Optionally relaunch one suitable third-party status-item app by hand to compare it with the fresh AppKit probe. Do not generalize one app's behavior to all third-party frameworks.
 - A human can still perform a subjective cursor/beachball feel check and a dedicated GPU/Instruments trace. Automation observed a responsive first window and no sustained CPU update loop.

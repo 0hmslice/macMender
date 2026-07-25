@@ -9,223 +9,191 @@ struct MenuBarPopover: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        content
-    }
+        VStack(alignment: .leading, spacing: 0) {
+            header
 
-    private var content: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.vertical) {
-                VStack(alignment: .leading, spacing: 8) {
-                    header
+            Divider()
 
-                    Divider()
+            VStack(spacing: 0) {
+                ForEach(statusItems) { item in
+                    PopoverFeatureRow(item: item) {
+                        openSettings(section: item.section)
+                    }
 
-                    VStack(spacing: 0) {
-                        PopoverStatusLine(item: permissionsItem)
-                        Divider().padding(.leading, 25)
-                        PopoverStatusLine(item: middleClickItem)
-                        Divider().padding(.leading, 25)
-                        PopoverStatusLine(item: dockPreviewItem)
-                        Divider().padding(.leading, 25)
-                        PopoverStatusLine(item: windowSwitcherItem)
+                    if item.id != statusItems.last?.id {
+                        Divider().padding(.leading, 36)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .scrollIndicators(.automatic)
+            .padding(.vertical, 5)
 
-            actionRow
+            Divider()
 
-            HStack(alignment: .top) {
-                Text(footerStatus)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .layoutPriority(1)
-                Spacer(minLength: 8)
-                Button {
-                    NSApp.terminate(nil)
-                } label: {
-                    Image(systemName: "power")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 22, height: 22)
-                }
-                .buttonStyle(.plain)
-                .help("Quit macMender")
-                .accessibilityLabel("Quit macMender")
-            }
+            footer
         }
-        .padding(12)
-        .frame(width: 292, height: 236, alignment: .topLeading)
+        .frame(width: 312, height: 286, alignment: .topLeading)
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: overallSymbolName)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(overallTone.color)
-                .frame(width: 32, height: 32)
-                .background(overallTone.color.opacity(0.12), in: Circle())
+        HStack(alignment: .center, spacing: 11) {
+            Image(nsImage: MacMenderBrandAssets.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: 34, height: 34)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("macMender")
                     .font(.headline)
-                Text(appModel.runningStatusTitle)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text(appModel.runningStatusDetail)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+
+                Text(headerDetail)
+                    .font(.caption)
+                    .foregroundStyle(headerTone)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+
+            Menu {
+                Button("Quit macMender") {
+                    NSApp.terminate(nil)
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 20, height: 20)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("More macMender actions")
+            .accessibilityLabel("More macMender actions")
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("macMender status")
-        .accessibilityValue("\(appModel.runningStatusTitle). \(appModel.runningStatusDetail)")
+        .padding(13)
+        .accessibilityElement(children: .combine)
     }
 
-    private var overallTone: MacMenderStatusTone {
+    private var footer: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Profile")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Text(appModel.activeProfile.name)
+                    .font(.caption)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                openSettings(section: .overview)
+            } label: {
+                Label("Open macMender", systemImage: "macwindow")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .accessibilityHint("Opens the full macMender window with its sidebar visible")
+        }
+        .padding(13)
+    }
+
+    private var statusItems: [PopoverFeatureItem] {
+        [
+            PopoverFeatureItem(
+                title: "Permissions",
+                value: requiredPermissionNames.isEmpty ? "Granted" : "Needs access",
+                systemImage: SettingsSection.privacy.symbolName,
+                tone: requiredPermissionNames.isEmpty ? .quiet : .attention,
+                section: .privacy
+            ),
+            featureItem(
+                title: "Three-Finger Tap",
+                summary: PermissionStatusPolicy.threeFingerTapStatus(
+                    settings: appModel.activeProfile.middleClick,
+                    accessibility: appModel.permissions.accessibility,
+                    safeModeEnabled: appModel.store.config.safeModeEnabled,
+                    runtimeRunning: appModel.multitouchMiddleClick.isRunning
+                ),
+                systemImage: "hand.tap",
+                section: .input
+            ),
+            featureItem(
+                title: "Dock Previews",
+                summary: PermissionStatusPolicy.dockPreviewStatus(
+                    settings: appModel.activeProfile.dockPreviews,
+                    accessibility: appModel.permissions.accessibility,
+                    safeModeEnabled: appModel.store.config.safeModeEnabled,
+                    runtimeRunning: appModel.dockHover.isRunning
+                ),
+                systemImage: "dock.arrow.up.rectangle",
+                section: .dockWindows
+            ),
+            featureItem(
+                title: "Window Switcher",
+                summary: PermissionStatusPolicy.windowSwitcherStatus(
+                    settings: appModel.activeProfile.windowSwitcher,
+                    featureEnabled: appModel.store.config.featureToggles.windowSwitcher,
+                    accessibility: appModel.permissions.accessibility,
+                    safeModeEnabled: appModel.store.config.safeModeEnabled
+                ),
+                systemImage: "rectangle.3.group",
+                section: .dockWindows
+            )
+        ]
+    }
+
+    private var headerDetail: String {
         if !appModel.store.config.hasCompletedOnboarding {
-            return .attention
+            return "Finish setup to enable features"
         }
         if appModel.store.config.safeModeEnabled {
-            return .paused
+            return "Features are paused by Safe Mode"
         }
-        if permissionsNeedAttention {
-            return .attention
+        if !requiredPermissionNames.isEmpty {
+            return "Accessibility needs attention"
         }
-        return appModel.systemEvents.status.eventTapRunning ? .active : .neutral
+
+        let count = [
+            appModel.activeProfile.middleClick.enabled,
+            appModel.activeProfile.dockPreviews.enabled,
+            appModel.activeProfile.windowSwitcher.enabled && appModel.store.config.featureToggles.windowSwitcher
+        ].filter { $0 }.count
+        return "\(count) feature\(count == 1 ? "" : "s") enabled"
     }
 
-    private var overallSymbolName: String {
-        guard appModel.store.config.hasCompletedOnboarding,
-              !appModel.store.config.safeModeEnabled,
-              !permissionsNeedAttention,
-              !appModel.systemEvents.status.eventTapRunning else {
-            return appModel.runningStatusSymbol
+    private var headerTone: Color {
+        if appModel.store.config.safeModeEnabled || !requiredPermissionNames.isEmpty {
+            return .orange
         }
-        return "circle.dashed"
-    }
-
-    private var permissionsItem: PopoverStatusItem {
-        let missing = requiredPermissionNames
-        if missing.isEmpty {
-            return PopoverStatusItem(title: "Permissions", value: "Ready", symbolName: "lock.shield", tone: .active)
-        }
-        let value = missing.count == 1 ? "Needs \(missing[0])" : "\(missing.count) need review"
-        return PopoverStatusItem(title: "Permissions", value: value, symbolName: "lock.shield", tone: .attention)
-    }
-
-    private var middleClickItem: PopoverStatusItem {
-        let status = PermissionStatusPolicy.threeFingerTapStatus(
-            settings: appModel.activeProfile.middleClick,
-            accessibility: appModel.permissions.accessibility,
-            safeModeEnabled: appModel.store.config.safeModeEnabled,
-            runtimeRunning: appModel.multitouchMiddleClick.isRunning
-        )
-        return PopoverStatusItem(title: "Three-Finger Tap", value: status.title, symbolName: "hand.tap", tone: MacMenderStatusTone(featureStatusKind: status.kind))
-    }
-
-    private var dockPreviewItem: PopoverStatusItem {
-        let status = PermissionStatusPolicy.dockPreviewStatus(
-            settings: appModel.activeProfile.dockPreviews,
-            accessibility: appModel.permissions.accessibility,
-            safeModeEnabled: appModel.store.config.safeModeEnabled,
-            runtimeRunning: appModel.dockHover.isRunning
-        )
-        return PopoverStatusItem(title: "Dock Previews", value: status.title, symbolName: "dock.rectangle", tone: MacMenderStatusTone(featureStatusKind: status.kind))
-    }
-
-    private var windowSwitcherItem: PopoverStatusItem {
-        let status = PermissionStatusPolicy.windowSwitcherStatus(
-            settings: appModel.activeProfile.windowSwitcher,
-            featureEnabled: appModel.store.config.featureToggles.windowSwitcher,
-            accessibility: appModel.permissions.accessibility,
-            safeModeEnabled: appModel.store.config.safeModeEnabled
-        )
-        return PopoverStatusItem(title: "Window Switcher", value: status.title, symbolName: "rectangle.3.group", tone: MacMenderStatusTone(featureStatusKind: status.kind))
-    }
-
-    private var permissionsNeedAttention: Bool {
-        !requiredPermissionNames.isEmpty
-    }
-
-    private var shouldShowPermissionsAction: Bool {
-        permissionsNeedAttention || !appModel.store.config.hasCompletedOnboarding
+        return .secondary
     }
 
     private var requiredPermissionNames: [String] {
         PermissionStatusPolicy.requiredPermissionNames(accessibility: appModel.permissions.accessibility)
     }
 
-    private var footerStatus: String {
-        if !appModel.store.config.hasCompletedOnboarding {
-            return "Finish setup in macMender."
-        }
-        if appModel.store.config.safeModeEnabled {
-            return "Input and previews are paused."
-        }
-        if permissionsNeedAttention {
-            return "Review permissions to finish setup."
-        }
-        if !appModel.systemEvents.status.eventTapRunning {
-            return "Starting local helpers…"
-        }
-        return "Running locally."
+    private func featureItem(
+        title: String,
+        summary: FeatureStatusSummary,
+        systemImage: String,
+        section: SettingsSection
+    ) -> PopoverFeatureItem {
+        PopoverFeatureItem(
+            title: title,
+            value: summary.shortDisplayValue,
+            systemImage: systemImage,
+            tone: PopoverFeatureTone(summary.kind),
+            section: section
+        )
     }
 
-    private var actionRow: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-                openMacMenderButton
-
-                if shouldShowPermissionsAction {
-                    permissionsButton
-                }
-            }
-
-            VStack(spacing: 6) {
-                openMacMenderButton
-
-                if shouldShowPermissionsAction {
-                    permissionsButton
-                }
-            }
-        }
-    }
-
-    private var openMacMenderButton: some View {
-        Button {
-            openSettings()
-        } label: {
-            Label("Open macMender", systemImage: "arrow.right")
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.small)
-        .accessibilityHint("Opens the macMender settings window")
-    }
-
-    private var permissionsButton: some View {
-        Button {
-            appModel.selectedSection = .privacy
-            openSettings()
-        } label: {
-            Label("Permissions", systemImage: "lock.shield")
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.borderless)
-        .controlSize(.small)
-        .accessibilityHint("Opens the Privacy page in macMender")
-    }
-
-    private func openSettings() {
+    private func openSettings(section: SettingsSection) {
+        appModel.requestMainWindow(section: section)
         closeAction?()
         dismiss()
+
         DispatchQueue.main.async {
             if let openSettingsAction {
                 openSettingsAction()
@@ -239,64 +207,94 @@ struct MenuBarPopover: View {
     }
 }
 
-private struct PopoverStatusItem {
+private struct PopoverFeatureItem: Identifiable {
     var title: String
     var value: String
-    var symbolName: String
-    var tone: MacMenderStatusTone
+    var systemImage: String
+    var tone: PopoverFeatureTone
+    var section: SettingsSection
+
+    var id: String { title }
 }
 
-private struct PopoverStatusLine: View {
-    var item: PopoverStatusItem
+private enum PopoverFeatureTone {
+    case quiet
+    case paused
+    case attention
+
+    init(_ statusKind: FeatureStatusKind) {
+        switch statusKind {
+        case .needsAttention:
+            self = .attention
+        case .paused:
+            self = .paused
+        case .active, .ready, .off, .optional:
+            self = .quiet
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .quiet:
+            .secondary
+        case .paused, .attention:
+            .orange
+        }
+    }
+}
+
+private extension FeatureStatusSummary {
+    var shortDisplayValue: String {
+        switch kind {
+        case .active:
+            "On"
+        case .ready:
+            "Available"
+        case .paused:
+            "Paused"
+        case .needsAttention:
+            "Needs attention"
+        case .off:
+            "Off"
+        case .optional:
+            "Optional"
+        }
+    }
+}
+
+private struct PopoverFeatureRow: View {
+    var item: PopoverFeatureItem
+    var action: () -> Void
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
-                statusTitle
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: item.systemImage)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                    .accessibilityHidden(true)
+
+                Text(item.title)
+                    .foregroundStyle(.primary)
+
                 Spacer(minLength: 8)
-                statusValue
+
+                Text(item.value)
+                    .font(.caption)
+                    .foregroundStyle(item.tone.color)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-
-            VStack(alignment: .leading, spacing: 3) {
-                statusTitle
-                statusValue
-                    .padding(.leading, 25)
-            }
+            .contentShape(.rect)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.title)
-        .accessibilityValue(item.value)
-    }
-
-    private var statusTitle: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 7) {
-            Image(systemName: item.symbolName)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 18)
-                .accessibilityHidden(true)
-
-            Text(item.title)
-                .font(.caption)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var statusValue: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Image(systemName: item.tone.defaultSymbol)
-                .foregroundStyle(item.tone.color)
-                .accessibilityHidden(true)
-
-            Text(item.value)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.caption2.weight(.semibold))
-        .padding(.horizontal, 6)
-        .padding(.vertical, 3)
-        .background(item.tone.color.opacity(0.12), in: Capsule())
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.title), \(item.value)")
+        .accessibilityHint("Open \(item.section.title) settings")
     }
 }

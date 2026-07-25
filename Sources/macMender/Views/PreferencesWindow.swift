@@ -2,10 +2,11 @@ import SwiftUI
 
 struct PreferencesWindow: View {
     @ObservedObject var appModel: AppModel
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
         if appModel.store.config.hasCompletedOnboarding {
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 SidebarView(selection: $appModel.selectedSection)
                     .navigationTitle("macMender")
                     .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 260)
@@ -21,6 +22,9 @@ struct PreferencesWindow: View {
                     }
             }
             .navigationSplitViewStyle(.balanced)
+            .onChange(of: appModel.navigationPresentationID) {
+                columnVisibility = .all
+            }
         } else {
             OnboardingView(appModel: appModel)
         }

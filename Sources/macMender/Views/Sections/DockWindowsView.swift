@@ -20,10 +20,10 @@ struct DockWindowsView: View {
             MacMenderPageHeader(
                 title: "Dock & Windows",
                 subtitle: "Choose how windows appear, tune Dock previews, and apply Dock preferences deliberately.",
-                systemImage: "dock.rectangle"
+                systemImage: SettingsSection.dockWindows.symbolName
             )
 
-            MacMenderCallout(systemImage: "person.crop.circle") {
+            MacMenderCallout(systemImage: SettingsSection.profiles.symbolName) {
                 Text("These settings follow the **\(appModel.activeProfile.name)** profile.")
                     .foregroundStyle(.secondary)
             }
@@ -229,7 +229,7 @@ struct DockWindowsView: View {
         MacMenderStatusLabel(
             title: appModel.dockHover.isRunning ? "Dock previews active" : "Dock previews paused",
             tone: appModel.dockHover.isRunning ? .active : .paused,
-            systemImage: appModel.dockHover.isRunning ? "checkmark.circle.fill" : "pause.circle"
+            systemImage: appModel.dockHover.isRunning ? "dot.radiowaves.left.and.right" : "pause.circle"
         )
         if let app = appModel.dockHover.lastHoveredApp {
             MacMenderStatusLabel(

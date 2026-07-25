@@ -4,6 +4,19 @@ import Testing
 
 @Suite("Product Policy")
 struct ProductPolicyTests {
+    @Test("menu bar open requests restore the requested section and full navigation")
+    @MainActor
+    func menuBarOpenRequestsRestoreNavigation() {
+        let appModel = AppModel()
+        appModel.selectedSection = .profiles
+        let previousPresentationID = appModel.navigationPresentationID
+
+        appModel.requestMainWindow(section: .overview)
+
+        #expect(appModel.selectedSection == .overview)
+        #expect(appModel.navigationPresentationID == previousPresentationID + 1)
+    }
+
     @Test("Accessibility is the only required permission in shared status policy")
     func accessibilityIsOnlyRequiredPermission() {
         #expect(PermissionStatusPolicy.requiredPermissionNames(accessibility: .missing) == ["Accessibility"])

@@ -21,10 +21,10 @@ Final verification record for the packaged UI rebrand. `Partial` means the autom
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | `swift build` | Pass | Xcode-beta command-local developer directory; final accessibility sources compiled. |
-| `swift test` | Pass | 97 tests in 10 suites. |
+| `swift test` | Pass | 99 tests in 10 suites after the identity/navigation follow-up. |
 | `script/build_and_run.sh --verify` | Pass | Final packaged binary rebuilt, re-signed, and launched from `dist/macMender.app`. |
 | Packaged launch/preferences window | Pass | Overview appeared and exposed the complete native AX tree. Exact cold timing was not isolated from automation; practical launches remained within the approximately one-second automation yield. |
-| Status item | Partial | Final MenuBarAgent capture shows the macMender status item. Phase A proved it clickable; Computer Use could not press the global item after the final popover-only accessibility patch. The status controller and click path are unchanged. |
+| Status item | Pass | Packaged MenuBarAgent inspection confirmed the native `laptopcomputer` template glyph, successful click handling, and popover presentation. |
 
 ## Product-Area Verification
 
@@ -40,7 +40,7 @@ Final verification record for the packaged UI rebrand. `Partial` means the autom
 | Profiles | Partial — native Table, selection without implicit activation, Make Active, Create, and Delete wiring remain present and the AX tree is complete. macOS 27 screen capture privacy-redacts this page while a text field is present, limiting visual automation. Rename and Duplicate are not implemented. |
 | Privacy | Pass — live permission states, reasons, settings actions, separate gesture runtime state, refresh, and local-data disclosure are present. |
 | Advanced | Partial / carried-forward evidence — status refresh produced `Updated just now`; save/export/import/show-in-Finder/Safe Mode/Dock refresh/disclosures/reset actions retain the audited Phase A closures. Stateful import/export and reset were not repeated against the live config in the final rebranded package. |
-| Status-item popover | Partial — final source/build audit confirms accurate policy-backed summaries, semantic status text, adaptive rows/actions, scroll fallback, no Mendy, and unchanged actions. Final global-item visual/VoiceOver interaction remains manual because Computer Use cannot press MenuBarAgent windows. |
+| Status-item popover | Pass with large-text/VoiceOver residual — packaged visual and accessibility inspection confirmed the compact information-first layout, plain status values, four direct settings rows, profile context, ellipsis actions, and Open macMender. No green checkmark capsules or Mendy remain. |
 
 Profiles supports create, select, Make Active, and delete. Rename and Duplicate remain an explicit Phase B implementation gap; no behavior was invented during a visual-only pass.
 
@@ -98,7 +98,7 @@ Profiles supports create, select, Make Active, and delete. Rename and Duplicate 
 8. Regression result: build/tests/package and targeted packaged UI pass; manual residuals are listed below.
 9. Design research: `docs/UI_REBRAND_RESEARCH.md`.
 10. Visual principles: native, calm, precise, restrained, semantic, efficient, accessible, with small interaction-led whimsy.
-11. Mendy: retired from routine UI; retained only in onboarding Welcome/Finish, the existing status icon, assets, and optional credits/easter-egg scope.
+11. Mendy: retired from routine UI, app icon, and status item; retained only in onboarding Welcome/Finish, preserved assets, and optional credits/easter-egg scope.
 12. Page changes: native shell/forms/tables, concise status-led Overview, device-clear Input, focused spacing utility, separated Dock areas, permission/configuration forms, compact onboarding/popover, consistent overlays.
 13. Accessibility: contrast blockers and ambiguous labels fixed; remaining global-mode/spoken checks are manual.
 14. Performance: 0.0% settled CPU on every page, 51–95 MB `top` memory through the final sweep, and no rebrand-added sustained render/update loop.

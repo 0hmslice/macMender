@@ -230,7 +230,7 @@ struct AdvancedView: View {
     @ViewBuilder
     private var localMessages: some View {
         if appModel.diagnostics.latestMessages.isEmpty {
-            Label("No local messages", systemImage: "checkmark.circle.fill")
+            Label("No local messages", systemImage: "tray")
                 .foregroundStyle(.secondary)
         } else {
             VStack(alignment: .leading, spacing: MacMenderSpacing.small) {

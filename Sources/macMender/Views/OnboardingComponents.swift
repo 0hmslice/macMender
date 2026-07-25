@@ -14,7 +14,7 @@ struct OnboardingStepRail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                Label("Set Up macMender", systemImage: "wrench.and.screwdriver")
+                Label("Set Up macMender", systemImage: "arrow.right")
                     .font(.headline)
                 Text("A quick tour of the essentials")
                     .font(.caption)

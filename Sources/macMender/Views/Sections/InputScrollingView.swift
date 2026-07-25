@@ -11,10 +11,10 @@ struct InputScrollingView: View {
             MacMenderPageHeader(
                 title: "Mouse & Trackpad",
                 subtitle: "Tune scrolling and Three-Finger Tap for the active profile.",
-                systemImage: "computermouse"
+                systemImage: SettingsSection.input.symbolName
             )
 
-            MacMenderCallout(systemImage: "person.crop.circle") {
+            MacMenderCallout(systemImage: SettingsSection.profiles.symbolName) {
                 Text("These settings follow the **\(appModel.activeProfile.name)** profile.")
                     .foregroundStyle(.secondary)
             }
@@ -253,7 +253,7 @@ struct InputScrollingView: View {
         if settings.trigger == .experimentalThreeFinger {
             return appModel.multitouchMiddleClick.isRunning ? "hand.tap.fill" : "hand.tap"
         }
-        return appModel.systemEvents.status.eventTapRunning ? "checkmark.circle.fill" : "circle.dashed"
+        return appModel.systemEvents.status.eventTapRunning ? "dot.radiowaves.left.and.right" : "circle.dashed"
     }
 
     private var middleClickRuntimeTone: MacMenderStatusTone {

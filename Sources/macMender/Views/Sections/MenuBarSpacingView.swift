@@ -10,7 +10,7 @@ struct MenuBarSpacingView: View {
             MacMenderPageHeader(
                 title: "Menu Bar Spacing",
                 subtitle: "Adjust one global spacing preference for compatible status items.",
-                systemImage: "arrow.left.and.right"
+                systemImage: SettingsSection.menuBarSpacing.symbolName
             )
 
             MacMenderCallout(systemImage: "info.circle") {
@@ -73,13 +73,11 @@ struct MenuBarSpacingView: View {
                 }
 
                 HStack {
-                    Button {
+                    Button("Apply") {
                         appModel.applyMenuBarSpacing(
                             pendingPreference,
                             customValue: Int(pendingValue.rounded())
                         )
-                    } label: {
-                        Label("Apply", systemImage: "checkmark.circle")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(appModel.menuBarSpacing.isApplying)

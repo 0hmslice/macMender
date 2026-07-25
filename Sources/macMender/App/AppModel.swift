@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastStatusRefreshSummary = "Not refreshed yet"
     @Published private(set) var firstWindowReadyAt: Date?
     @Published private(set) var runtimeStartedAt: Date?
+    @Published private(set) var navigationPresentationID = 0
 
     let store: ProfileStore
     let permissions: PermissionService
@@ -223,6 +224,11 @@ final class AppModel: ObservableObject {
     func setActiveProfile(_ profileID: UUID) {
         store.setActiveProfile(profileID)
         updateRuntime()
+    }
+
+    func requestMainWindow(section: SettingsSection) {
+        selectedSection = section
+        navigationPresentationID &+= 1
     }
 
     func completeOnboarding() {

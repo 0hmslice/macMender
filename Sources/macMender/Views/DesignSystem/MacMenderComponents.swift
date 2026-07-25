@@ -115,43 +115,43 @@ struct MacMenderSettingsRow<Accessory: View>: View {
 }
 
 struct MacMenderStatusLabel: View {
-    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-    @Environment(\.accessibilityShowBorders) private var showBorders
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-
     var title: String
     var tone: MacMenderStatusTone
     var systemImage: String? = nil
 
     var body: some View {
         HStack(spacing: MacMenderSpacing.compact) {
-            Image(systemName: resolvedSymbol)
-                .foregroundStyle(tone.color)
-                .accessibilityHidden(true)
+            if let resolvedSymbol {
+                Image(systemName: resolvedSymbol)
+                    .accessibilityHidden(true)
+            }
 
             Text(title)
-                .foregroundStyle(.primary)
         }
-        .font(.caption.weight(.medium))
-        .padding(.horizontal, MacMenderSpacing.small)
-        .padding(.vertical, MacMenderSpacing.compact)
-        .background(tone.color.opacity(0.12), in: Capsule())
-        .overlay {
-            Capsule()
-                .strokeBorder(
-                    tone.color.opacity(strongBorder ? 0.65 : 0.28),
-                    lineWidth: strongBorder ? 1.5 : 1
-                )
-        }
+        .font(.caption)
+        .foregroundStyle(foregroundColor)
         .accessibilityElement(children: .combine)
     }
 
-    private var resolvedSymbol: String {
-        systemImage ?? tone.defaultSymbol
+    private var resolvedSymbol: String? {
+        if let systemImage {
+            return systemImage
+        }
+        switch tone {
+        case .attention, .paused, .unavailable:
+            return tone.defaultSymbol
+        case .active, .neutral:
+            return nil
+        }
     }
 
-    private var strongBorder: Bool {
-        differentiateWithoutColor || showBorders || colorSchemeContrast == .increased
+    private var foregroundColor: Color {
+        switch tone {
+        case .active, .neutral:
+            .secondary
+        case .attention, .paused, .unavailable:
+            tone.color
+        }
     }
 }
 
