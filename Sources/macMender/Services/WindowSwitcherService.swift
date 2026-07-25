@@ -630,33 +630,16 @@ final class WindowSwitcherService: ObservableObject {
 
     private func panelSize(for settings: WindowSwitcherSettings, screen: NSScreen?) -> CGSize {
         let visibleSize = screen?.visibleFrame.size ?? CGSize(width: 1200, height: 800)
-        let maxWidth = visibleSize.width * (isDockPreview ? 0.48 : 0.72)
-        let maxHeight = visibleSize.height * (isDockPreview ? 0.44 : 0.72)
-        let windowCount = max(windows.count, 1)
-        let maxColumns = isDockPreview ? 3 : 5
-        let preferredColumns = isDockPreview ? min(windowCount, 2) : Int(ceil(sqrt(Double(windowCount))))
-        let columns = max(1, min(maxColumns, preferredColumns))
-        let rows = Int(ceil(Double(windowCount) / Double(columns)))
-        let spacing = 12.0
-        let horizontalPadding = 36.0
-        let verticalPadding = 76.0
-        let cardChrome = 22.0
-        let cardFooter = 58.0
-        let preferredThumbnail = min(settings.thumbnailSize, isDockPreview ? 144 : 168)
-
-        let availableCardWidth = (maxWidth - horizontalPadding - spacing * Double(max(columns - 1, 0))) / Double(columns)
-        let availableCardHeight = (maxHeight - verticalPadding - spacing * Double(max(rows - 1, 0))) / Double(rows)
-        let thumbnailByWidth = availableCardWidth - cardChrome
-        let thumbnailByHeight = (availableCardHeight - cardFooter) / 0.68
-        let thumbnail = max(92, min(preferredThumbnail, thumbnailByWidth, thumbnailByHeight))
-        displayThumbnailSize = thumbnail
-        gridColumnCount = columns
-
-        let cardWidth = thumbnail + cardChrome
-        let cardHeight = thumbnail * 0.68 + cardFooter
-        let width = cardWidth * Double(columns) + spacing * Double(max(columns - 1, 0)) + horizontalPadding
-        let height = cardHeight * Double(rows) + spacing * Double(max(rows - 1, 0)) + verticalPadding
-        return CGSize(width: min(maxWidth, max(width, isDockPreview ? 330 : 520)), height: min(maxHeight, max(height, isDockPreview ? 230 : 360)))
+        let metrics = WindowSwitcherPresentationMetrics.calculate(
+            layout: settings.layout,
+            windowCount: windows.count,
+            requestedThumbnailSize: settings.thumbnailSize,
+            visibleSize: visibleSize,
+            isDockPreview: isDockPreview
+        )
+        displayThumbnailSize = metrics.thumbnailSize
+        gridColumnCount = metrics.gridColumnCount
+        return metrics.panelSize
     }
 
     private func panelOrigin(size: CGSize, screen: NSScreen, anchorFrame: CGRect?) -> CGPoint {

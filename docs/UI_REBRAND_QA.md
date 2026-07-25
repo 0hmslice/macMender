@@ -21,10 +21,10 @@ Final verification record for the packaged UI rebrand. `Partial` means the autom
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | `swift build` | Pass | Xcode-beta command-local developer directory; final accessibility sources compiled. |
-| `swift test` | Pass | 99 tests in 10 suites after the identity/navigation follow-up. |
+| `swift test` | Pass | 103 tests in 11 suites after the quick-controls and Strip-layout follow-up. |
 | `script/build_and_run.sh --verify` | Pass | Final packaged binary rebuilt, re-signed, and launched from `dist/macMender.app`. |
 | Packaged launch/preferences window | Pass | Overview appeared and exposed the complete native AX tree. Exact cold timing was not isolated from automation; practical launches remained within the approximately one-second automation yield. |
-| Status item | Pass | Packaged MenuBarAgent inspection confirmed the native `laptopcomputer` template glyph, successful click handling, and popover presentation. |
+| Status item | Pass | Packaged MenuBarAgent inspection confirmed the authored MacBook-and-stitches template glyph, successful click handling, and popover presentation. |
 
 ## Product-Area Verification
 
@@ -40,7 +40,8 @@ Final verification record for the packaged UI rebrand. `Partial` means the autom
 | Profiles | Partial — native Table, selection without implicit activation, Make Active, Create, and Delete wiring remain present and the AX tree is complete. macOS 27 screen capture privacy-redacts this page while a text field is present, limiting visual automation. Rename and Duplicate are not implemented. |
 | Privacy | Pass — live permission states, reasons, settings actions, separate gesture runtime state, refresh, and local-data disclosure are present. |
 | Advanced | Partial / carried-forward evidence — status refresh produced `Updated just now`; save/export/import/show-in-Finder/Safe Mode/Dock refresh/disclosures/reset actions retain the audited Phase A closures. Stateful import/export and reset were not repeated against the live config in the final rebranded package. |
-| Status-item popover | Pass with large-text/VoiceOver residual — packaged visual and accessibility inspection confirmed the compact information-first layout, plain status values, four direct settings rows, profile context, ellipsis actions, and Open macMender. No green checkmark capsules or Mendy remain. |
+| Status-item popover | Pass with large-text/VoiceOver residual — packaged visual, accessibility, and interaction inspection confirmed four native quick toggles in one trailing alignment column, always-visible Open macMender and Quit, and no healthy-state prose, green checkmark capsules, profile filler, or Mendy. The quick controls were toggled off/on and restored. |
+| Window Switcher Strip | Pass with final physical-keyboard residual — packaged `Test Switcher` displayed six live window previews in one horizontally scrollable native-style row with a strong selected border and selected window/app label. Pure sizing tests cover viewport bounds and minimum thumbnail sizing. Existing keyboard routing/activation tests pass; a physical Option-Tab visual cycle remains manual. |
 
 Profiles supports create, select, Make Active, and delete. Rename and Duplicate remain an explicit Phase B implementation gap; no behavior was invented during a visual-only pass.
 
@@ -59,14 +60,14 @@ Profiles supports create, select, Make Active, and delete. Rename and Duplicate 
 
 | Check | Result / evidence |
 | --- | --- |
-| Dark appearance | Partial — captured routine pages, onboarding, and Option+Tab passed. Profiles was AX-verifiable but screen-capture-redacted, and final popover visual interaction remains manual. |
+| Dark appearance | Partial — captured routine pages, onboarding, Option+Tab, and the final aligned quick-control popover passed. Profiles was AX-verifiable but screen-capture-redacted. |
 | Light appearance | Partial — captured routine pages passed using a temporary ad-hoc QA copy forced to Aqua. Profiles was AX-verifiable but screen-capture-redacted; final popover and Option+Tab light capture remain manual. |
 | VoiceOver semantics | Pass for automated AX inspection: contextual Input labels/values/hints, native onboarding selected rows, status values, and overlay selected traits. Full spoken VoiceOver reading-order QA remains manual. |
 | Keyboard/focus | Partial — native sidebar and onboarding rail keyboard navigation passed; complete Full Keyboard Access traversal remains manual. |
 | Increase Contrast / Show Borders / Differentiate Without Color | Code and contrast audit pass — status text is semantic primary text, hue remains redundant in symbols/backgrounds/borders, strong borders honor contrast settings, and onboarding has native selected semantics plus a checkmark. System Settings' Accessibility pane repeatedly closed the Computer Use pipe, so global-mode visual confirmation remains manual. |
 | Reduce Transparency | Code audit pass — glass/content surfaces have semantic opaque fallbacks. Final global toggle visual confirmation remains manual. |
 | Reduce Motion | Code audit pass — active transitions use nil/reduced paths and no rebrand-added repeat-forever animation or view timer was found. The existing `DockHoverService` fallback timer predates Phase B and is unchanged. Final global toggle interaction remains manual. |
-| Minimum size / large text | Standard 980×680 onboarding and scrollable permission layout passed. Minimum-practical-size onboarding remains manual. The fixed 292×236 popover now wraps/stacks and scrolls rather than shrinking critical text; large-text spoken/visual QA remains manual. |
+| Minimum size / large text | Standard 980×680 onboarding and scrollable permission layout passed. Minimum-practical-size onboarding remains manual. The compact 304×274 quick-control popover uses short labels and native switches; unusually large accessibility text and spoken ordering remain manual. |
 
 ## Performance
 
@@ -104,7 +105,7 @@ Profiles supports create, select, Make Active, and delete. Rename and Duplicate 
 14. Performance: 0.0% settled CPU on every page, 51–95 MB `top` memory through the final sweep, and no rebrand-added sustained render/update loop.
 15. Files changed: see the Phase A and Phase B commits; public/top-level packaging structure is unchanged.
 16. Commits: listed in the final response; no push.
-17. Manual QA: physical gestures/devices/Dock secondary-click; minimum-size onboarding; direct Profiles light/dark and final popover/light-overlay inspection; full spoken VoiceOver/Full Keyboard Access; global accessibility toggles; final packaged reruns of the carried-forward Dock/keyboard/animation and Advanced stateful checks; and a dedicated GPU trace if desired.
+17. Manual QA: physical gestures/devices/Dock secondary-click; minimum-size onboarding; direct Profiles light/dark and light-appearance popover/overlay inspection; full spoken VoiceOver/Full Keyboard Access; global accessibility toggles; final packaged reruns of the carried-forward Dock/keyboard/animation and Advanced stateful checks; and a dedicated GPU trace if desired.
 18. Next publishing prompt: `Review codex/macos27-ui-rebrand against codex/macos27-compatibility, run the remaining manual hardware/accessibility checks in docs/UI_REBRAND_QA.md, then—only if they pass—push codex/macos27-ui-rebrand and open a pull request. Do not publish a release or modify release artifacts.`
 
 ## Residual Manual/Hardware Checks

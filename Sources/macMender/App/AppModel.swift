@@ -262,6 +262,34 @@ final class AppModel: ObservableObject {
         updateRuntimeAfterProfileChange(from: previousProfile, to: updatedProfile)
     }
 
+    func setThreeFingerTapEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.setThreeFingerTapEnabled(isEnabled)
+        updateActiveProfile(profile)
+    }
+
+    var isExternalMouseReverseScrollingEnabled: Bool {
+        activeProfile.isExternalMouseReverseScrollingEnabled
+    }
+
+    func setExternalMouseReverseScrollingEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.setExternalMouseReverseScrollingEnabled(isEnabled)
+        updateActiveProfile(profile)
+    }
+
+    func setDockPreviewsEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.dockPreviews.enabled = isEnabled
+        updateActiveProfile(profile)
+    }
+
+    func setWindowSwitcherEnabled(_ isEnabled: Bool) {
+        var profile = activeProfile
+        profile.windowSwitcher.enabled = isEnabled
+        updateActiveProfile(profile)
+    }
+
     func activateApp() {
         if !store.config.appBehavior.hideDockIcon {
             setActivationPolicyIfNeeded(.regular)

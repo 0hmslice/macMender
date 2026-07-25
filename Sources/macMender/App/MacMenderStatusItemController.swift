@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 final class MacMenderStatusItemController: NSObject {
     private static let statusItemAutosaveName = "macMender.StatusItem"
-    private static let statusItemImageSize = NSSize(width: 22, height: 18)
+    private static let statusItemImageSize = MacMenderStatusIcon.size
 
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
@@ -114,7 +114,7 @@ final class MacMenderStatusItemController: NSObject {
         let popover = popover ?? NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 312, height: 286)
+        popover.contentSize = NSSize(width: 304, height: 274)
         popover.contentViewController = NSHostingController(
             rootView: MenuBarPopover(
                 appModel: appModel,

@@ -18,7 +18,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Do not use `script/build_and_run.sh --fresh` without an explicit restoration plan; it moves the live config aside and does not restore it automatically.
 - The untouched baseline passed 72 tests in 8 suites and packaged verification. It showed an Overview window in approximately 1.43 seconds, sampled 0.0% idle CPU, and used approximately 55–56 MB resident memory with preferences open and approximately 62 MB with preferences closed.
 - The final Phase A build passed `swift build`, 95 tests in 9 suites, and packaged verification. The packaged app showed its first window in approximately 1.009 seconds, and the detailed live results and residuals are recorded below.
-- Phase B's presentation milestone is `b4c2707`, followed by the final accessibility/performance QA milestone and the identity/navigation polish follow-up. Final verification passed `swift build`, 99 tests in 10 suites, `script/build_and_run.sh --verify`, targeted packaged UI, isolated onboarding, dark/light page inspection, and settled page CPU. Exact evidence and partial/manual checks are in `docs/UI_REBRAND_QA.md`.
+- Phase B's presentation milestone is `b4c2707`, followed by accessibility/performance QA, identity/navigation polish, and the quick-controls/Strip follow-up. Final verification passed `swift build`, 103 tests in 11 suites, `script/build_and_run.sh --verify`, targeted packaged UI, isolated onboarding, dark/light page inspection, and settled page CPU. Exact evidence and partial/manual checks are in `docs/UI_REBRAND_QA.md`.
 
 ## Phase B Final QA Checklist
 
@@ -42,11 +42,11 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Overview shows Permissions, Three-Finger Tap, Window Switcher, and Dock Previews as concise status rows with accurate text, symbols, and color-independent status labels.
 - Confirm Overview does not show `Status Refresh` or a `Services` technical disclosure.
 - Confirm the app still has its own macMender status item in the macOS menu bar.
-- Confirm the status-item popover is compact, opens quickly, has no clipped text, and shows only: running state, Permissions summary, Three-Finger Tap, Dock previews, Window Switcher, Open macMender, an as-needed Permissions button, and low-priority Quit.
-- Confirm the popover contains no Mendy artwork and reports Setup Required, Paused, Needs Accessibility, Starting, and Running states accurately.
-- Confirm the popover does not show separate Accessibility and Screen Recording rows when permissions are healthy.
+- Confirm the status-item popover is compact, opens quickly, has no clipped text, and shows only four native quick controls—Three-Finger Tap, Reverse Mouse Scrolling, Dock Previews, and Window Switcher—aligned to one trailing switch column, plus Open macMender and Quit.
+- Confirm the popover contains no Mendy artwork, healthy-state summary prose, profile filler, permission rows, or green status capsules.
+- With Accessibility missing or Safe Mode active, confirm the header shows one concise actionable warning; healthy state should show no status ornament.
 - Confirm the popover has no Menu Bar management rows, setup copy, Command-drag copy, Mark to Review, hidden icon language, Show/Tuck, scanner/discovery language, diagnostics, or thumbnail/discovery work.
-- Confirm popover actions work: Open macMender focuses the settings window, Permissions opens Privacy when shown, and Quit exits the app.
+- Confirm every quick switch updates the active profile and runtime immediately, Open macMender restores Overview with the sidebar visible, and Quit exits the app.
 - Confirm Privacy contains the compact privacy promise, local data disclosure, Accessibility, Screen Recording, Input Monitoring, gesture runtime status, and permission refresh action.
 - Confirm Input Monitoring reports `Granted` only when macOS listen-event access is granted, and keeps gesture runtime state separate as Active, Ready, Off, Paused, or Needs Accessibility.
 - Confirm Launch at Login is in General.
@@ -96,6 +96,7 @@ Use this file for verification that cannot be proven by `swift build` or `swift 
 - Confirm Launch at Login, Dock icon visibility, Safe Mode, permission status, onboarding completion, and Menu Bar Spacing behave as app-wide settings rather than per-profile settings.
 - Confirm Menu Bar Spacing does not silently write or refresh system defaults when switching profiles.
 - Confirm Dock & Windows still shows Window Switcher settings, Dock preview controls, Preview animation, Animation duration, Preview linger, and Test Preview Animation.
+- Select Strip and confirm the switcher displays one native-style horizontal row of live window previews, keeps the selected item visible, labels the selected window below the row, and uses no grid-only card footer or selected-status capsule.
 - Confirm the Dock preview animation picker only shows System, Fade, Scale, Slide Up, and None.
 - Confirm old saved Glass Pop and Genie settings map to safe styles instead of appearing as selectable options.
 - Confirm Slide Up rises from the Dock direction and dismisses back toward the Dock.
