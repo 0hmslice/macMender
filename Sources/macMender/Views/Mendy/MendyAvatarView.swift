@@ -100,6 +100,8 @@ enum MendyAssets {
             overview
         case .general:
             general
+        case .keepAwake:
+            idleState
         case .menuBarSpacing:
             settings
         case .input:

@@ -39,6 +39,13 @@ struct MacMenderApp: App {
             }
 
             CommandMenu("macMender") {
+                Button("Quick Controls") {
+                    statusItemController.showPopover()
+                }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+
+                Divider()
+
                 Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
                     appModel.toggleSafeMode()
                 }

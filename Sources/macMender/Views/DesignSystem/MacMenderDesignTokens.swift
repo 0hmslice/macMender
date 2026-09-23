@@ -110,7 +110,7 @@ extension MacMenderStatusTone {
         switch menuBarSpacingResultKind {
         case .applied:
             self = .active
-        case .appliedSomeAppsMayNeedRelaunch, .unsupportedOnThisBeta, .couldNotConfirmSystemItemUpdate:
+        case .appliedSomeAppsMayNeedRelaunch, .unverifiedSystemItems, .couldNotConfirmSystemItemUpdate:
             self = .attention
         case .failed:
             self = .unavailable

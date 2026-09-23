@@ -165,7 +165,7 @@ final class MenuBarSpacingService: ObservableObject {
                     detail: "The preference update did not complete."
                 )
                 self.resultKind = failure.kind
-                self.statusDescription = failure.message
+                self.statusDescription = failure.detail
                 return
             }
 
@@ -183,7 +183,7 @@ final class MenuBarSpacingService: ObservableObject {
             )
             self.isApplying = false
             self.resultKind = result.kind
-            self.statusDescription = result.message
+            self.statusDescription = result.detail
         }
     }
 }

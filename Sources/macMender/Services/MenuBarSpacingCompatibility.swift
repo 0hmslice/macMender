@@ -1,8 +1,6 @@
 import Foundation
 
 enum MenuBarSpacingCompatibility {
-    private static let unsupportedBeta4Build = "26A5388g"
-
     private enum UpdateError: Error {
         case verificationFailed
     }
@@ -26,9 +24,10 @@ enum MenuBarSpacingCompatibility {
         if context.majorVersion < 27 {
             support = .legacy
             refresh = .controlCenter
-        } else if context.majorVersion == 27,
-                  context.buildVersion.caseInsensitiveCompare(unsupportedBeta4Build) == .orderedSame {
-            support = .unsupportedOnThisBeta
+        } else if context.majorVersion == 27 {
+            // A MenuBarAgent restart was tested on 27.0 (26A428) with verified
+            // preference writes; Apple item frames did not move. See docs/UPGRADE.md.
+            support = .unverifiedSystemItems
             refresh = .none
         } else {
             support = .unconfirmed
@@ -61,15 +60,15 @@ enum MenuBarSpacingCompatibility {
         }
 
         switch strategy.systemItemSupport {
-        case .unsupportedOnThisBeta:
+        case .unverifiedSystemItems:
             return MenuBarSpacingApplicationResult(
-                kind: .unsupportedOnThisBeta,
-                detail: "Preference saved. macMender updated. Custom spacing has no observable effect on Apple system items in macOS 27 Beta 4; third-party apps may honor it after relaunch."
+                kind: .unverifiedSystemItems,
+                detail: "Preference saved and macMender’s icon width updated. Apple system-wide spacing is unverified on macOS 27. Other apps may ignore these preferences or need relaunch."
             )
         case .unconfirmed:
             return MenuBarSpacingApplicationResult(
                 kind: .couldNotConfirmSystemItemUpdate,
-                detail: "Preference saved. macMender updated. Apple system item behavior is unconfirmed on this macOS 27 build; third-party apps may need relaunch."
+                detail: "Preference saved. macMender updated. Apple system item behavior is unconfirmed on this macOS version; third-party apps may need relaunch."
             )
         case .legacy:
             if refreshResult == .refreshed {
@@ -105,15 +104,15 @@ enum MenuBarSpacingCompatibility {
         switch strategy.systemItemSupport {
         case .legacy:
             (nil, values.description)
-        case .unsupportedOnThisBeta:
+        case .unverifiedSystemItems:
             (
-                .unsupportedOnThisBeta,
-                "Unsupported on this beta. Custom spacing has no observable effect on Apple system items in macOS 27 Beta 4; other AppKit status items may still honor it after relaunch. \(values.description)"
+                .unverifiedSystemItems,
+                "System-wide spacing is unverified on macOS 27. macMender can adjust its own icon; other apps may ignore these preferences. \(values.description)"
             )
         case .unconfirmed:
             (
                 .couldNotConfirmSystemItemUpdate,
-                "Could not confirm Apple system item behavior on this macOS 27 build; other AppKit status items may need relaunch. \(values.description)"
+                "Could not confirm Apple system item behavior on this macOS version; other AppKit status items may need relaunch. \(values.description)"
             )
         }
     }
@@ -142,10 +141,10 @@ enum MenuBarSpacingCompatibility {
 
         do {
             for key in MenuBarSpacingDefaultsPlan.keys {
-                try await dependencies.applyOperation(plan.operation, key, scope)
+                try await dependencies.applyOperation(plan.operation(for: key), key, scope)
             }
             let verifiedValues = try await dependencies.readValues(scope)
-            guard verifiedValues.matches(plan.operation) else {
+            guard verifiedValues.matches(plan) else {
                 throw UpdateError.verificationFailed
             }
             return MenuBarSpacingPreferenceUpdateResult(
@@ -218,15 +217,15 @@ enum MenuBarSpacingCompatibility {
         refreshResult: MenuBarSpacingRefreshResult
     ) -> MenuBarSpacingApplicationResult {
         switch strategy.systemItemSupport {
-        case .unsupportedOnThisBeta:
+        case .unverifiedSystemItems:
             return MenuBarSpacingApplicationResult(
                 kind: .appliedSomeAppsMayNeedRelaunch,
-                detail: "System Default restored. macMender returned to the measured system spacing. Custom spacing remains unavailable for Apple system items on this beta."
+                detail: "System Default restored. macOS now chooses macMender’s icon width. Other apps may need relaunch."
             )
         case .unconfirmed:
             return MenuBarSpacingApplicationResult(
                 kind: .appliedSomeAppsMayNeedRelaunch,
-                detail: "System Default preference restored and macMender updated. Apple system item refresh remains unconfirmed on this macOS 27 build."
+                detail: "System Default preference restored and macMender updated. Apple system item refresh remains unconfirmed on this macOS version."
             )
         case .legacy:
             if refreshResult == .refreshed {

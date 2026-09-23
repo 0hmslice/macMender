@@ -12,6 +12,17 @@ struct PreferencesWindow: View {
                     .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 260)
             } detail: {
                 DetailRouter(appModel: appModel)
+                    .safeAreaInset(edge: .bottom) {
+                        if let error = appModel.store.persistenceError {
+                            HStack {
+                                Label(error, systemImage: "exclamationmark.triangle")
+                                Spacer()
+                                Button("Retry Save") { appModel.store.save() }
+                            }
+                            .padding()
+                            .background(.regularMaterial)
+                        }
+                    }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(nsColor: .windowBackgroundColor))
                     .navigationTitle(appModel.selectedSection.title)
@@ -43,6 +54,8 @@ private struct DetailRouter: View {
             OverviewView(appModel: appModel)
         case .general:
             GeneralSettingsView(appModel: appModel)
+        case .keepAwake:
+            KeepAwakeView(service: appModel.keepAwake, isPaused: appModel.store.config.safeModeEnabled)
         case .menuBarSpacing:
             MenuBarSpacingView(appModel: appModel)
         case .input:

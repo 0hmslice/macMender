@@ -117,6 +117,7 @@ struct AppScrollRule: Identifiable, Codable, Equatable {
     var smoothingOverride: Bool?
     var reverseVerticalOverride: Bool?
     var reverseHorizontalOverride: Bool?
+    var bypassScrolling: Bool
 
     init(
         id: UUID = UUID(),
@@ -124,7 +125,8 @@ struct AppScrollRule: Identifiable, Codable, Equatable {
         appName: String,
         smoothingOverride: Bool?,
         reverseVerticalOverride: Bool?,
-        reverseHorizontalOverride: Bool? = nil
+        reverseHorizontalOverride: Bool? = nil,
+        bypassScrolling: Bool = false
     ) {
         self.id = id
         self.bundleIdentifier = bundleIdentifier
@@ -132,6 +134,23 @@ struct AppScrollRule: Identifiable, Codable, Equatable {
         self.smoothingOverride = smoothingOverride
         self.reverseVerticalOverride = reverseVerticalOverride
         self.reverseHorizontalOverride = reverseHorizontalOverride
+        self.bypassScrolling = bypassScrolling
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, bundleIdentifier, appName, smoothingOverride
+        case reverseVerticalOverride, reverseHorizontalOverride, bypassScrolling
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        bundleIdentifier = try values.decode(String.self, forKey: .bundleIdentifier)
+        appName = try values.decode(String.self, forKey: .appName)
+        smoothingOverride = try values.decodeIfPresent(Bool.self, forKey: .smoothingOverride)
+        reverseVerticalOverride = try values.decodeIfPresent(Bool.self, forKey: .reverseVerticalOverride)
+        reverseHorizontalOverride = try values.decodeIfPresent(Bool.self, forKey: .reverseHorizontalOverride)
+        bypassScrolling = try values.decodeIfPresent(Bool.self, forKey: .bypassScrolling) ?? false
     }
 }
 

@@ -46,7 +46,10 @@ elif [[ "$BUILD_CONFIGURATION" != "debug" ]]; then
   exit 2
 fi
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+cd "$ROOT_DIR"
+if [[ "$MODE" != "--build-only" && "$MODE" != "build-only" ]]; then
+  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+fi
 
 swift build $SWIFT_BUILD_ARGS
 BUILD_BINARY="$(swift build $SWIFT_BUILD_ARGS --show-bin-path)/$APP_NAME"

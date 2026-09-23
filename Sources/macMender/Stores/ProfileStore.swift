@@ -12,10 +12,13 @@ final class ProfileStore: ObservableObject {
     }
 
     private let fileManager: FileManager
+    private let supportDirectoryOverride: URL?
     private var autosaveTask: Task<Void, Never>?
+    @Published private(set) var persistenceError: String?
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, supportDirectory: URL? = nil) {
         self.fileManager = fileManager
+        self.supportDirectoryOverride = supportDirectory
         self.config = .default
         self.config = loadConfig()
     }
@@ -25,6 +28,7 @@ final class ProfileStore: ObservableObject {
     }
 
     var applicationSupportDirectory: URL {
+        if let supportDirectoryOverride { return supportDirectoryOverride }
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return base.appendingPathComponent("macMender", isDirectory: true)
     }
@@ -74,15 +78,20 @@ final class ProfileStore: ObservableObject {
         do {
             try saveToDisk()
         } catch {
-            assertionFailure("Failed to save macMender config: \(error)")
+            persistenceError = error.localizedDescription
         }
     }
 
     func saveToDisk() throws {
+        try writeConfiguration(config)
+    }
+
+    private func writeConfiguration(_ configuration: AppConfig) throws {
         do {
             try fileManager.createDirectory(at: applicationSupportDirectory, withIntermediateDirectories: true)
-            let data = try ConfigurationFileService.exportData(for: config)
+            let data = try ConfigurationFileService.exportData(for: configuration)
             try data.write(to: configURL, options: [.atomic])
+            persistenceError = nil
         } catch let error as ConfigurationFileError {
             throw error
         } catch {
@@ -122,8 +131,10 @@ final class ProfileStore: ObservableObject {
             backupURL = nil
         }
 
-        config = AppConfig.normalizedForStorage(preview.config)
-        try saveToDisk()
+        let imported = AppConfig.normalizedForStorage(preview.config)
+        try writeConfiguration(imported)
+        config = imported
+        autosaveTask?.cancel()
         return backupURL
     }
 
@@ -139,13 +150,11 @@ final class ProfileStore: ObservableObject {
     func backupCurrentConfig() throws -> URL {
         do {
             try fileManager.createDirectory(at: applicationSupportDirectory, withIntermediateDirectories: true)
-            if !fileManager.fileExists(atPath: configURL.path) {
-                try saveToDisk()
-            }
             let timestamp = Self.backupTimestampFormatter.string(from: Date())
             let backupURL = applicationSupportDirectory
                 .appendingPathComponent("config-backup-\(timestamp)-\(UUID().uuidString.prefix(8)).json")
-            try fileManager.copyItem(at: configURL, to: backupURL)
+            let data = try ConfigurationFileService.exportData(for: config)
+            try data.write(to: backupURL, options: [.atomic])
             return backupURL
         } catch let error as ConfigurationFileError {
             throw error
@@ -167,10 +176,11 @@ final class ProfileStore: ObservableObject {
     private func scheduleAutosave() {
         autosaveTask?.cancel()
         autosaveTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(400))
-            await MainActor.run {
+            do {
+                try await Task.sleep(for: .milliseconds(400))
+                try Task.checkCancellation()
                 self?.save()
-            }
+            } catch { /* A newer edit superseded this save. */ }
         }
     }
 

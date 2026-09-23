@@ -27,6 +27,10 @@ let package = Package(
         .systemLibrary(
             name: "MultitouchSupport",
             path: "Sources/MultitouchSupport"
+        ),
+        .testTarget(
+            name: "macMenderTests",
+            dependencies: ["macMender"]
         )
     ]
 )

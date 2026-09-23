@@ -53,7 +53,7 @@ struct AppConfig: Codable, Equatable {
     static var `default`: AppConfig {
         let defaultProfile = MacMenderProfile.default
         return AppConfig(
-            schemaVersion: 5,
+            schemaVersion: 6,
             hasCompletedOnboarding: false,
             activeProfileID: defaultProfile.id,
             safeModeEnabled: false,
@@ -80,6 +80,7 @@ extension AppConfig {
         normalized.schemaVersion = AppConfig.default.schemaVersion
         normalized.profiles = normalized.profiles.map { profile in
             var profile = profile
+            profile.scroll.normalize()
             if profile.middleClick.action == .customShortcut {
                 profile.middleClick.action = .middleClick
             }

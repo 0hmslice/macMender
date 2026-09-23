@@ -42,14 +42,19 @@ final class MacMenderStatusItemController: NSObject {
     }
 
     @objc private func togglePopover() {
-        guard let button = statusItem?.button else { return }
+        guard statusItem?.button != nil else { return }
         if popover?.isShown == true {
             popover?.performClose(nil)
         } else {
-            rebuildPopover()
-            popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover?.contentViewController?.view.window?.makeKey()
+            showPopover()
         }
+    }
+
+    func showPopover() {
+        guard let button = statusItem?.button else { return }
+        rebuildPopover()
+        popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover?.contentViewController?.view.window?.makeKey()
     }
 
     private func updateIcon() {
@@ -91,11 +96,9 @@ final class MacMenderStatusItemController: NSObject {
         strategy: MenuBarSpacingCompatibilityStrategy
     ) -> Int? {
         if values.spacing == nil, values.selectionPadding == nil {
-            return strategy.systemItemSupport == .unsupportedOnThisBeta ?
-                MenuBarSpacingPreference.systemDefaultNumericValue :
-                nil
+            return nil
         }
-        return values.sharedValue
+        return values.spacing
     }
 
     private func bindSpacingUpdates(from appModel: AppModel) {
@@ -114,7 +117,7 @@ final class MacMenderStatusItemController: NSObject {
         let popover = popover ?? NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 304, height: 236)
+        popover.contentSize = NSSize(width: 328, height: 310)
         popover.contentViewController = NSHostingController(
             rootView: MenuBarPopover(
                 appModel: appModel,

@@ -70,6 +70,19 @@ struct OverviewView: View {
                         systemImage: "dock.arrow.up.rectangle",
                         action: { appModel.selectedSection = .dockWindows }
                     )
+
+                    Divider()
+
+                    OverviewFeatureRow(
+                        title: "Keep Awake",
+                        summary: FeatureStatusSummary(
+                            title: appModel.keepAwake.isActive ? "Active" : "Ready",
+                            detail: appModel.keepAwake.isActive ? "A keep-awake session is running." : "Keep your Mac awake for a timed session.",
+                            kind: appModel.keepAwake.isActive ? .active : .ready
+                        ),
+                        systemImage: "cup.and.saucer",
+                        action: { appModel.selectedSection = .keepAwake }
+                    )
                 }
             }
         }
