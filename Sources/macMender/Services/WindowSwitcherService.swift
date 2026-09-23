@@ -49,7 +49,7 @@ final class WindowSwitcherService: ObservableObject {
         return windows[selectedIndex]
     }
 
-    func show(settings: WindowSwitcherSettings) {
+    func show(settings: WindowSwitcherSettings, backwards: Bool = false) {
         let discovered = catalog.visibleWindows()
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
@@ -61,7 +61,9 @@ final class WindowSwitcherService: ObservableObject {
             return
         }
         windows = discovered
-        selectedIndex = 0
+        let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        selectedIndex = backwards ? windows.count - 1 :
+            (windows.first?.processIdentifier == frontmostPID ? min(1, windows.count - 1) : 0)
         isShowing = true
         isDockPreview = false
         overlayTitle = "Window Switcher"
@@ -175,9 +177,9 @@ final class WindowSwitcherService: ObservableObject {
         }
     }
 
-    func cycle() {
+    func cycle(backwards: Bool = false) {
         guard !windows.isEmpty else { return }
-        selectedIndex = (selectedIndex + 1) % windows.count
+        selectedIndex = (selectedIndex + (backwards ? -1 : 1) + windows.count) % windows.count
         logger.debug("Selected window index=\(self.selectedIndex, privacy: .public) source=keyboard")
     }
 
@@ -354,12 +356,14 @@ final class WindowSwitcherService: ObservableObject {
             guard let self else { return }
             let captured = await self.catalog.thumbnails(for: missingWindows, maxSize: maxSize)
             guard !Task.isCancelled else { return }
+            var updated = self.thumbnails
             for window in missingWindows {
                 if let image = captured[window.id] {
                     self.insertThumbnailCache(image, for: window.id)
-                    self.thumbnails[window.id] = image
+                    updated[window.id] = image
                 }
             }
+            self.thumbnails = updated
             let elapsedMS = Int(Date().timeIntervalSince(start) * 1000)
             self.lastThumbnailDiagnostic = "thumbnail batch requested=\(requestedCount) cached=\(cachedHits) captured=\(captured.count) duration=\(elapsedMS)ms"
             self.logger.debug("\(self.lastThumbnailDiagnostic, privacy: .public)")

@@ -22,6 +22,7 @@ final class AppModel: ObservableObject {
     let windowSwitcher: WindowSwitcherService
     let dockHover: DockHoverService
     let multitouchMiddleClick: MultitouchMiddleClickService
+    let keepAwake = KeepAwakeService()
 
     private var cancellables = Set<AnyCancellable>()
     private var lastFullRefresh: Date?
@@ -52,6 +53,7 @@ final class AppModel: ObservableObject {
         self.multitouchMiddleClick = multitouchMiddleClick
         bindChildChanges()
         wireRuntimeHandlers()
+        observeLifecycle()
     }
 
     var activeProfile: MacMenderProfile {
@@ -104,6 +106,8 @@ final class AppModel: ObservableObject {
             return .success
         case .general:
             return .idle
+        case .keepAwake:
+            return keepAwake.isActive ? .success : .idle
         case .menuBarSpacing:
             return .thinking
         case .input:
@@ -382,6 +386,11 @@ final class AppModel: ObservableObject {
         applyActivationPolicy()
         let runtimePaused = store.config.safeModeEnabled || !store.config.hasCompletedOnboarding
 
+        if runtimePaused {
+            keepAwake.stop()
+            windowSwitcher.cancel()
+        }
+
         systemEvents.update(
             profile: activeProfile,
             safeModeEnabled: runtimePaused,
@@ -478,7 +487,8 @@ final class AppModel: ObservableObject {
             systemEvents.objectWillChange.eraseToAnyPublisher(),
             windowSwitcher.objectWillChange.eraseToAnyPublisher(),
             dockHover.objectWillChange.eraseToAnyPublisher(),
-            multitouchMiddleClick.objectWillChange.eraseToAnyPublisher()
+            multitouchMiddleClick.objectWillChange.eraseToAnyPublisher(),
+            keepAwake.objectWillChange.eraseToAnyPublisher()
         ]
         .forEach { publisher in
             publisher
@@ -492,12 +502,12 @@ final class AppModel: ObservableObject {
     }
 
     private func wireRuntimeHandlers() {
-        systemEvents.onShowSwitcher = { [weak self] in
+        systemEvents.onShowSwitcher = { [weak self] backwards in
             guard let self else { return }
-            self.windowSwitcher.show(settings: self.activeProfile.windowSwitcher)
+            self.windowSwitcher.show(settings: self.activeProfile.windowSwitcher, backwards: backwards)
         }
-        systemEvents.onCycleSwitcher = { [weak self] in
-            self?.windowSwitcher.cycle()
+        systemEvents.onCycleSwitcher = { [weak self] backwards in
+            self?.windowSwitcher.cycle(backwards: backwards)
         }
         systemEvents.onCommitSwitcher = { [weak self] in
             self?.windowSwitcher.commit()
@@ -519,6 +529,31 @@ final class AppModel: ObservableObject {
         dockHover.onContextMenuInteraction = { [weak self] in
             self?.windowSwitcher.suppressDockPreviewPresentation()
         }
+    }
+
+    private func observeLifecycle() {
+        NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.store.save()
+                    self?.keepAwake.stop()
+                    self?.systemEvents.stop()
+                }
+            }.store(in: &cancellables)
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.keepAwake.stop()
+                    self?.systemEvents.stop()
+                    self?.windowSwitcher.cancel()
+                    self?.dockHover.stop()
+                    self?.multitouchMiddleClick.stop()
+                }
+            }.store(in: &cancellables)
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in self?.refreshSystemState(force: true) }
+            }.store(in: &cancellables)
     }
 
     private func statusRefreshSummary() -> String {

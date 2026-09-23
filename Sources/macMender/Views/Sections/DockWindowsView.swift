@@ -65,7 +65,7 @@ struct DockWindowsView: View {
     private var switcherSection: some View {
         MacMenderContentSection(
             title: "Window Switcher",
-            subtitle: "Cycle through real application windows with a configurable keyboard shortcut.",
+            subtitle: "Cycle through real application windows. Hold Shift to cycle backwards; release the shortcut modifier to switch, or press Escape to cancel.",
             systemImage: "rectangle.3.group"
         ) {
             VStack(alignment: .leading, spacing: MacMenderSpacing.section) {

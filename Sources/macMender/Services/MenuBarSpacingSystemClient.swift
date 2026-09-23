@@ -49,30 +49,24 @@ enum MenuBarSpacingSystemClient {
         case .none:
             return .notNeeded
         case .controlCenter:
+            let bundleIdentifier = "com.apple.controlcenter"
             return await Task.detached {
-                let bundleIdentifier = "com.apple.controlcenter"
-                guard let controlCenter = NSRunningApplication.runningApplications(
+                guard let host = NSRunningApplication.runningApplications(
                     withBundleIdentifier: bundleIdentifier
-                ).first else {
-                    return .hostUnavailable
-                }
+                ).first else { return .hostUnavailable }
 
-                let previousPID = controlCenter.processIdentifier
-                if controlCenter.terminate() {
-                    waitForTermination(controlCenter, timeout: .seconds(1))
-                }
-                if !controlCenter.isTerminated, controlCenter.forceTerminate() {
-                    waitForTermination(controlCenter, timeout: .milliseconds(500))
-                }
-                guard controlCenter.isTerminated else { return .failed }
-
-                let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+                let previousPID = host.processIdentifier
+                // These launchd-managed hosts relaunch after SIGTERM. Never escalate
+                // to SIGKILL or restart unrelated apps if the refresh fails.
+                guard kill(previousPID, SIGTERM) == 0 else { return .failed }
+                let deadline = ContinuousClock.now.advanced(by: .seconds(3))
                 while ContinuousClock.now < deadline {
                     if NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
                         .contains(where: { $0.processIdentifier != previousPID }) {
                         return .refreshed
                     }
-                    try? await Task.sleep(for: .milliseconds(50))
+                    do { try await Task.sleep(for: .milliseconds(50)) }
+                    catch { return .failed }
                 }
                 return .failed
             }.value
@@ -125,16 +119,6 @@ enum MenuBarSpacingSystemClient {
                 throw CocoaError(.fileWriteUnknown)
             }
         }.value
-    }
-
-    private static func waitForTermination(
-        _ app: NSRunningApplication,
-        timeout: Duration
-    ) {
-        let deadline = ContinuousClock.now.advanced(by: timeout)
-        while !app.isTerminated, ContinuousClock.now < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
     }
 
     private static func operatingSystemBuildVersion() -> String {

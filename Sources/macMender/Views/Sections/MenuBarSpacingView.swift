@@ -9,17 +9,12 @@ struct MenuBarSpacingView: View {
         MacMenderScrollablePage(maxContentWidth: 760) {
             MacMenderPageHeader(
                 title: "Menu Bar Spacing",
-                subtitle: "Adjust one global spacing preference for compatible status items.",
+                subtitle: "Adjust spacing for compatible menu bar icons.",
                 systemImage: SettingsSection.menuBarSpacing.symbolName
             )
 
-            MacMenderCallout(systemImage: "info.circle") {
-                Text("This utility does not move, hide, group, search, or manage individual menu bar items.")
-                    .foregroundStyle(.secondary)
-            }
-
-            spacingSection
             compatibilitySection
+            spacingSection
         }
         .onAppear {
             appModel.refreshMenuBarSpacingStatus()
@@ -104,7 +99,7 @@ struct MenuBarSpacingView: View {
     private var compatibilitySection: some View {
         MacMenderContentSection(
             title: "Compatibility",
-            subtitle: "macMender reports preference writes separately from Apple system item support.",
+            subtitle: "Availability depends on macOS and the app that owns each icon.",
             systemImage: "stethoscope"
         ) {
             VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
@@ -131,9 +126,18 @@ struct MenuBarSpacingView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if appModel.menuBarSpacing.systemContext.majorVersion >= 27 {
+                    Link("Spacing research and test results", destination: URL(string: "https://github.com/0hmslice/macMender/blob/main/docs/UPGRADE.md#menu-bar-spacing-current-evidence")!)
+                    Text("Tested September 23, 2026: Apple icon positions did not change on macOS 27.0 (26A428), even after restarting MenuBarAgent. Apply does not restart it.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("Applying refreshes Control Center and may interrupt screen sharing. Third-party apps may need to be relaunched.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
                 Divider()
 
-                LabeledContent("Tested system") {
+                LabeledContent("Your system") {
                     Text(systemDescription)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
@@ -184,7 +188,7 @@ struct MenuBarSpacingView: View {
             for: pendingPreference,
             customValue: Int(pendingValue.rounded())
         )
-        return !appModel.menuBarSpacing.currentValues.matches(plan.operation)
+        return !appModel.menuBarSpacing.currentValues.matches(plan)
     }
 
     private var compatibilityTone: MacMenderStatusTone {
@@ -234,10 +238,10 @@ private struct MenuBarSpacingPreview: View {
             }
 
             HStack(spacing: previewSpacing) {
-                Image(systemName: "wifi")
-                Image(systemName: "speaker.wave.2.fill")
-                Image(systemName: "battery.75percent")
-                Image(systemName: "clock")
+                Image(systemName: "puzzlepiece.extension")
+                Image(systemName: "cloud")
+                Image(systemName: "scissors")
+                Image(systemName: "cup.and.saucer")
             }
             .font(.system(size: 16, weight: .medium))
             .foregroundStyle(.primary)

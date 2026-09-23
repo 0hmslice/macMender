@@ -3,8 +3,7 @@ import ApplicationServices
 @preconcurrency import CoreGraphics
 import Foundation
 
-private let macMenderSyntheticEventMarker: Int64 = 0x6D61634D656E6465
-private let escapeKeyCode: Int64 = 53
+private let macMenderSyntheticEventMarker = ScrollEventValues.syntheticMarker
 
 struct RuntimeStatus: Equatable {
     var eventTapRunning: Bool = false
@@ -14,8 +13,8 @@ struct RuntimeStatus: Equatable {
 final class SystemEventService: ObservableObject, @unchecked Sendable {
     @Published private(set) var status = RuntimeStatus()
 
-    var onShowSwitcher: (() -> Void)?
-    var onCycleSwitcher: (() -> Void)?
+    var onShowSwitcher: ((Bool) -> Void)?
+    var onCycleSwitcher: ((Bool) -> Void)?
     var onCommitSwitcher: (() -> Void)?
     var onCancelSwitcher: (() -> Void)?
 
@@ -24,7 +23,9 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
     private let stateLock = NSLock()
     private var state = RuntimeEventState()
     private var switcherSessionActive = false
-    private let posterQueue = DispatchQueue(label: "macMender.scroll.poster", qos: .userInteractive)
+    private let scrollPoster = ScrollEventPoster()
+    private var consumedMouseButtons = Set<Int64>()
+    private var appIdentityCache: [pid_t: (bundleID: String, timestamp: TimeInterval)] = [:]
     private var lastPublishedStatus = RuntimeStatus()
 
     deinit {
@@ -32,6 +33,11 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
     }
 
     func update(profile: MacMenderProfile, safeModeEnabled: Bool, accessibilityGranted: Bool, featureToggles: FeatureToggles) {
+        scrollPoster.cancel()
+        if switcherSessionActive {
+            switcherSessionActive = false
+            onCancelSwitcher?()
+        }
         stateLock.lock()
         state.profile = profile
         state.safeModeEnabled = safeModeEnabled
@@ -55,7 +61,9 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         let mask =
             CGEventMask(1 << CGEventType.scrollWheel.rawValue) |
             CGEventMask(1 << CGEventType.leftMouseDown.rawValue) |
+            CGEventMask(1 << CGEventType.leftMouseUp.rawValue) |
             CGEventMask(1 << CGEventType.otherMouseDown.rawValue) |
+            CGEventMask(1 << CGEventType.otherMouseUp.rawValue) |
             CGEventMask(1 << CGEventType.keyDown.rawValue) |
             CGEventMask(1 << CGEventType.keyUp.rawValue) |
             CGEventMask(1 << CGEventType.flagsChanged.rawValue)
@@ -82,6 +90,10 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
     }
 
     func stop() {
+        scrollPoster.cancel()
+        switcherSessionActive = false
+        consumedMouseButtons.removeAll()
+        appIdentityCache.removeAll()
         if let eventTap {
             CGEvent.tapEnable(tap: eventTap, enable: false)
             CFMachPortInvalidate(eventTap)
@@ -112,6 +124,14 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
             return Unmanaged.passUnretained(event)
         }
 
+        if type == .leftMouseUp || type == .otherMouseUp {
+            let button = event.getIntegerValueField(.mouseEventButtonNumber)
+            return consumedMouseButtons.remove(button) != nil ? nil : Unmanaged.passUnretained(event)
+        }
+        if type == .leftMouseDown || type == .otherMouseDown || type == .keyDown || type == .flagsChanged {
+            scrollPoster.cancel()
+        }
+
         let snapshot = currentState()
         guard snapshot.accessibilityGranted, !snapshot.safeModeEnabled else {
             return Unmanaged.passUnretained(event)
@@ -136,6 +156,10 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         let deviceKind: DeviceKind = isTrackpad ? .builtInTrackpad : .externalMouse
         let deviceRule = snapshot.profile.scroll.deviceRules.first { $0.deviceKind == deviceKind }
         let appRule = appRule(for: event, in: snapshot.profile.scroll)
+        guard appRule?.bypassScrolling != true else {
+            scrollPoster.cancel()
+            return Unmanaged.passUnretained(event)
+        }
 
         let original = ScrollSample(
             x: bestScrollValue(event: event, pointField: .scrollWheelEventPointDeltaAxis2, fixedField: .scrollWheelEventFixedPtDeltaAxis2, intField: .scrollWheelEventDeltaAxis2),
@@ -146,6 +170,7 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         }
 
         if isTrackpad {
+            scrollPoster.cancel()
             let reverseVertical = appRule?.reverseVerticalOverride ?? deviceRule?.reverseVertical ?? snapshot.profile.scroll.reverseVertical
             let reverseHorizontal = appRule?.reverseHorizontalOverride ?? deviceRule?.reverseHorizontal ?? snapshot.profile.scroll.reverseHorizontal
             if reverseVertical || reverseHorizontal {
@@ -167,14 +192,26 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
 
         let transformer = ScrollTransformer(settings: snapshot.profile.scroll)
         let transformed = transformer.transform(original, deviceRule: deviceRule, appRule: appRule)
-        let smoothingEnabled = isSmoothingEnabled(settings: snapshot.profile.scroll, deviceRule: deviceRule, appRule: appRule, axisSample: original)
+        let smoothX = transformer.smoothsHorizontal(deviceRule: deviceRule, appRule: appRule)
+        let smoothY = transformer.smoothsVertical(deviceRule: deviceRule, appRule: appRule)
+        let smoothingEnabled = (smoothX && original.x != 0) || (smoothY && original.y != 0)
         if smoothingEnabled, snapshot.profile.scroll.duration > 0.02, let template = event.copy() {
             let stepped = steppedScroll(original: original, transformed: transformed, settings: snapshot.profile.scroll)
-            postSmoothedScroll(template: template, total: stepped, duration: snapshot.profile.scroll.duration)
+            scrollPoster.enqueue(
+                template: template,
+                total: ScrollSample(x: smoothX ? stepped.x : 0, y: smoothY ? stepped.y : 0),
+                duration: snapshot.profile.scroll.duration
+            )
+            let immediate = ScrollSample(x: smoothX ? 0 : transformed.x, y: smoothY ? 0 : transformed.y)
+            if immediate.x != 0 || immediate.y != 0 {
+                applyScrollValues(to: event, sample: immediate, markSynthetic: false)
+                return Unmanaged.passUnretained(event)
+            }
             publishStatus(eventTapRunning: true, description: "Smoothed mouse scroll")
             return nil
         }
 
+        scrollPoster.cancel()
         applyScrollValues(to: event, sample: transformed, markSynthetic: false)
         publishStatus(eventTapRunning: true, description: "Mouse scroll transformed")
         return Unmanaged.passUnretained(event)
@@ -200,6 +237,7 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
             return Unmanaged.passUnretained(event)
         }
 
+        consumedMouseButtons.insert(event.getIntegerValueField(.mouseEventButtonNumber))
         performMiddleClickAction(settings.action, at: event.location)
         publishStatus(eventTapRunning: true, description: "Middle-click action posted")
         return nil
@@ -222,17 +260,16 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         ) {
         case .passThrough:
             return Unmanaged.passUnretained(event)
-        case .consume(.showOrCycle):
+        case .consume(.showOrCycle(let backwards)):
+            // Change the session synchronously before the modifier-up event arrives.
+            let wasActive = switcherSessionActive
+            switcherSessionActive = true
             DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if self.switcherSessionActive {
-                    self.onCycleSwitcher?()
-                } else {
-                    self.switcherSessionActive = true
-                    self.onShowSwitcher?()
-                }
+                if wasActive { self?.onCycleSwitcher?(backwards) } else { self?.onShowSwitcher?(backwards) }
             }
             publishStatus(eventTapRunning: true, description: "Window switcher opened")
+            return nil
+        case .consume(.ignore):
             return nil
         case .consume(.commit):
             switcherSessionActive = false
@@ -249,36 +286,8 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func postSmoothedScroll(template: CGEvent, total: ScrollSample, duration: Double) {
-        let frames = max(4, min(18, Int(duration / 0.012)))
-        let interval = duration / Double(frames)
-        var previousEase = 0.0
-
-        for frame in 1...frames {
-            let progress = Double(frame) / Double(frames)
-            let ease = 1 - pow(1 - progress, 3)
-            let weight = ease - previousEase
-            previousEase = ease
-
-            posterQueue.asyncAfter(deadline: .now() + interval * Double(frame - 1)) {
-                guard let event = template.copy() else { return }
-                self.applyScrollValues(to: event, sample: ScrollSample(x: total.x * weight, y: total.y * weight), markSynthetic: true)
-                event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
-                event.post(tap: .cghidEventTap)
-            }
-        }
-    }
-
     private func applyScrollValues(to event: CGEvent, sample: ScrollSample, markSynthetic: Bool) {
-        event.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: sample.y)
-        event.setDoubleValueField(.scrollWheelEventPointDeltaAxis2, value: sample.x)
-        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: sample.y)
-        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: sample.x)
-        event.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64(sample.y.rounded(.toNearestOrAwayFromZero)))
-        event.setIntegerValueField(.scrollWheelEventDeltaAxis2, value: Int64(sample.x.rounded(.toNearestOrAwayFromZero)))
-        if markSynthetic {
-            event.setIntegerValueField(.eventSourceUserData, value: macMenderSyntheticEventMarker)
-        }
+        ScrollEventValues.apply(to: event, sample: sample, synthetic: markSynthetic)
     }
 
     private func performMiddleClickAction(_ action: MiddleClickAction, at location: CGPoint) {
@@ -339,10 +348,19 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
     }
 
     private func appRule(for event: CGEvent, in settings: ScrollSettings) -> AppScrollRule? {
-        let pid = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
-        guard pid > 0,
-              let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier else {
-            return nil
+        guard !settings.appRules.isEmpty else { return nil }
+        let targetPID = pid_t(event.getIntegerValueField(.eventTargetUnixProcessID))
+        let pid = targetPID > 0 ? targetPID : (NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0)
+        guard pid > 0 else { return nil }
+        let now = ProcessInfo.processInfo.systemUptime
+        let bundleID: String
+        if let cached = appIdentityCache[pid], now - cached.timestamp < 1 {
+            bundleID = cached.bundleID
+        } else {
+            guard let resolved = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier else { return nil }
+            if appIdentityCache.count >= 64 { appIdentityCache.removeAll(keepingCapacity: true) }
+            appIdentityCache[pid] = (resolved, now)
+            bundleID = resolved
         }
         return settings.appRules.first { $0.bundleIdentifier == bundleID }
     }
@@ -371,18 +389,10 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
         if event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0 { return true }
         if event.getDoubleValueField(.scrollWheelEventMomentumPhase) != 0 { return true }
         if event.getDoubleValueField(.scrollWheelEventScrollPhase) != 0 { return true }
-        if event.getDoubleValueField(.scrollWheelEventScrollCount) != 0 { return true }
         return false
     }
 
-    private func isSmoothingEnabled(settings: ScrollSettings, deviceRule: DeviceScrollRule?, appRule: AppScrollRule?, axisSample: ScrollSample) -> Bool {
-        if let override = appRule?.smoothingOverride { return override }
-        if let device = deviceRule { return device.smoothingEnabled }
-        if abs(axisSample.y) >= abs(axisSample.x) {
-            return settings.verticalSmoothingEnabled
-        }
-        return settings.horizontalSmoothingEnabled
-    }
+
 }
 
 private struct RuntimeEventState {
@@ -390,93 +400,4 @@ private struct RuntimeEventState {
     var safeModeEnabled: Bool = false
     var accessibilityGranted: Bool = false
     var featureToggles: FeatureToggles = .default
-}
-
-enum SwitcherKeyboardAction: Equatable {
-    case showOrCycle
-    case commit
-    case cancel
-}
-
-enum SwitcherKeyboardDecision: Equatable {
-    case passThrough
-    case consume(SwitcherKeyboardAction)
-}
-
-struct SwitcherKeyboardRouter {
-    static func decision(
-        type: CGEventType,
-        keyCode: Int64,
-        flags: CGEventFlags,
-        shortcut: SwitcherShortcut,
-        switcherSessionActive: Bool
-    ) -> SwitcherKeyboardDecision {
-        let shortcutHeld = shortcut.flags.allSatisfy { flags.contains($0) }
-
-        if type == .keyDown, keyCode == shortcut.keyCode, shortcutHeld {
-            return .consume(.showOrCycle)
-        }
-
-        if (type == .keyUp && shortcut.modifierKeyCodes.contains(CGKeyCode(keyCode))) || (type == .flagsChanged && !shortcutHeld) {
-            return switcherSessionActive ? .consume(.commit) : .passThrough
-        }
-
-        if type == .keyDown, keyCode == escapeKeyCode {
-            return switcherSessionActive ? .consume(.cancel) : .passThrough
-        }
-
-        return .passThrough
-    }
-}
-
-struct SwitcherShortcut {
-    var keyCode: Int64
-    var flags: [CGEventFlags]
-    var modifierKeyCodes: Set<CGKeyCode>
-
-    init?(_ rawShortcut: String) {
-        let tokens = rawShortcut
-            .replacingOccurrences(of: " ", with: "")
-            .split(separator: "+")
-            .map { String($0).lowercased() }
-
-        guard let keyToken = tokens.last else { return nil }
-
-        switch keyToken {
-        case "tab":
-            keyCode = 48
-        case "space":
-            keyCode = 49
-        case "escape", "esc":
-            keyCode = escapeKeyCode
-        default:
-            return nil
-        }
-
-        var parsedFlags: [CGEventFlags] = []
-        var parsedModifierKeys = Set<CGKeyCode>()
-
-        for token in tokens.dropLast() {
-            switch token {
-            case "option", "alt":
-                parsedFlags.append(.maskAlternate)
-                parsedModifierKeys.formUnion([58, 61])
-            case "control", "ctrl":
-                parsedFlags.append(.maskControl)
-                parsedModifierKeys.formUnion([59, 62])
-            case "command", "cmd":
-                parsedFlags.append(.maskCommand)
-                parsedModifierKeys.formUnion([55, 54])
-            case "shift":
-                parsedFlags.append(.maskShift)
-                parsedModifierKeys.formUnion([56, 60])
-            default:
-                return nil
-            }
-        }
-
-        guard !parsedFlags.isEmpty else { return nil }
-        flags = parsedFlags
-        modifierKeyCodes = parsedModifierKeys
-    }
 }

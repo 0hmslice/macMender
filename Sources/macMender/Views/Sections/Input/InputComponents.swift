@@ -33,7 +33,7 @@ struct DeviceRuleRow: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                    Text(rule.displayName)
+                    Text(rule.deviceKind == .builtInTrackpad ? "Trackpads & Magic Mouse" : rule.displayName)
                         .font(.body.weight(.medium))
                     if rule.displayName != rule.deviceKind.title {
                         Text(rule.deviceKind.title)
@@ -50,8 +50,13 @@ struct DeviceRuleRow: View {
             }
 
             HStack(spacing: MacMenderSpacing.section) {
-                Toggle("Smooth", isOn: smoothing)
-                    .accessibilityLabel("Smooth scrolling for \(rule.displayName)")
+                if rule.deviceKind == .builtInTrackpad {
+                    Text("Native momentum")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Toggle("Smooth", isOn: smoothing)
+                        .accessibilityLabel("Smooth scrolling for \(rule.displayName)")
+                }
                 Toggle("Reverse Vertical", isOn: reverseVertical)
                     .accessibilityLabel("Reverse vertical scrolling for \(rule.displayName)")
                 Toggle("Reverse Horizontal", isOn: reverseHorizontal)
@@ -66,6 +71,7 @@ struct AppOverrideRow: View {
     @State private var appIcon: NSImage?
 
     var rule: AppScrollRule
+    var bypass: Binding<Bool>
     var smoothing: Binding<Bool?>
     var reverseVertical: Binding<Bool?>
     var reverseHorizontal: Binding<Bool?>
@@ -103,6 +109,10 @@ struct AppOverrideRow: View {
                     .accessibilityLabel("Remove scroll override for \(rule.appName)")
             }
 
+            Toggle("Use native scrolling in this app", isOn: bypass)
+                .help("Bypass all macMender scrolling changes, including direction, speed, and smoothing.")
+                .accessibilityLabel("Use native scrolling in \(rule.appName)")
+
             HStack(spacing: MacMenderSpacing.standard) {
                 TriStateOverridePicker(
                     title: "Smoothing",
@@ -120,6 +130,7 @@ struct AppOverrideRow: View {
                     value: reverseHorizontal
                 )
             }
+            .disabled(bypass.wrappedValue)
         }
         .padding(.vertical, MacMenderSpacing.standard)
         .task(id: rule.bundleIdentifier) {

@@ -45,6 +45,44 @@ struct MenuBarPopover: View {
                     isOn: windowSwitcherBinding,
                     accessibilityHint: "Turn the Option-Tab window switcher on or off"
                 )
+                controlDivider
+
+                HStack(spacing: 12) {
+                    Label("Keep Awake", systemImage: "cup.and.saucer")
+                        .labelStyle(PopoverControlLabelStyle())
+                    Spacer()
+                    Menu {
+                        if appModel.keepAwake.isActive {
+                            Button("Stop Session", action: appModel.keepAwake.stop)
+                            Divider()
+                        }
+                        ForEach(KeepAwakeDuration.allCases) { duration in
+                            Button(duration.title) {
+                                appModel.keepAwake.start(duration: duration, keepDisplayAwake: false)
+                            }
+                            .disabled(appModel.store.config.safeModeEnabled)
+                        }
+                        Divider()
+                        Button("Session Settings…") { openSettings(section: .keepAwake) }
+                    } label: {
+                        Text(appModel.keepAwake.isActive ? "On" : "Off")
+                    }
+                    .fixedSize()
+                    .accessibilityLabel("Keep Awake session")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                controlDivider
+
+                PopoverControlToggle(
+                    title: "Pause Helpers",
+                    systemImage: "pause.circle",
+                    isOn: Binding(
+                        get: { appModel.store.config.safeModeEnabled },
+                        set: { _ in appModel.toggleSafeMode() }
+                    ),
+                    accessibilityHint: "Pause input and window helpers and end Keep Awake sessions"
+                )
             }
             .padding(.vertical, 4)
 
@@ -52,7 +90,7 @@ struct MenuBarPopover: View {
 
             footer
         }
-        .frame(width: 304, height: 236, alignment: .topLeading)
+        .frame(width: 328, height: 310, alignment: .topLeading)
         .background {
             PopoverGlassBackdrop()
         }

@@ -5,6 +5,7 @@ struct InputScrollingView: View {
     @ObservedObject var appModel: AppModel
     @State private var selectedRunningAppBundleID = ""
     @State private var runningAppOptions: [RunningAppOption] = []
+    @State private var appSelectionError: String?
 
     var body: some View {
         MacMenderScrollablePage(maxContentWidth: 860) {
@@ -30,7 +31,7 @@ struct InputScrollingView: View {
     private var scrollingSection: some View {
         MacMenderContentSection(
             title: "Scrolling",
-            subtitle: "Set direction and smoothing for each axis. Safe Mode pauses event modification.",
+            subtitle: "Tune mouse wheel response. Choose scrolling direction below in Device Behavior.",
             systemImage: "scroll"
         ) {
             let profile = appModel.activeProfile
@@ -49,8 +50,6 @@ struct InputScrollingView: View {
                             .fontWeight(.medium)
                         Toggle("Smooth", isOn: binding(\.scroll.verticalSmoothingEnabled))
                             .accessibilityLabel("Smooth vertical scrolling")
-                        Toggle("Reverse", isOn: binding(\.scroll.reverseVertical))
-                            .accessibilityLabel("Reverse vertical scrolling")
                     }
 
                     GridRow {
@@ -58,12 +57,10 @@ struct InputScrollingView: View {
                             .fontWeight(.medium)
                         Toggle("Smooth", isOn: binding(\.scroll.horizontalSmoothingEnabled))
                             .accessibilityLabel("Smooth horizontal scrolling")
-                        Toggle("Reverse", isOn: binding(\.scroll.reverseHorizontal))
-                            .accessibilityLabel("Reverse horizontal scrolling")
                     }
                 }
 
-                Text("Reverse changes the natural scroll direction for the selected axis.")
+                Text("Gain and duration apply to smoothed mouse scrolling. Trackpads keep their native momentum.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -101,7 +98,7 @@ struct InputScrollingView: View {
             systemImage: "sensor"
         ) {
             VStack(spacing: 0) {
-                ForEach(Array(appModel.activeProfile.scroll.deviceRules.enumerated()), id: \.element.id) { index, rule in
+                ForEach(Array(appModel.activeProfile.scroll.deviceRules.filter { $0.deviceKind == .builtInTrackpad || $0.deviceKind == .externalMouse }.enumerated()), id: \.element.id) { index, rule in
                     DeviceRuleRow(
                         rule: rule,
                         smoothing: deviceRuleBinding(rule.id, \.smoothingEnabled),
@@ -115,7 +112,7 @@ struct InputScrollingView: View {
                 }
             }
 
-            Text("Physical-device matching is best-effort with public macOS APIs.")
+            Text("Continuous input (trackpads and Magic Mouse) keeps native momentum and uses the trackpad direction rule. Discrete mouse wheels use External Mouse. Individual physical devices are not matched yet.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -145,12 +142,18 @@ struct InputScrollingView: View {
                     }
                     .disabled(selectedRunningAppBinding.wrappedValue.isEmpty || selectedRunningAppAlreadyExists)
 
+                    Button("Choose App…", action: chooseApplication)
+
                     Button {
                         refreshRunningApps()
                     } label: {
                         Label("Refresh", systemImage: "arrow.clockwise")
                     }
                     .help("Refresh running applications")
+                }
+
+                if let appSelectionError {
+                    Text(appSelectionError).foregroundStyle(.red)
                 }
 
                 if appModel.activeProfile.scroll.appRules.isEmpty {
@@ -164,6 +167,7 @@ struct InputScrollingView: View {
                         ForEach(Array(appModel.activeProfile.scroll.appRules.enumerated()), id: \.element.id) { index, rule in
                             AppOverrideRow(
                                 rule: rule,
+                                bypass: appRuleBinding(rule.id, \.bypassScrolling),
                                 smoothing: appRuleBinding(rule.id, \.smoothingOverride),
                                 reverseVertical: appRuleBinding(rule.id, \.reverseVerticalOverride),
                                 reverseHorizontal: appRuleBinding(rule.id, \.reverseHorizontalOverride),
@@ -275,6 +279,7 @@ struct InputScrollingView: View {
         } set: { newValue in
             var profile = appModel.activeProfile
             profile[keyPath: keyPath] = newValue
+            if profile.scroll != appModel.activeProfile.scroll { profile.scroll.preset = .custom }
             appModel.updateActiveProfile(profile)
         }
     }
@@ -284,37 +289,7 @@ struct InputScrollingView: View {
             appModel.activeProfile.scroll.preset
         } set: { preset in
             var profile = appModel.activeProfile
-            let existingDeviceRules = profile.scroll.deviceRules
-            let existingAppRules = profile.scroll.appRules
-
-            switch preset {
-            case .off:
-                profile.scroll = .raw
-            case .subtle:
-                profile.scroll = .subtle
-            case .balanced:
-                profile.scroll = .balanced
-            case .smooth:
-                profile.scroll = ScrollSettings(
-                    preset: .smooth,
-                    verticalSmoothingEnabled: true,
-                    horizontalSmoothingEnabled: true,
-                    reverseVertical: profile.scroll.reverseVertical,
-                    reverseHorizontal: profile.scroll.reverseHorizontal,
-                    step: 1.25,
-                    gain: 1.35,
-                    duration: 0.24,
-                    deviceRules: existingDeviceRules,
-                    appRules: existingAppRules
-                )
-            case .custom:
-                profile.scroll.preset = .custom
-            }
-
-            if preset != .custom {
-                profile.scroll.deviceRules = existingDeviceRules
-                profile.scroll.appRules = existingAppRules
-            }
+            profile.scroll.applyPreset(preset)
             appModel.updateActiveProfile(profile)
         }
     }
@@ -381,16 +356,37 @@ struct InputScrollingView: View {
             return
         }
 
+        addAppRule(bundleIdentifier: option.bundleIdentifier, name: option.name)
+    }
+
+    private func chooseApplication() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose an app for a scrolling override"
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            guard let bundleID = Bundle(url: url)?.bundleIdentifier else {
+                appSelectionError = "This application does not have a bundle identifier."
+                return
+            }
+            addAppRule(bundleIdentifier: bundleID, name: url.deletingPathExtension().lastPathComponent)
+        }
+    }
+
+    private func addAppRule(bundleIdentifier: String, name: String) {
         var profile = appModel.activeProfile
-        profile.scroll.appRules.append(
-            AppScrollRule(
-                bundleIdentifier: option.bundleIdentifier,
-                appName: option.name,
-                smoothingOverride: nil,
-                reverseVerticalOverride: nil,
-                reverseHorizontalOverride: nil
-            )
-        )
+        guard !profile.scroll.appRules.contains(where: { $0.bundleIdentifier == bundleIdentifier }) else {
+            appSelectionError = "An override for \(name) already exists."
+            return
+        }
+        appSelectionError = nil
+        profile.scroll.appRules.append(AppScrollRule(
+            bundleIdentifier: bundleIdentifier, appName: name,
+            smoothingOverride: nil, reverseVerticalOverride: nil
+        ))
         appModel.updateActiveProfile(profile)
     }
 

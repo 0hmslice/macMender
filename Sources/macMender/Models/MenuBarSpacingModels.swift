@@ -13,6 +13,14 @@ struct MenuBarSpacingDefaultsPlan: Equatable, Sendable {
 
     var preference: MenuBarSpacingPreference
     var operation: Operation
+
+    func operation(for key: String) -> Operation {
+        if key == Self.keys[1], case .write(let value) = operation {
+            // Keep small icons clickable while allowing a tighter inter-item gap.
+            return .write(min(16, max(6, value)))
+        }
+        return operation
+    }
 }
 
 struct MenuBarSpacingDefaultsValues: Equatable, Sendable {
@@ -39,12 +47,12 @@ struct MenuBarSpacingDefaultsValues: Equatable, Sendable {
         }
     }
 
-    func matches(_ operation: MenuBarSpacingDefaultsPlan.Operation) -> Bool {
-        switch operation {
+    func matches(_ plan: MenuBarSpacingDefaultsPlan) -> Bool {
+        switch plan.operation {
         case .delete:
             spacing == nil && selectionPadding == nil
         case .write(let value):
-            spacing == value && selectionPadding == value
+            spacing == value && plan.operation(for: MenuBarSpacingDefaultsPlan.keys[1]) == selectionPadding.map { .write($0) }
         }
     }
 }
@@ -67,7 +75,7 @@ enum MenuBarSpacingRefreshStrategy: Equatable, Sendable {
 
 enum MenuBarSpacingSystemItemSupport: Equatable, Sendable {
     case legacy
-    case unsupportedOnThisBeta
+    case unverifiedSystemItems
     case unconfirmed
 }
 
@@ -87,7 +95,7 @@ enum MenuBarSpacingRefreshResult: Equatable, Sendable {
 enum MenuBarSpacingResultKind: Equatable, Sendable {
     case applied
     case appliedSomeAppsMayNeedRelaunch
-    case unsupportedOnThisBeta
+    case unverifiedSystemItems
     case couldNotConfirmSystemItemUpdate
     case failed
 
@@ -97,8 +105,8 @@ enum MenuBarSpacingResultKind: Equatable, Sendable {
             "Applied"
         case .appliedSomeAppsMayNeedRelaunch:
             "Applied, some apps may need relaunch"
-        case .unsupportedOnThisBeta:
-            "Unsupported on this beta"
+        case .unverifiedSystemItems:
+            "Apple icon spacing unverified"
         case .couldNotConfirmSystemItemUpdate:
             "Could not confirm system item update"
         case .failed:
