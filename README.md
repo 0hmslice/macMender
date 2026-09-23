@@ -15,7 +15,7 @@
 
 Free, open source, and local. No accounts, analytics, or subscriptions.
 
-> **Development preview:** this README and its screenshots show the upcoming upgrade. The latest downloadable release is **v0.9.0**; build this branch to try the additions below.
+> **Public preview · v0.10.0:** [Download the app](https://github.com/0hmslice/macMender/releases/tag/v0.10.0) with Keep Awake, searchable settings, and improved scrolling.
 
 ## Make everyday things easier
 
@@ -38,6 +38,8 @@ Free, open source, and local. No accounts, analytics, or subscriptions.
 ## Get started
 
 **Release requirements:** Apple silicon · macOS 26 or newer.
+
+The preview is signed with an Apple Development certificate and **is not notarized**. macOS may require explicit approval when opening it.
 
 1. Download the ZIP from [Releases](https://github.com/0hmslice/macMender/releases/latest), unzip it, and move **macMender.app** to **Applications**.
 2. Open macMender and follow onboarding. If macOS blocks the download, review **System Settings → Privacy & Security → Open Anyway**.

@@ -1,6 +1,6 @@
 # macMender utility upgrade
 
-Research checked September 23, 2026. This change builds on v0.9.0 and keeps existing profiles and direction rules. It is a development upgrade, not a notarized release.
+Research checked September 23, 2026. The v0.10.0 public preview builds on v0.9.0 and keeps existing profiles and direction rules. Its download is signed with an Apple Development certificate and is not notarized.
 
 ## Comparison and decisions
 
@@ -66,10 +66,10 @@ These are gaps between Accessibility frames (`next.x − previous.maxX`), not me
 2. Window search and configurable per-application window exclusions. The current catalog and overlay can support this, but keyboard text routing needs its own interaction design.
 3. Move expensive Accessibility window discovery away from the main thread after instrumenting representative large-window workloads; no fabricated CPU or battery claims are made here.
 4. Menu item organization using an independently validated macOS 27 implementation. Avoid unsupported Control Center preference guesses or process injection.
-5. Signed/notarized release packaging and a physical-device test matrix before releasing the new scrolling engine broadly.
+5. Developer ID signing, notarization, and a physical-device test matrix before moving beyond the public preview.
 
 ## Validation
 
 Automated tests cover scroll distance conservation, rapid bursts, reversal, cancellation, axis precedence, native bypass, preset preservation, old configuration decoding, numeric limits, unsupported schemas, debounced saves, backups, import failure, keyboard routing, settings search, power assertion lifecycle, and menu bar rollback/version policy. Tests use temporary settings directories and mocked power/preference operations; they do not change global preferences or grant permissions.
 
-The [GitHub Actions workflow](../.github/workflows/ci.yml) builds, tests, and compiles release mode with Xcode 26.3 on macOS 15. It runs for pull requests and pushes to `main`, with a manual trigger available after merging. Local build, test, UI inspection and optimized-build results are recorded in the PR. Hardware-specific scrolling feel and Apple system icon spacing are not inferred from unit tests.
+The [GitHub Actions workflow](../.github/workflows/ci.yml) builds, tests, and compiles release mode with Xcode 26.3 on macOS 15. It runs for pull requests and pushes to `main`, with a manual trigger available. Local build, test, UI inspection and optimized-build results are recorded in the upgrade PR. Hardware-specific scrolling feel and Apple system icon spacing are not inferred from unit tests.
