@@ -2,7 +2,9 @@ import AppKit
 import ApplicationServices
 import Foundation
 import os
-import ScreenCaptureKit
+// Xcode 26 lacks complete concurrency annotations for these Objective-C snapshots.
+// This main-actor service only reads the returned content.
+@preconcurrency import ScreenCaptureKit
 
 @_silgen_name("_AXUIElementGetWindow")
 @discardableResult

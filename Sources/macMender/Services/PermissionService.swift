@@ -2,7 +2,9 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
-import ScreenCaptureKit
+// Xcode 26 lacks complete concurrency annotations for these Objective-C snapshots.
+// This main-actor service only reads the returned content.
+@preconcurrency import ScreenCaptureKit
 
 @MainActor
 final class PermissionService: ObservableObject {
