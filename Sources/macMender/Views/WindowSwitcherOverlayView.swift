@@ -31,10 +31,10 @@ struct WindowSwitcherOverlayView: View {
     private var gridContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(service.overlayTitle, systemImage: service.isDockPreview ? "dock.arrow.up.rectangle" : "rectangle.3.group")
+                Label("Window Switcher", systemImage: "rectangle.3.group")
                     .font(.headline)
                 Spacer()
-                Text(service.overlaySubtitle.isEmpty ? "\(service.windows.count) windows" : service.overlaySubtitle)
+                Text("\(service.windows.count) windows")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

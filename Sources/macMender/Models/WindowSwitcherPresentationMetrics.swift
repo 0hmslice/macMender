@@ -9,23 +9,20 @@ struct WindowSwitcherPresentationMetrics: Equatable {
         layout: SwitcherLayout,
         windowCount: Int,
         requestedThumbnailSize: CGFloat,
-        visibleSize: CGSize,
-        isDockPreview: Bool
+        visibleSize: CGSize
     ) -> Self {
         switch layout {
         case .strip:
             stripMetrics(
                 windowCount: windowCount,
                 requestedThumbnailSize: requestedThumbnailSize,
-                visibleSize: visibleSize,
-                isDockPreview: isDockPreview
+                visibleSize: visibleSize
             )
         case .grid:
             gridMetrics(
                 windowCount: windowCount,
                 requestedThumbnailSize: requestedThumbnailSize,
-                visibleSize: visibleSize,
-                isDockPreview: isDockPreview
+                visibleSize: visibleSize
             )
         }
     }
@@ -33,27 +30,26 @@ struct WindowSwitcherPresentationMetrics: Equatable {
     private static func stripMetrics(
         windowCount: Int,
         requestedThumbnailSize: CGFloat,
-        visibleSize: CGSize,
-        isDockPreview: Bool
+        visibleSize: CGSize
     ) -> Self {
         let count = max(windowCount, 1)
-        let maximumWidth = visibleSize.width * (isDockPreview ? 0.58 : 0.82)
-        let maximumHeight = visibleSize.height * (isDockPreview ? 0.36 : 0.42)
-        let thumbnail = min(max(requestedThumbnailSize, 112), isDockPreview ? 160 : 196)
+        let maximumWidth = visibleSize.width * 0.82
+        let maximumHeight = visibleSize.height * 0.42
+        let thumbnail = min(max(requestedThumbnailSize, 112), 196)
         let cardWidth = thumbnail + 12
         let spacing: CGFloat = 10
         let horizontalPadding: CGFloat = 32
-        let verticalChrome: CGFloat = isDockPreview ? 84 : 88
+        let verticalChrome: CGFloat = 88
         let desiredWidth = cardWidth * CGFloat(count)
             + spacing * CGFloat(max(count - 1, 0))
             + horizontalPadding
-        let minimumWidth: CGFloat = isDockPreview ? 300 : 420
+        let minimumWidth: CGFloat = 420
         let desiredHeight = thumbnail * 0.68 + verticalChrome
 
         return Self(
             panelSize: CGSize(
                 width: min(maximumWidth, max(desiredWidth, minimumWidth)),
-                height: min(maximumHeight, max(desiredHeight, isDockPreview ? 196 : 220))
+                height: min(maximumHeight, max(desiredHeight, 220))
             ),
             thumbnailSize: thumbnail,
             gridColumnCount: count
@@ -63,14 +59,13 @@ struct WindowSwitcherPresentationMetrics: Equatable {
     private static func gridMetrics(
         windowCount: Int,
         requestedThumbnailSize: CGFloat,
-        visibleSize: CGSize,
-        isDockPreview: Bool
+        visibleSize: CGSize
     ) -> Self {
-        let maximumWidth = visibleSize.width * (isDockPreview ? 0.48 : 0.72)
-        let maximumHeight = visibleSize.height * (isDockPreview ? 0.44 : 0.72)
+        let maximumWidth = visibleSize.width * 0.72
+        let maximumHeight = visibleSize.height * 0.72
         let count = max(windowCount, 1)
-        let maximumColumns = isDockPreview ? 3 : 5
-        let preferredColumns = isDockPreview ? min(count, 2) : Int(ceil(sqrt(Double(count))))
+        let maximumColumns = 5
+        let preferredColumns = Int(ceil(sqrt(Double(count))))
         let columns = max(1, min(maximumColumns, preferredColumns))
         let rows = Int(ceil(Double(count) / Double(columns)))
         let spacing: CGFloat = 12
@@ -78,7 +73,7 @@ struct WindowSwitcherPresentationMetrics: Equatable {
         let verticalPadding: CGFloat = 76
         let cardChrome: CGFloat = 22
         let cardFooter: CGFloat = 58
-        let preferredThumbnail = min(requestedThumbnailSize, isDockPreview ? 144 : 168)
+        let preferredThumbnail = min(requestedThumbnailSize, 168)
         let availableCardWidth = (
             maximumWidth - horizontalPadding - spacing * CGFloat(max(columns - 1, 0))
         ) / CGFloat(columns)
@@ -100,8 +95,8 @@ struct WindowSwitcherPresentationMetrics: Equatable {
 
         return Self(
             panelSize: CGSize(
-                width: min(maximumWidth, max(width, isDockPreview ? 330 : 520)),
-                height: min(maximumHeight, max(height, isDockPreview ? 230 : 360))
+                width: min(maximumWidth, max(width, 520)),
+                height: min(maximumHeight, max(height, 360))
             ),
             thumbnailSize: thumbnail,
             gridColumnCount: columns

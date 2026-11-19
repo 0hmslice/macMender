@@ -29,6 +29,12 @@ final class ProfileStore: ObservableObject {
 
     var applicationSupportDirectory: URL {
         if let supportDirectoryOverride { return supportDirectoryOverride }
+        #if DEBUG
+        // Lets a development build run beside an installed copy without touching its settings.
+        if let path = ProcessInfo.processInfo.environment["MACMENDER_SUPPORT_DIR"], !path.isEmpty {
+            return URL(fileURLWithPath: path, isDirectory: true)
+        }
+        #endif
         let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return base.appendingPathComponent("macMender", isDirectory: true)
     }

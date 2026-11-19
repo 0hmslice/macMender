@@ -53,7 +53,7 @@ struct AppConfig: Codable, Equatable {
     static var `default`: AppConfig {
         let defaultProfile = MacMenderProfile.default
         return AppConfig(
-            schemaVersion: 6,
+            schemaVersion: 7,
             hasCompletedOnboarding: false,
             activeProfileID: defaultProfile.id,
             safeModeEnabled: false,
@@ -71,8 +71,21 @@ extension AppConfig {
             normalized.profiles = normalized.profiles.map { profile in
                 var profile = profile
                 profile.windowSwitcher.layout = .grid
-                profile.dockPreviews.layout = .grid
-                profile.dockPreviews.thumbnailSize = min(profile.dockPreviews.thumbnailSize, DockPreviewSettings.default.thumbnailSize)
+                return profile
+            }
+        }
+
+        if loaded.schemaVersion < 7 {
+            // Dock previews were rebuilt in schema 7. Carry settings the user never changed
+            // forward to the new defaults; anything they tuned is kept.
+            normalized.profiles = normalized.profiles.map { profile in
+                var profile = profile
+                if profile.dockPreviews.hoverDelay == DockPreviewSettings.legacyDefaultHoverDelay {
+                    profile.dockPreviews.hoverDelay = DockPreviewSettings.defaultHoverDelay
+                }
+                if profile.dockPreviews.animationDuration == DockPreviewSettings.legacyDefaultAnimationDuration {
+                    profile.dockPreviews.animationDuration = DockPreviewSettings.defaultAnimationDuration
+                }
                 return profile
             }
         }
@@ -84,8 +97,10 @@ extension AppConfig {
             if profile.middleClick.action == .customShortcut {
                 profile.middleClick.action = .middleClick
             }
-            profile.dockPreviews.previewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(profile.dockPreviews.previewIdleTimeout)
+            profile.dockPreviews.hoverDelay = DockPreviewSettings.clampedHoverDelay(profile.dockPreviews.hoverDelay)
+            profile.dockPreviews.dismissDelay = DockPreviewSettings.clampedDismissDelay(profile.dockPreviews.dismissDelay)
             profile.dockPreviews.animationDuration = DockPreviewSettings.clampedAnimationDuration(profile.dockPreviews.animationDuration)
+            profile.dockPreviews.previewSize = DockPreviewSettings.clampedPreviewSize(profile.dockPreviews.previewSize)
             return profile
         }
         normalized.ensureValidProfileSelection()

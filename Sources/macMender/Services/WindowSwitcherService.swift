@@ -1,19 +1,16 @@
 import AppKit
 import os
-import QuartzCore
 import SwiftUI
 
+/// The keyboard window switcher: lists every application's windows and activates the chosen one.
 @MainActor
 final class WindowSwitcherService: ObservableObject {
     @Published private(set) var isShowing = false
     @Published private(set) var windows: [WindowSummary] = []
     @Published private(set) var selectedIndex = 0
     @Published private(set) var presentationStatus = "Ready to scan"
-    @Published private(set) var overlayTitle = "Window Switcher"
-    @Published private(set) var overlaySubtitle = ""
     @Published private(set) var displayThumbnailSize = 160.0
     @Published private(set) var gridColumnCount = 3
-    @Published private(set) var isDockPreview = false
     @Published private(set) var lastActivationDiagnostic = "No window activation attempted"
     @Published private(set) var lastDiscoveryReport = WindowDiscoveryReport.empty
     @Published private(set) var hasRunWindowDiscovery = false
@@ -23,16 +20,8 @@ final class WindowSwitcherService: ObservableObject {
     private let catalog: any WindowCatalogProviding
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "WindowSwitcher")
     private var panel: NSPanel?
-    private var dockPreviewAnchorFrame: CGRect?
-    private var dockPreviewDismissTask: Task<Void, Never>?
-    private var dockPreviewMouseMonitor: Any?
-    private var dockPreviewLocalMouseMonitor: Any?
+    private var activeSettings = WindowSwitcherSettings.default
     private var thumbnailTask: Task<Void, Never>?
-    private var dockPreviewIdleTimeout: TimeInterval = DockPreviewSettings.default.previewIdleTimeout
-    private var dockPreviewAnimationStyle = DockPreviewSettings.default.animationStyle
-    private var dockPreviewAnimationDurationValue = DockPreviewSettings.default.animationDuration
-    private var dockPreviewSuppressedUntil: Date?
-    private var panelAnimationGeneration = 0
     private var thumbnailCache: [WindowSummary.ID: ThumbnailCacheEntry] = [:]
     private var thumbnailCacheOrder: [WindowSummary.ID] = []
     private let thumbnailCacheLimit = 80
@@ -50,10 +39,8 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     func show(settings: WindowSwitcherSettings, backwards: Bool = false) {
-        let discovered = catalog.visibleWindows()
-            .filter { settings.includeMinimizedWindows || !$0.isMinimized }
-            .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
-        lastDiscoveryReport = catalog.lastDiscoveryReport
+        activeSettings = settings
+        let discovered = discoverWindows(settings: settings)
         hasRunWindowDiscovery = true
 
         guard !discovered.isEmpty else {
@@ -65,150 +52,30 @@ final class WindowSwitcherService: ObservableObject {
         selectedIndex = backwards ? windows.count - 1 :
             (windows.first?.processIdentifier == frontmostPID ? min(1, windows.count - 1) : 0)
         isShowing = true
-        isDockPreview = false
-        overlayTitle = "Window Switcher"
-        overlaySubtitle = "All open windows"
         presentationStatus = "\(discovered.count) windows available"
         if presentsPanel {
-            ensurePanel(settings: settings, anchorFrame: nil)
+            ensurePanel(settings: settings)
             panel?.orderFrontRegardless()
             prefetchThumbnails()
         }
     }
 
     func refreshDiscovery(settings: WindowSwitcherSettings) {
-        let discovered = catalog.visibleWindows()
-            .filter { settings.includeMinimizedWindows || !$0.isMinimized }
-            .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
-        lastDiscoveryReport = catalog.lastDiscoveryReport
+        let discovered = discoverWindows(settings: settings)
         hasRunWindowDiscovery = true
         presentationStatus = discovered.isEmpty ? "No switchable windows detected" : "\(discovered.count) windows available"
-    }
-
-    func showDockPreview(identity: DockAppIdentity, settings: WindowSwitcherSettings, anchorFrame: CGRect) {
-        guard !isDockPreviewPresentationSuppressed() else {
-            presentationStatus = "Dock preview suppressed during Dock context menu"
-            logger.debug("Dock preview suppressed for Dock context menu title=\(identity.displayName, privacy: .private)")
-            return
-        }
-
-        guard identity.hasResolvedApplicationIdentity else {
-            presentationStatus = "Dock preview skipped for unresolved Dock item \(identity.displayName)"
-            logger.debug("Dock preview suppressed unresolved title=\(identity.displayName, privacy: .private)")
-            cancel()
-            return
-        }
-
-        let discovered = catalog.dockPreviewWindows(for: identity)
-            .filter { settings.includeMinimizedWindows || !$0.isMinimized }
-            .filter { settings.includeHiddenApps || !(NSRunningApplication(processIdentifier: $0.processIdentifier)?.isHidden ?? false) }
-        lastDiscoveryReport = catalog.lastDiscoveryReport
-
-        guard !discovered.isEmpty else {
-            presentationStatus = "No windows detected for \(identity.displayName)"
-            logger.debug("Dock preview suppressed noWindows title=\(identity.displayName, privacy: .private) bundle=\(identity.bundleIdentifier ?? "nil", privacy: .private) pid=\(identity.processIdentifier.map(String.init) ?? "nil", privacy: .private)")
-            cancel()
-            return
-        }
-        windows = discovered
-        selectedIndex = 0
-        isShowing = true
-        isDockPreview = true
-        overlayTitle = identity.displayName
-        overlaySubtitle = discovered.count == 1 ? "1 window" : "\(discovered.count) windows"
-        presentationStatus = "\(discovered.count) \(identity.displayName) windows available"
-        dockPreviewAnchorFrame = anchorFrame
-        if presentsPanel {
-            ensurePanel(settings: settings, anchorFrame: anchorFrame)
-            presentPanel()
-            prefetchThumbnails()
-            startDockPreviewMouseTracking()
-        }
-    }
-
-    func showDockPreviewForMostRecentApp(settings: WindowSwitcherSettings, anchorFrame: CGRect) {
-        guard let window = catalog.visibleWindows().first else {
-            lastDiscoveryReport = catalog.lastDiscoveryReport
-            presentationStatus = "No windows available for preview"
-            return
-        }
-        lastDiscoveryReport = catalog.lastDiscoveryReport
-        showDockPreview(
-            identity: DockAppIdentity(
-                title: window.appName,
-                bundleIdentifier: window.bundleIdentifier,
-                processIdentifier: window.processIdentifier
-            ),
-            settings: settings,
-            anchorFrame: anchorFrame
-        )
-    }
-
-    func showDockPreviewAnimationSample(settings: WindowSwitcherSettings, anchorFrame: CGRect) {
-        thumbnailTask?.cancel()
-        thumbnailTask = nil
-        thumbnails = [:]
-        windows = [
-            WindowSummary(
-                id: "macmender-animation-sample",
-                windowID: nil,
-                appName: "Animation Test",
-                bundleIdentifier: Bundle.main.bundleIdentifier,
-                title: "\(effectiveDockPreviewAnimationStyle.title) preview",
-                processIdentifier: NSRunningApplication.current.processIdentifier,
-                frame: anchorFrame,
-                isMinimized: false,
-                stackIndex: 0,
-                axElement: nil
-            )
-        ]
-        selectedIndex = 0
-        isShowing = true
-        isDockPreview = true
-        overlayTitle = "Animation Test"
-        overlaySubtitle = "\(effectiveDockPreviewAnimationStyle.title) • \(dockPreviewAnimationDuration.formatted(.number.precision(.fractionLength(2))))s"
-        presentationStatus = "Previewing \(effectiveDockPreviewAnimationStyle.title)"
-        lastThumbnailDiagnostic = "animation sample uses local placeholder; capture not requested"
-        dockPreviewAnchorFrame = anchorFrame
-        if presentsPanel {
-            ensurePanel(settings: settings, anchorFrame: anchorFrame)
-            presentPanel()
-            scheduleAnimationSampleDismiss()
-        }
     }
 
     func cycle(backwards: Bool = false) {
         guard !windows.isEmpty else { return }
         selectedIndex = (selectedIndex + (backwards ? -1 : 1) + windows.count) % windows.count
-        logger.debug("Selected window index=\(self.selectedIndex, privacy: .public) source=keyboard")
     }
 
     func cancel() {
-        let shouldAnimateDockDismiss = isDockPreview && (panel?.isVisible == true)
-        let wasAnimationSample = overlayTitle == "Animation Test"
         isShowing = false
-        dockPreviewAnchorFrame = nil
         thumbnailTask?.cancel()
         thumbnailTask = nil
-        dockPreviewDismissTask?.cancel()
-        dockPreviewDismissTask = nil
-        if let dockPreviewMouseMonitor {
-            NSEvent.removeMonitor(dockPreviewMouseMonitor)
-        }
-        if let dockPreviewLocalMouseMonitor {
-            NSEvent.removeMonitor(dockPreviewLocalMouseMonitor)
-        }
-        dockPreviewMouseMonitor = nil
-        dockPreviewLocalMouseMonitor = nil
-        if shouldAnimateDockDismiss {
-            dismissPanel()
-        } else {
-            panel?.orderOut(nil)
-        }
-        if wasAnimationSample {
-            presentationStatus = "Ready to scan"
-            lastThumbnailDiagnostic = "animation sample dismissed; capture not requested"
-        }
+        panel?.orderOut(nil)
     }
 
     func commit(source: WindowActivationSource = .keyboard) {
@@ -220,20 +87,13 @@ final class WindowSwitcherService: ObservableObject {
         activateSelectedWindow(selectedWindow, displayedIndex: selectedIndex, source: source)
     }
 
-    func activate(_ window: WindowSummary, source: WindowActivationSource = .programmatic) {
-        let displayedIndex = windows.firstIndex(where: { $0.id == window.id }) ?? selectedIndex
-        activateSelectedWindow(window, displayedIndex: displayedIndex, source: source)
-    }
-
     func activateDisplayedWindow(_ window: WindowSummary, displayedIndex: Int, source: WindowActivationSource) {
         activateSelectedWindow(window, displayedIndex: displayedIndex, source: source)
     }
 
     func select(index: Int, source: WindowActivationSource) {
-        guard windows.indices.contains(index) else { return }
-        guard selectedIndex != index else { return }
+        guard windows.indices.contains(index), selectedIndex != index else { return }
         selectedIndex = index
-        logger.debug("Selected window index=\(index, privacy: .public) source=\(source.rawValue, privacy: .public)")
     }
 
     func minimize(_ window: WindowSummary) {
@@ -250,55 +110,21 @@ final class WindowSwitcherService: ObservableObject {
         thumbnails[window.id]
     }
 
-    func updateDockPreviewIdleTimeout(_ timeout: TimeInterval) {
-        dockPreviewIdleTimeout = DockPreviewSettings.clampedPreviewIdleTimeout(timeout)
-    }
-
-    func updateDockPreviewAnimation(style: DockPreviewAnimationStyle, duration: Double) {
-        dockPreviewAnimationStyle = style.legacyMappedStyle
-        dockPreviewAnimationDurationValue = DockPreviewSettings.clampedAnimationDuration(duration)
-    }
-
-    func suppressDockPreviewPresentation(until date: Date = Date().addingTimeInterval(DockPreviewContextMenuInteraction.suppressionDuration)) {
-        dockPreviewSuppressedUntil = date
-        if isDockPreview, isShowing {
-            cancel()
-        }
-        presentationStatus = "Dock preview suppressed during Dock context menu"
-    }
-
-    func scheduleDockPreviewDismiss() {
-        guard isDockPreview, isShowing else {
-            cancel()
-            return
-        }
-
-        dockPreviewDismissTask?.cancel()
-        dockPreviewDismissTask = Task { @MainActor [weak self] in
-            guard let delay = self?.dockPreviewIdleTimeout else { return }
-            try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
-            guard let self, !Task.isCancelled else { return }
-            if !self.isMouseInDockPreviewSafeArea() {
-                self.cancel()
-            }
-        }
-    }
-
-    private func scheduleAnimationSampleDismiss() {
-        dockPreviewDismissTask?.cancel()
-        dockPreviewDismissTask = Task { @MainActor [weak self] in
-            let duration = self?.dockPreviewAnimationDuration ?? DockPreviewSettings.default.animationDuration
-            let delay = max(850, Int((duration + 0.72) * 1000))
-            try? await Task.sleep(for: .milliseconds(delay))
-            guard let self, !Task.isCancelled, self.overlayTitle == "Animation Test" else { return }
-            self.cancel()
-        }
+    private func discoverWindows(settings: WindowSwitcherSettings) -> [WindowSummary] {
+        let discovered = catalog.visibleWindows()
+            .filter { settings.includeMinimizedWindows || !$0.isMinimized }
+            .filter { settings.includeHiddenApps || !$0.isAppHidden }
+        lastDiscoveryReport = catalog.lastDiscoveryReport
+        return discovered
     }
 
     private func refreshKeepingSelection() {
         let selectedID = selectedWindow?.id
-        windows = catalog.visibleWindows()
-        lastDiscoveryReport = catalog.lastDiscoveryReport
+        windows = discoverWindows(settings: activeSettings)
+        guard !windows.isEmpty else {
+            cancel()
+            return
+        }
         thumbnails = thumbnails.filter { cached in
             windows.contains(where: { $0.id == cached.key })
         }
@@ -307,13 +133,14 @@ final class WindowSwitcherService: ObservableObject {
         } else {
             selectedIndex = min(selectedIndex, max(windows.count - 1, 0))
         }
-        prefetchThumbnails()
+        if presentsPanel {
+            ensurePanel(settings: activeSettings)
+            prefetchThumbnails()
+        }
     }
 
     private func activateSelectedWindow(_ window: WindowSummary, displayedIndex: Int, source: WindowActivationSource) {
         let context = WindowActivationContext(selectedIndex: displayedIndex, highlightedIndex: displayedIndex)
-        let diagnosticPrefix = "source=\(source.rawValue) selectedIndex=\(displayedIndex) highlightedIndex=\(displayedIndex) title=\(window.title) cg=\(window.windowID.map(String.init) ?? "nil") pid=\(window.processIdentifier) bundle=\(window.bundleIdentifier ?? "nil")"
-        logger.debug("Activating highlighted window \(diagnosticPrefix, privacy: .private)")
         cancel()
         let outcome = catalog.activate(window, source: source, context: context)
         lastActivationDiagnostic = outcome.reason
@@ -388,9 +215,19 @@ final class WindowSwitcherService: ObservableObject {
         thumbnailCacheOrder.removeAll { thumbnailCache[$0] == nil }
     }
 
-    private func ensurePanel(settings: WindowSwitcherSettings, anchorFrame: CGRect?) {
-        let screen = screen(for: anchorFrame) ?? NSApp.keyWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main
-        let size = panelSize(for: settings, screen: screen)
+    private func ensurePanel(settings: WindowSwitcherSettings) {
+        let screen = NSApp.keyWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main
+        let visibleSize = screen?.visibleFrame.size ?? CGSize(width: 1200, height: 800)
+        let metrics = WindowSwitcherPresentationMetrics.calculate(
+            layout: settings.layout,
+            windowCount: windows.count,
+            requestedThumbnailSize: settings.thumbnailSize,
+            visibleSize: visibleSize
+        )
+        displayThumbnailSize = metrics.thumbnailSize
+        gridColumnCount = metrics.gridColumnCount
+        let size = metrics.panelSize
+
         if panel == nil {
             let panel = NSPanel(
                 contentRect: NSRect(origin: .zero, size: size),
@@ -406,329 +243,15 @@ final class WindowSwitcherService: ObservableObject {
             panel.ignoresMouseEvents = false
             panel.acceptsMouseMovedEvents = true
             panel.hasShadow = true
-            panel.contentView = FirstMouseHostingView(rootView: WindowSwitcherOverlayView(service: self, settings: settings))
             self.panel = panel
-        } else {
-            panel?.contentView = FirstMouseHostingView(rootView: WindowSwitcherOverlayView(service: self, settings: settings))
-            panel?.setContentSize(size)
         }
+        panel?.contentView = FirstMouseHostingView(rootView: WindowSwitcherOverlayView(service: self, settings: settings))
+        panel?.setContentSize(size)
 
         if let screen {
-            panel?.setFrameOrigin(panelOrigin(size: size, screen: screen, anchorFrame: anchorFrame))
+            let visible = screen.visibleFrame
+            panel?.setFrameOrigin(CGPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2))
         }
-    }
-
-    private func presentPanel() {
-        guard let panel else { return }
-        panelAnimationGeneration += 1
-        let generation = panelAnimationGeneration
-        let style = effectiveDockPreviewAnimationStyle
-        let finalFrame = panel.frame
-
-        resetPanelHighlight()
-        panel.alphaValue = 1
-        panel.setFrame(finalFrame, display: false)
-        let layer = preparePanelAnimationLayer()
-        let startState = layerState(for: style, appearing: true)
-        setLayerState(startState, on: layer)
-        panel.orderFrontRegardless()
-
-        guard style != .none else {
-            setLayerState(.identity, on: layer)
-            return
-        }
-        animateLayer(
-            layer,
-            from: startState,
-            to: .identity,
-            duration: dockPreviewAnimationDuration,
-            timingFunction: timingFunction(for: style, appearing: true),
-            key: "macmender.preview.appear"
-        ) { [weak self] in
-            guard let self, self.panelAnimationGeneration == generation else { return }
-            self.setLayerState(.identity, on: layer)
-        }
-    }
-
-    private func dismissPanel() {
-        guard let panel else { return }
-        panelAnimationGeneration += 1
-        let generation = panelAnimationGeneration
-        let style = effectiveDockPreviewAnimationStyle
-        let layer = preparePanelAnimationLayer()
-        let targetState = layerState(for: style, appearing: false)
-
-        guard style != .none else {
-            panel.alphaValue = 1
-            setLayerState(.identity, on: layer)
-            panel.orderOut(nil)
-            return
-        }
-
-        animateLayer(
-            layer,
-            from: .identity,
-            to: targetState,
-            duration: dockPreviewDismissDuration,
-            timingFunction: timingFunction(for: style, appearing: false),
-            key: "macmender.preview.dismiss"
-        ) { [weak self, weak panel] in
-            guard let self, self.panelAnimationGeneration == generation else { return }
-            panel?.orderOut(nil)
-            panel?.alphaValue = 1
-            self.setLayerState(.identity, on: layer)
-            self.resetPanelHighlight()
-        }
-    }
-
-    private func preparePanelAnimationLayer() -> CALayer {
-        guard let contentView = panel?.contentView else {
-            return CALayer()
-        }
-        contentView.wantsLayer = true
-        let layer = contentView.layer ?? CALayer()
-        layer.removeAllAnimations()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        layer.bounds = contentView.bounds
-        layer.position = CGPoint(x: contentView.bounds.midX, y: contentView.bounds.midY)
-        layer.opacity = 1
-        layer.transform = CATransform3DIdentity
-        layer.masksToBounds = false
-        CATransaction.commit()
-        return layer
-    }
-
-    private func setLayerState(_ state: PanelLayerState, on layer: CALayer) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.opacity = state.opacity
-        layer.transform = state.transform
-        CATransaction.commit()
-    }
-
-    private func animateLayer(
-        _ layer: CALayer,
-        from start: PanelLayerState,
-        to end: PanelLayerState,
-        duration: TimeInterval,
-        timingFunction: CAMediaTimingFunction,
-        key: String,
-        completion: @escaping @MainActor () -> Void
-    ) {
-        setLayerState(end, on: layer)
-
-        let transform = CABasicAnimation(keyPath: "transform")
-        transform.fromValue = start.transform
-        transform.toValue = end.transform
-
-        let opacity = CABasicAnimation(keyPath: "opacity")
-        opacity.fromValue = start.opacity
-        opacity.toValue = end.opacity
-
-        let group = CAAnimationGroup()
-        group.animations = [transform, opacity]
-        group.duration = duration
-        group.timingFunction = timingFunction
-        group.isRemovedOnCompletion = true
-        layer.add(group, forKey: key)
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(Int(max(duration, 0) * 1000)))
-            completion()
-        }
-    }
-
-    private func layerState(for style: DockPreviewAnimationStyle, appearing: Bool) -> PanelLayerState {
-        switch style {
-        case .none:
-            return .identity
-        case .fade:
-            return PanelLayerState(opacity: 0, transform: PanelLayerState.identity.transform)
-        case .system:
-            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.965 : 0.975, scaleY: appearing ? 0.965 : 0.975, y: dockOriginYOffset(magnitude: appearing ? 14 : 10)))
-        case .scale:
-            return PanelLayerState(opacity: 0, transform: transformed(scaleX: appearing ? 0.82 : 0.88, scaleY: appearing ? 0.82 : 0.88, y: 0))
-        case .slideUp:
-            return PanelLayerState(opacity: 0, transform: transformed(scaleX: 1, scaleY: 1, y: dockOriginYOffset(magnitude: appearing ? 72 : 58)))
-        case .glassPop:
-            return layerState(for: .system, appearing: appearing)
-        case .genie:
-            return layerState(for: .scale, appearing: appearing)
-        }
-    }
-
-    private func transformed(scaleX: CGFloat, scaleY: CGFloat, y: CGFloat) -> CATransform3D {
-        CATransform3DConcat(
-            CATransform3DMakeScale(scaleX, scaleY, 1),
-            CATransform3DMakeTranslation(0, y, 0)
-        )
-    }
-
-    private func dockOriginYOffset(magnitude: CGFloat) -> CGFloat {
-        guard let panel, let dockPreviewAnchorFrame else {
-            return -magnitude
-        }
-        return panel.frame.midY >= dockPreviewAnchorFrame.midY ? -magnitude : magnitude
-    }
-
-    private var effectiveDockPreviewAnimationStyle: DockPreviewAnimationStyle {
-        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            dockPreviewAnimationStyle.legacyMappedStyle == .none ? .none : .fade
-        } else {
-            dockPreviewAnimationStyle.legacyMappedStyle
-        }
-    }
-
-    private var dockPreviewAnimationDuration: TimeInterval {
-        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            return min(dockPreviewAnimationDurationValue, 0.12)
-        }
-        return dockPreviewAnimationDurationValue
-    }
-
-    private var dockPreviewDismissDuration: TimeInterval {
-        switch effectiveDockPreviewAnimationStyle {
-        case .none:
-            0
-        case .fade:
-            max(dockPreviewAnimationDuration * 0.72, 0.05)
-        case .system:
-            max(dockPreviewAnimationDuration * 0.70, 0.05)
-        case .scale, .slideUp:
-            max(dockPreviewAnimationDuration * 0.76, 0.06)
-        case .glassPop:
-            max(dockPreviewAnimationDuration * 0.62, 0.06)
-        case .genie:
-            max(dockPreviewAnimationDuration * 0.82, 0.07)
-        }
-    }
-
-    private func timingFunction(for style: DockPreviewAnimationStyle, appearing: Bool) -> CAMediaTimingFunction {
-        switch style {
-        case .none:
-            CAMediaTimingFunction(name: .linear)
-        case .fade:
-            CAMediaTimingFunction(name: appearing ? .easeOut : .easeIn)
-        case .system:
-            CAMediaTimingFunction(controlPoints: 0.21, 0.62, 0.20, 1.0)
-        case .scale:
-            CAMediaTimingFunction(controlPoints: 0.10, 0.82, 0.20, 1.0)
-        case .slideUp:
-            CAMediaTimingFunction(controlPoints: 0.12, 0.86, 0.16, 1.0)
-        case .glassPop:
-            CAMediaTimingFunction(name: appearing ? .easeOut : .easeIn)
-        case .genie:
-            appearing
-                ? CAMediaTimingFunction(controlPoints: 0.08, 0.80, 0.16, 1.12)
-                : CAMediaTimingFunction(controlPoints: 0.34, 0.02, 0.78, 0.42)
-        }
-    }
-
-    private func resetPanelHighlight() {
-        guard let layer = panel?.contentView?.layer else { return }
-        layer.borderWidth = 0
-        layer.shadowOpacity = 0
-    }
-
-    private func panelSize(for settings: WindowSwitcherSettings, screen: NSScreen?) -> CGSize {
-        let visibleSize = screen?.visibleFrame.size ?? CGSize(width: 1200, height: 800)
-        let metrics = WindowSwitcherPresentationMetrics.calculate(
-            layout: settings.layout,
-            windowCount: windows.count,
-            requestedThumbnailSize: settings.thumbnailSize,
-            visibleSize: visibleSize,
-            isDockPreview: isDockPreview
-        )
-        displayThumbnailSize = metrics.thumbnailSize
-        gridColumnCount = metrics.gridColumnCount
-        return metrics.panelSize
-    }
-
-    private func panelOrigin(size: CGSize, screen: NSScreen, anchorFrame: CGRect?) -> CGPoint {
-        let visible = screen.visibleFrame
-        guard let anchorFrame else {
-            return CGPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2)
-        }
-
-        let centeredX = anchorFrame.midX - size.width / 2
-        let x = min(max(centeredX, visible.minX + 16), visible.maxX - size.width - 16)
-        let gap = isDockPreview ? 36.0 : 14.0
-        let aboveY = anchorFrame.maxY + gap
-        let belowY = anchorFrame.minY - size.height - gap
-        let y: CGFloat
-        if aboveY + size.height <= visible.maxY - 16 {
-            y = aboveY
-        } else if belowY >= visible.minY + 16 {
-            y = belowY
-        } else {
-            y = min(max(visible.midY - size.height / 2, visible.minY + 16), visible.maxY - size.height - 16)
-        }
-        return CGPoint(x: x, y: y)
-    }
-
-    private func screen(for frame: CGRect?) -> NSScreen? {
-        guard let frame else { return nil }
-        return NSScreen.screens.max { lhs, rhs in
-            lhs.frame.intersection(frame).width * lhs.frame.intersection(frame).height <
-                rhs.frame.intersection(frame).width * rhs.frame.intersection(frame).height
-        }
-    }
-
-    private func startDockPreviewMouseTracking() {
-        dockPreviewDismissTask?.cancel()
-        if dockPreviewMouseMonitor == nil {
-            dockPreviewMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
-                Task { @MainActor [weak self] in
-                    guard let self, self.isDockPreview, self.isShowing else { return }
-                    self.handleDockPreviewMouseEvent(event)
-                }
-            }
-        }
-        if dockPreviewLocalMouseMonitor == nil {
-            dockPreviewLocalMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] event in
-                Task { @MainActor [weak self] in
-                    guard let self, self.isDockPreview, self.isShowing else { return }
-                    self.handleDockPreviewMouseEvent(event)
-                }
-                return event
-            }
-        }
-    }
-
-    private func handleDockPreviewMouseEvent(_ event: NSEvent) {
-        if DockPreviewContextMenuInteraction.isTrigger(eventType: event.type, modifierFlags: event.modifierFlags) {
-            suppressDockPreviewPresentation()
-            return
-        }
-
-        if !isMouseInDockPreviewSafeArea() {
-            scheduleDockPreviewDismiss()
-        }
-    }
-
-    private func isDockPreviewPresentationSuppressed(now: Date = Date()) -> Bool {
-        guard let dockPreviewSuppressedUntil else { return false }
-        guard dockPreviewSuppressedUntil > now else {
-            self.dockPreviewSuppressedUntil = nil
-            return false
-        }
-        return true
-    }
-
-    private func isMouseInsidePanel(padding: CGFloat) -> Bool {
-        guard let panel, panel.isVisible else { return false }
-        return panel.frame.insetBy(dx: -padding, dy: -padding).contains(NSEvent.mouseLocation)
-    }
-
-    private func isMouseInsideDockAnchor(padding: CGFloat) -> Bool {
-        guard let dockPreviewAnchorFrame else { return false }
-        return dockPreviewAnchorFrame.insetBy(dx: -padding, dy: -padding).contains(NSEvent.mouseLocation)
-    }
-
-    private func isMouseInDockPreviewSafeArea() -> Bool {
-        isMouseInsidePanel(padding: 22) || isMouseInsideDockAnchor(padding: 18)
     }
 }
 
@@ -741,26 +264,4 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
 private struct ThumbnailCacheEntry {
     var image: NSImage
     var createdAt: Date
-}
-
-private struct PanelLayerState {
-    var opacity: Float
-    var transform: CATransform3D
-
-    static let identity = PanelLayerState(opacity: 1, transform: CATransform3DIdentity)
-}
-
-enum DockPreviewContextMenuInteraction {
-    static let suppressionDuration: TimeInterval = 1.2
-
-    static func isTrigger(eventType: NSEvent.EventType, modifierFlags: NSEvent.ModifierFlags) -> Bool {
-        switch eventType {
-        case .rightMouseDown, .otherMouseDown:
-            return true
-        case .leftMouseDown:
-            return modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.control)
-        default:
-            return false
-        }
-    }
 }

@@ -21,7 +21,7 @@ Free, open source, and local. No accounts, analytics, or subscriptions.
 
 | | What you get |
 | :-- | :-- |
-| **Dock previews** | Hover over a Dock app, see its windows, and choose one. |
+| **Dock previews** | Hover over a Dock app to see live previews of every window it has open—including minimized, hidden, full-screen, and other-Space windows. Click to switch, or close, minimize, and full-screen right from the preview. |
 | **Window switching** | Option–Tab through windows, with thumbnails and Shift to cycle backwards. |
 | **Scrolling** | Tune mouse smoothing and direction. Give individual apps their own rules—or leave their scrolling native. |
 | **Middle click** | Use a three-finger trackpad tap, modifier-click, or an extra mouse button. |
@@ -48,9 +48,9 @@ The preview is signed with an Apple Development certificate and **is not notariz
 | Permission | Why it is used |
 | :-- | :-- |
 | **Accessibility** | Global shortcuts, input adjustments, Dock detection, and window actions. |
-| **Screen Recording — optional** | Local window thumbnails. Basic window switching works without thumbnails. |
+| **Screen Recording — optional** | Local window thumbnails. Without it, previews and the switcher show app icons instead. |
 
-Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → Configuration** to export or import them. Three-finger tap uses a private macOS framework and may change with OS updates.
+Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → Configuration** to export or import them. Three-finger tap and Dock previews rely on private macOS interfaces that may change with OS updates; previews fall back to public APIs when one is missing.
 
 ## At your fingertips
 
@@ -58,6 +58,10 @@ Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → 
 | :-- | :-- |
 | Next / previous window | **⌥ Tab** / **⌥ ⇧ Tab**; release Option to select, Escape to cancel |
 | Quick controls | Click the menu bar icon; **⌘ ⇧ M** while macMender is active |
+| Dock preview | Hover a Dock icon; click a window to bring it forward |
+| Close from a preview | Red button, or middle-click the preview; right-click for Quit, Hide, and Close All |
+| Peek at a window | Rest the pointer on a preview to see that window at full size |
+| Preview keys | With the pointer over a preview: arrow keys select, Return opens, **⌘ W** closes, Escape dismisses |
 | Middle click | Three-finger trackpad tap |
 | Pause helpers | **Pause Helpers** in quick controls, or Safe Mode in Advanced |
 

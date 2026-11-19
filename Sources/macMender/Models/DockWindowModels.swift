@@ -4,6 +4,18 @@ struct DockAppIdentity: Equatable {
     var title: String
     var bundleIdentifier: String?
     var processIdentifier: pid_t?
+    /// The Dock tile of one minimized window rather than an application icon; `title` is the window's title.
+    var isMinimizedWindow = false
+
+    /// Whether two identities name the same Dock tile, ignoring details that change while it stays put.
+    func isSameDockItem(as other: DockAppIdentity) -> Bool {
+        guard isMinimizedWindow == other.isMinimizedWindow else { return false }
+        if isMinimizedWindow { return title == other.title }
+        if let bundleIdentifier, let otherBundleIdentifier = other.bundleIdentifier {
+            return bundleIdentifier == otherBundleIdentifier
+        }
+        return self == other
+    }
 
     var displayName: String {
         title.isEmpty ? (bundleIdentifier ?? "Unknown App") : title
@@ -57,7 +69,7 @@ enum DockPreviewAnimationStyle: String, CaseIterable, Codable, Identifiable {
         case .system: "System"
         case .fade: "Fade"
         case .scale: "Scale"
-        case .slideUp: "Slide Up"
+        case .slideUp: "Slide"
         case .glassPop: "Glass Pop"
         case .genie: "Genie"
         case .none: "None"
@@ -127,122 +139,151 @@ struct WindowSwitcherSettings: Codable, Equatable {
 
 struct DockPreviewSettings: Codable, Equatable {
     var enabled: Bool
+    /// Seconds the pointer rests on a Dock icon before its preview appears.
     var hoverDelay: Double
-    var previewIdleTimeout: Double
+    /// Seconds the preview stays after the pointer leaves it and its Dock icon.
+    var dismissDelay: Double
     var animationStyle: DockPreviewAnimationStyle
     var animationDuration: Double
-    var layout: SwitcherLayout
-    var thumbnailSize: Double
+    /// Thumbnail height in points.
+    var previewSize: Double
+    var showTitles: Bool
+    var showWindowControls: Bool
+    var livePreviews: Bool
+    var includeMinimizedWindows: Bool
+    var includeHiddenApps: Bool
+    var includeOtherSpaces: Bool
+    /// Show the window at full size after the pointer rests on its card.
+    var peekOnHover: Bool
+    /// Arrow keys, Return, and Escape act on the preview while the pointer is over it.
+    var keyboardNavigation: Bool
 
     enum CodingKeys: String, CodingKey {
         case enabled
         case hoverDelay
-        case previewIdleTimeout
+        case dismissDelay
         case animationStyle
         case animationDuration
         case animationSpeed
-        case layout
-        case thumbnailSize
+        case previewSize
+        case showTitles
+        case showWindowControls
+        case livePreviews
+        case includeMinimizedWindows
+        case includeHiddenApps
+        case includeOtherSpaces
+        case peekOnHover
+        case keyboardNavigation
     }
 
     init(
-        enabled: Bool,
-        hoverDelay: Double,
-        previewIdleTimeout: Double,
+        enabled: Bool = true,
+        hoverDelay: Double = Self.defaultHoverDelay,
+        dismissDelay: Double = Self.defaultDismissDelay,
         animationStyle: DockPreviewAnimationStyle = .system,
         animationDuration: Double = Self.defaultAnimationDuration,
-        layout: SwitcherLayout,
-        thumbnailSize: Double
+        previewSize: Double = Self.defaultPreviewSize,
+        showTitles: Bool = true,
+        showWindowControls: Bool = true,
+        livePreviews: Bool = true,
+        includeMinimizedWindows: Bool = true,
+        includeHiddenApps: Bool = true,
+        includeOtherSpaces: Bool = true,
+        peekOnHover: Bool = true,
+        keyboardNavigation: Bool = true
     ) {
         self.enabled = enabled
-        self.hoverDelay = hoverDelay
-        self.previewIdleTimeout = Self.clampedPreviewIdleTimeout(previewIdleTimeout)
+        self.hoverDelay = Self.clampedHoverDelay(hoverDelay)
+        self.dismissDelay = Self.clampedDismissDelay(dismissDelay)
         self.animationStyle = animationStyle
         self.animationDuration = Self.clampedAnimationDuration(animationDuration)
-        self.layout = layout
-        self.thumbnailSize = thumbnailSize
+        self.previewSize = Self.clampedPreviewSize(previewSize)
+        self.showTitles = showTitles
+        self.showWindowControls = showWindowControls
+        self.livePreviews = livePreviews
+        self.includeMinimizedWindows = includeMinimizedWindows
+        self.includeHiddenApps = includeHiddenApps
+        self.includeOtherSpaces = includeOtherSpaces
+        self.peekOnHover = peekOnHover
+        self.keyboardNavigation = keyboardNavigation
     }
 
+    /// Values saved by earlier versions decode cleanly: retired keys (`previewIdleTimeout`,
+    /// `layout`, `thumbnailSize`) are ignored and new keys take their defaults.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let fallback = DockPreviewSettings.default
+        let fallback = DockPreviewSettings()
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? fallback.enabled
-        hoverDelay = try container.decodeIfPresent(Double.self, forKey: .hoverDelay) ?? fallback.hoverDelay
-        previewIdleTimeout = Self.clampedPreviewIdleTimeout(
-            try container.decodeIfPresent(Double.self, forKey: .previewIdleTimeout) ?? fallback.previewIdleTimeout
-        )
+        hoverDelay = Self.clampedHoverDelay(try container.decodeIfPresent(Double.self, forKey: .hoverDelay) ?? fallback.hoverDelay)
+        dismissDelay = Self.clampedDismissDelay(try container.decodeIfPresent(Double.self, forKey: .dismissDelay) ?? fallback.dismissDelay)
         animationStyle = (try container.decodeIfPresent(DockPreviewAnimationStyle.self, forKey: .animationStyle) ?? fallback.animationStyle).legacyMappedStyle
         if let duration = try container.decodeIfPresent(Double.self, forKey: .animationDuration) {
             animationDuration = Self.clampedAnimationDuration(duration)
         } else if let legacySpeed = try container.decodeIfPresent(DockPreviewAnimationSpeed.self, forKey: .animationSpeed) {
-            animationDuration = legacySpeed.duration
+            animationDuration = Self.clampedAnimationDuration(legacySpeed.duration)
         } else {
             animationDuration = fallback.animationDuration
         }
-        layout = try container.decodeIfPresent(SwitcherLayout.self, forKey: .layout) ?? fallback.layout
-        thumbnailSize = try container.decodeIfPresent(Double.self, forKey: .thumbnailSize) ?? fallback.thumbnailSize
+        previewSize = Self.clampedPreviewSize(try container.decodeIfPresent(Double.self, forKey: .previewSize) ?? fallback.previewSize)
+        showTitles = try container.decodeIfPresent(Bool.self, forKey: .showTitles) ?? fallback.showTitles
+        showWindowControls = try container.decodeIfPresent(Bool.self, forKey: .showWindowControls) ?? fallback.showWindowControls
+        livePreviews = try container.decodeIfPresent(Bool.self, forKey: .livePreviews) ?? fallback.livePreviews
+        includeMinimizedWindows = try container.decodeIfPresent(Bool.self, forKey: .includeMinimizedWindows) ?? fallback.includeMinimizedWindows
+        includeHiddenApps = try container.decodeIfPresent(Bool.self, forKey: .includeHiddenApps) ?? fallback.includeHiddenApps
+        includeOtherSpaces = try container.decodeIfPresent(Bool.self, forKey: .includeOtherSpaces) ?? fallback.includeOtherSpaces
+        peekOnHover = try container.decodeIfPresent(Bool.self, forKey: .peekOnHover) ?? fallback.peekOnHover
+        keyboardNavigation = try container.decodeIfPresent(Bool.self, forKey: .keyboardNavigation) ?? fallback.keyboardNavigation
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(enabled, forKey: .enabled)
         try container.encode(hoverDelay, forKey: .hoverDelay)
-        try container.encode(previewIdleTimeout, forKey: .previewIdleTimeout)
+        try container.encode(dismissDelay, forKey: .dismissDelay)
         try container.encode(animationStyle, forKey: .animationStyle)
         try container.encode(animationDuration, forKey: .animationDuration)
-        try container.encode(layout, forKey: .layout)
-        try container.encode(thumbnailSize, forKey: .thumbnailSize)
+        try container.encode(previewSize, forKey: .previewSize)
+        try container.encode(showTitles, forKey: .showTitles)
+        try container.encode(showWindowControls, forKey: .showWindowControls)
+        try container.encode(livePreviews, forKey: .livePreviews)
+        try container.encode(includeMinimizedWindows, forKey: .includeMinimizedWindows)
+        try container.encode(includeHiddenApps, forKey: .includeHiddenApps)
+        try container.encode(includeOtherSpaces, forKey: .includeOtherSpaces)
+        try container.encode(peekOnHover, forKey: .peekOnHover)
+        try container.encode(keyboardNavigation, forKey: .keyboardNavigation)
     }
 
-    static let `default` = DockPreviewSettings(
-        enabled: true,
-        hoverDelay: 0.35,
-        previewIdleTimeout: 1.8,
-        animationStyle: .system,
-        animationDuration: defaultAnimationDuration,
-        layout: .grid,
-        thumbnailSize: 152
-    )
+    static let `default` = DockPreviewSettings()
+    static let compact = DockPreviewSettings(hoverDelay: 0.2, previewSize: 112)
+    static let presentation = DockPreviewSettings(hoverDelay: 0.4, animationDuration: 0.24, previewSize: 184)
 
-    static let compact = DockPreviewSettings(
-        enabled: true,
-        hoverDelay: 0.2,
-        previewIdleTimeout: 1.5,
-        animationStyle: .system,
-        animationDuration: defaultAnimationDuration,
-        layout: .grid,
-        thumbnailSize: 132
-    )
+    static let defaultHoverDelay = 0.25
+    static let defaultDismissDelay = 0.25
+    static let defaultAnimationDuration = 0.18
+    static let defaultPreviewSize = 150.0
+    static let previewSizeRange = 90.0...260.0
+    static let hoverDelayRange = 0.0...1.2
+    static let dismissDelayRange = 0.1...2.0
+    static let animationDurationRange = 0.05...0.60
 
-    static let presentation = DockPreviewSettings(
-        enabled: true,
-        hoverDelay: 0.45,
-        previewIdleTimeout: 2.0,
-        animationStyle: .system,
-        animationDuration: 0.32,
-        layout: .grid,
-        thumbnailSize: 180
-    )
+    /// Defaults shipped before the preview rebuild, used to move untouched settings forward.
+    static let legacyDefaultHoverDelay = 0.35
+    static let legacyDefaultAnimationDuration = 0.22
 
-    static let defaultAnimationDuration = 0.22
+    static func clampedHoverDelay(_ value: Double) -> Double {
+        min(max(value, hoverDelayRange.lowerBound), hoverDelayRange.upperBound)
+    }
 
-    static func clampedPreviewIdleTimeout(_ value: Double) -> Double {
-        min(max(value, 0), 10.0)
+    static func clampedDismissDelay(_ value: Double) -> Double {
+        min(max(value, dismissDelayRange.lowerBound), dismissDelayRange.upperBound)
     }
 
     static func clampedAnimationDuration(_ value: Double) -> Double {
-        min(max(value, 0.05), 0.60)
+        min(max(value, animationDurationRange.lowerBound), animationDurationRange.upperBound)
     }
 
-    func overlaySettings(using base: WindowSwitcherSettings) -> WindowSwitcherSettings {
-        WindowSwitcherSettings(
-            enabled: enabled,
-            shortcut: base.shortcut,
-            layout: layout,
-            thumbnailSize: thumbnailSize,
-            includeMinimizedWindows: base.includeMinimizedWindows,
-            includeHiddenApps: base.includeHiddenApps
-        )
+    static func clampedPreviewSize(_ value: Double) -> Double {
+        min(max(value, previewSizeRange.lowerBound), previewSizeRange.upperBound)
     }
 }
 
