@@ -93,6 +93,15 @@ final class DockPreviewPeekPanel {
         isVisible = true
     }
 
+    /// Replaces the picture of an open peek without moving or re-animating it.
+    func update(image: CGImage) {
+        guard isVisible else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        panel?.contentView?.layer?.contents = image
+        CATransaction.commit()
+    }
+
     func hide(animated: Bool = true) {
         guard isVisible, let panel else { return }
         isVisible = false

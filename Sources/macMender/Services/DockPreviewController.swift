@@ -63,9 +63,14 @@ final class DockPreviewController: ObservableObject {
     private let handOffWindow: TimeInterval = 0.45
     /// Delay before another icon takes over while the pointer is heading for the open preview.
     private let aimDelay: TimeInterval = 0.3
-    private let liveRefreshInterval: TimeInterval = 0.6
+    /// The highlighted card and an open peek refresh every tick; the other cards every third.
+    private let liveTickInterval: TimeInterval = 0.1
     /// How long the pointer rests on a card before the window is shown at full size.
-    private let peekDelay: TimeInterval = 0.5
+    private let peekDelay: TimeInterval = 0.6
+    /// How long a dragged item rests on a card before its window comes forward.
+    private let springLoadDelay: TimeInterval = 0.55
+    private var springLoadTask: Task<Void, Never>?
+    private var peekWindowID: CGWindowID?
     private let peekSwitchDelay: TimeInterval = 0.12
     private let keyTap = DockPreviewKeyTap()
     private let peekPanel = DockPreviewPeekPanel()
@@ -111,7 +116,8 @@ final class DockPreviewController: ObservableObject {
             self.suppressedIdentity = nil
         }
 
-        guard target.isRunning else {
+        let isExcluded = target.identity.bundleIdentifier.map(settings.excludedBundleIdentifiers.contains) ?? false
+        guard target.isRunning, !isExcluded else {
             cancelPendingShow()
             dismiss()
             return
@@ -268,6 +274,7 @@ final class DockPreviewController: ObservableObject {
             aspectRatios: windows.map(\.aspectRatio),
             thumbnailHeight: settings.previewSize,
             showTitles: settings.showTitles,
+            showHeader: settings.showAppHeader,
             edge: anchor.edge,
             maximumContentSize: DockPreviewLayout.maximumContentSize(screenSize: visibleFrame.size, edge: anchor.edge)
         )
@@ -299,6 +306,8 @@ final class DockPreviewController: ObservableObject {
         reconcileTask = nil
         lastDismissedAt = Date()
         hoveredWindowID = nil
+        springLoadTask?.cancel()
+        springLoadTask = nil
 
         let duration = animated && settings.animationStyle != .none ? dismissAnimationDuration : 0
         guard duration > 0 else {
@@ -386,9 +395,12 @@ final class DockPreviewController: ObservableObject {
             NSEvent.addGlobalMonitorForEvents(matching: downMask) { [weak self] _ in
                 MainActor.assumeIsolated { self?.mouseDownOutsidePreview() }
             },
-            NSEvent.addLocalMonitorForEvents(matching: [.otherMouseDown]) { [weak self] event in
-                let isMiddleButton = event.buttonNumber == 2
-                let handled = MainActor.assumeIsolated { isMiddleButton && (self?.closeHoveredWindow() ?? false) }
+            NSEvent.addLocalMonitorForEvents(matching: [.otherMouseDown, .rightMouseDown]) { [weak self] event in
+                let handled = MainActor.assumeIsolated {
+                    guard let self else { return false }
+                    if event.type == .rightMouseDown { return self.showMenuForHoveredWindow(with: event) }
+                    return event.buttonNumber == 2 && self.closeHoveredWindow()
+                }
                 return handled ? nil : event
             }
         ].compactMap { $0 }
@@ -437,8 +449,10 @@ final class DockPreviewController: ObservableObject {
 
     /// A context menu opened from a card runs its own event loop; the preview must outlive it.
     private var isMenuOpen: Bool {
-        RunLoop.main.currentMode == .eventTracking
+        isMenuTracking || RunLoop.main.currentMode == .eventTracking
     }
+
+    private var isMenuTracking = false
 
     private func evaluatePointer() {
         guard phase == .visible else { return }
@@ -483,29 +497,33 @@ final class DockPreviewController: ObservableObject {
     // MARK: Thumbnails
 
     private func refreshThumbnails(for windows: [WindowSummary]) {
+        Task { @MainActor [weak self] in
+            await self?.captureThumbnails(for: windows)
+        }
+    }
+
+    private func captureThumbnails(for windows: [WindowSummary]) async {
+        guard !windows.isEmpty else { return }
         let scale = panel?.screen?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         let height = presentation?.layout.thumbnailHeight ?? CGFloat(settings.previewSize)
         let maxPixelSize = CGSize(
             width: height * DockPreviewLayout.Metrics.maximumAspectRatio * scale,
             height: height * scale
         )
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            var images = [WindowSummary.ID: CGImage]()
-            if PrivateWindowAPI.canCaptureWindows {
-                let requests = windows.compactMap { window in
-                    window.windowID.map { WindowThumbnailRequest(id: window.id, windowID: $0, maxPixelSize: maxPixelSize) }
-                }
-                images = await WindowThumbnailCapturer.capture(requests)
-            } else {
-                let pointSize = CGSize(width: maxPixelSize.width / scale, height: maxPixelSize.height / scale)
-                for (id, image) in await self.fallbackCatalog.thumbnails(for: windows, maxSize: pointSize) {
-                    images[id] = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-                }
+        var images = [WindowSummary.ID: CGImage]()
+        if PrivateWindowAPI.canCaptureWindows {
+            let requests = windows.compactMap { window in
+                window.windowID.map { WindowThumbnailRequest(id: window.id, windowID: $0, maxPixelSize: maxPixelSize) }
             }
-            guard !images.isEmpty else { return }
-            self.store(images)
+            images = await WindowThumbnailCapturer.capture(requests)
+        } else {
+            let pointSize = CGSize(width: maxPixelSize.width / scale, height: maxPixelSize.height / scale)
+            for (id, image) in await fallbackCatalog.thumbnails(for: windows, maxSize: pointSize) {
+                images[id] = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            }
         }
+        guard !images.isEmpty else { return }
+        store(images)
     }
 
     private func store(_ images: [WindowSummary.ID: CGImage]) {
@@ -521,24 +539,44 @@ final class DockPreviewController: ObservableObject {
         thumbnails = updated
     }
 
+    /// Keeps the preview current while it is open. Captures are awaited one batch at a time, so
+    /// a slow window server lowers the frame rate instead of queueing work.
     private func startLiveRefresh() {
         liveTask?.cancel()
-        let interval = liveRefreshInterval
+        let interval = liveTickInterval
         liveTask = Task { @MainActor [weak self] in
             var tick = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(Int(interval * 1000)))
                 guard let self, !Task.isCancelled, self.phase == .visible, let presentation = self.presentation else { return }
                 tick += 1
-                if tick.isMultiple(of: 3) {
+                if tick.isMultiple(of: 18) {
                     await self.reconcile()
                 }
-                if self.settings.livePreviews {
-                    // Minimized windows do not change, so their first capture is kept.
-                    self.refreshThumbnails(for: presentation.windows.filter { !$0.isMinimized })
+                guard self.settings.livePreviews else { continue }
+                // Minimized windows do not change, so their first capture is kept. Without the
+                // fast capture path every refresh is costly, so only the slower rate is used.
+                let live = presentation.windows.filter { !$0.isMinimized }
+                if tick.isMultiple(of: 3) {
+                    await self.captureThumbnails(for: live)
+                } else if PrivateWindowAPI.canCaptureWindows, let hovered = live.first(where: { $0.id == self.hoveredWindowID }) {
+                    await self.captureThumbnails(for: [hovered])
+                }
+                if tick.isMultiple(of: 2) {
+                    await self.refreshPeek()
                 }
             }
         }
+    }
+
+    /// Updates an open peek so it tracks the window instead of freezing at its first frame.
+    private func refreshPeek() async {
+        guard peekPanel.isVisible, let windowID = peekWindowID else { return }
+        let image = await Task.detached(priority: .userInitiated) {
+            PrivateWindowAPI.captureWindow(windowID, fullResolution: true)
+        }.value
+        guard let image, peekPanel.isVisible, peekWindowID == windowID else { return }
+        peekPanel.update(image: image)
     }
 
     /// Re-reads the application's windows so cards appear and disappear as windows do.
@@ -612,6 +650,44 @@ final class DockPreviewController: ObservableObject {
         return true
     }
 
+    /// The right-click menu is an AppKit menu: its items keep working while the preview behind
+    /// it redraws with fresh thumbnails.
+    private func showMenuForHoveredWindow(with event: NSEvent) -> Bool {
+        guard phase == .visible, let hoveredWindowID, let view = panel?.contentView,
+              let window = presentation?.windows.first(where: { $0.id == hoveredWindowID }) else {
+            return false
+        }
+        peekPanel.hide()
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        func add(_ title: String, enabled: Bool = true, _ action: @escaping @MainActor () -> Void) {
+            let item = DockPreviewMenuItem(title: title, handler: action)
+            item.isEnabled = enabled
+            menu.addItem(item)
+        }
+        add("Bring to Front") { [weak self] in self?.activate(window) }
+        add(window.isMinimized ? "Restore" : "Minimize") { [weak self] in self?.toggleMinimized(window) }
+        add(window.isFullScreen ? "Exit Full Screen" : "Enter Full Screen") { [weak self] in self?.toggleFullScreen(window) }
+        add("Close Window") { [weak self] in self?.close(window) }
+        menu.addItem(.separator())
+        for arrangement in WindowArrangement.allCases {
+            add(arrangement.title, enabled: !window.isFullScreen) { [weak self] in self?.arrange(window, as: arrangement) }
+        }
+        if hasMultipleDisplays {
+            add("Move to Next Display", enabled: !window.isFullScreen) { [weak self] in self?.moveToNextDisplay(window) }
+        }
+        menu.addItem(.separator())
+        add("Close All Windows") { [weak self] in self?.closeAllWindows() }
+        add("Hide \(window.appName)") { [weak self] in self?.hideApplication() }
+        add("Quit \(window.appName)") { [weak self] in self?.quitApplication() }
+
+        isMenuTracking = true
+        menu.popUp(positioning: nil, at: view.convert(event.locationInWindow, from: nil), in: view)
+        isMenuTracking = false
+        evaluatePointer()
+        return true
+    }
+
     func toggleMinimized(_ window: WindowSummary) {
         guard WindowActions.setMinimized(window, minimized: !window.isMinimized) else {
             NSSound.beep()
@@ -627,6 +703,46 @@ final class DockPreviewController: ObservableObject {
         }
         if !WindowActions.toggleFullScreen(window) {
             NSSound.beep()
+        }
+    }
+
+    func arrange(_ window: WindowSummary, as arrangement: WindowArrangement) {
+        dismiss()
+        guard WindowActions.arrange(window, as: arrangement) else {
+            NSSound.beep()
+            return
+        }
+        WindowActions.activate(window)
+    }
+
+    func moveToNextDisplay(_ window: WindowSummary) {
+        dismiss()
+        guard WindowActions.moveToNextDisplay(window) else {
+            NSSound.beep()
+            return
+        }
+        WindowActions.activate(window)
+    }
+
+    var hasMultipleDisplays: Bool {
+        NSScreen.screens.count > 1
+    }
+
+    /// A dragged item is resting on a card: bring that window forward so it can be dropped there.
+    func dragTargetChanged(_ window: WindowSummary, isTargeted: Bool) {
+        springLoadTask?.cancel()
+        springLoadTask = nil
+        guard isTargeted else {
+            if hoveredWindowID == window.id { hoveredWindowID = nil }
+            return
+        }
+        hoveredWindowID = window.id
+        cancelDismissTimer()
+        let delay = springLoadDelay
+        springLoadTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
+            guard let self, !Task.isCancelled, self.phase == .visible, self.hoveredWindowID == window.id else { return }
+            self.activate(window)
         }
     }
 
@@ -723,6 +839,7 @@ final class DockPreviewController: ObservableObject {
         peekTask?.cancel()
         peekTask = nil
         guard settings.peekOnHover, phase == .visible, WindowThumbnailCapturer.isAvailable,
+              springLoadTask == nil, NSEvent.pressedMouseButtons == 0,
               let id = hoveredWindowID,
               let window = presentation?.windows.first(where: { $0.id == id }),
               let windowID = window.windowID else {
@@ -755,6 +872,7 @@ final class DockPreviewController: ObservableObject {
                 windowSize: windowSize,
                 visibleFrame: visibleFrame
             )
+            self.peekWindowID = windowID
             self.peekPanel.show(
                 image: image,
                 frame: frame,
@@ -813,6 +931,25 @@ final class DockPreviewController: ObservableObject {
     }
 }
 
+private final class DockPreviewMenuItem: NSMenuItem {
+    private let handler: @MainActor () -> Void
+
+    init(title: String, handler: @escaping @MainActor () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(run), keyEquivalent: "")
+        target = self
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    @objc @MainActor private func run() {
+        handler()
+    }
+}
+
 private final class DockPreviewPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
@@ -831,11 +968,17 @@ extension DockPreviewController {
     /// Development aid: with `MACMENDER_PREVIEW_SNAPSHOT=<directory>` set, shows a preview shortly
     /// after launch and writes a screenshot of it plus a discovery report to that directory.
     /// `MACMENDER_PREVIEW_APP=<bundle id>` picks the application.
-    func runDebugSnapshotIfRequested() {
+    func runDebugSnapshotIfRequested(openSettings: (() -> Void)? = nil) {
         let environment = ProcessInfo.processInfo.environment
         guard let path = environment["MACMENDER_PREVIEW_SNAPSHOT"], !path.isEmpty else { return }
         let directory = URL(fileURLWithPath: path, isDirectory: true)
         let preferred = environment["MACMENDER_PREVIEW_APP"]
+        switch environment["MACMENDER_PREVIEW_APPEARANCE"] {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        default: break
+        }
+        let wantsSettings = environment["MACMENDER_SNAPSHOT_SETTINGS"] != nil
 
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
@@ -875,6 +1018,24 @@ extension DockPreviewController {
                 }
             } else {
                 lines.append("presented=nothing status=\(self.lastStatus)")
+            }
+            if wantsSettings, let openSettings {
+                self.dismiss(animated: false)
+                openSettings()
+                try? await Task.sleep(for: .milliseconds(1800))
+                if let window = NSApp.windows.first(where: { $0.isVisible && $0.styleMask.contains(.titled) }),
+                   let screen = window.screen ?? NSScreen.main {
+                    let visible = screen.visibleFrame
+                    window.setFrame(CGRect(x: visible.minX + 40, y: visible.minY, width: 1100, height: visible.height), display: true)
+                    NSApp.activate(ignoringOtherApps: true)
+                    window.orderFrontRegardless()
+                    try? await Task.sleep(for: .milliseconds(900))
+                    if let image = await Self.debugScreenshot(of: window.frame),
+                       let destination = CGImageDestinationCreateWithURL(directory.appendingPathComponent("settings.png") as CFURL, "public.png" as CFString, 1, nil) {
+                        CGImageDestinationAddImage(destination, image, nil)
+                        lines.append("settings=\(CGImageDestinationFinalize(destination))")
+                    }
+                }
             }
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try? lines.joined(separator: "\n").write(to: directory.appendingPathComponent("report.txt"), atomically: true, encoding: .utf8)

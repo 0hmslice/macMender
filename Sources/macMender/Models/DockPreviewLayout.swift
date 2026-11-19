@@ -20,6 +20,10 @@ struct DockPreviewLayout: Equatable, Sendable {
         static let cardSpacing: CGFloat = 4
         static let titleHeight: CGFloat = 22
         static let footerHeight: CGFloat = 22
+        /// Row above the cards naming the application.
+        static let headerHeight: CGFloat = 30
+        /// Narrowest preview that still fits an application name and its buttons.
+        static let minimumHeaderWidth: CGFloat = 220
         static let minimumThumbnailHeight: CGFloat = 84
         static let minimumAspectRatio: CGFloat = 0.72
         static let maximumAspectRatio: CGFloat = 1.9
@@ -34,6 +38,8 @@ struct DockPreviewLayout: Equatable, Sendable {
     var thumbnailHeight: CGFloat
     /// Windows that did not fit even at the smallest size.
     var hiddenCount: Int
+    /// Height reserved above the cards for the application header; zero when it is off.
+    var headerHeight: CGFloat = 0
 
     static func thumbnailSize(aspectRatio: CGFloat, height: CGFloat) -> CGSize {
         let ratio = min(max(aspectRatio, Metrics.minimumAspectRatio), Metrics.maximumAspectRatio)
@@ -49,6 +55,42 @@ struct DockPreviewLayout: Equatable, Sendable {
     }
 
     static func compute(
+        aspectRatios: [CGFloat],
+        thumbnailHeight requestedHeight: CGFloat,
+        showTitles: Bool,
+        showHeader: Bool = false,
+        edge: DockEdge,
+        maximumContentSize: CGSize
+    ) -> DockPreviewLayout {
+        guard showHeader else {
+            return computeCards(
+                aspectRatios: aspectRatios,
+                thumbnailHeight: requestedHeight,
+                showTitles: showTitles,
+                edge: edge,
+                maximumContentSize: maximumContentSize
+            )
+        }
+        // Lay the cards out in the space left under the header, then move them down and, when
+        // the header needs more width than the cards, center them beneath it.
+        let header = Metrics.headerHeight
+        var layout = computeCards(
+            aspectRatios: aspectRatios,
+            thumbnailHeight: requestedHeight,
+            showTitles: showTitles,
+            edge: edge,
+            maximumContentSize: CGSize(width: maximumContentSize.width, height: maximumContentSize.height - header)
+        )
+        guard !layout.cardFrames.isEmpty else { return layout }
+        let width = max(layout.contentSize.width, Metrics.minimumHeaderWidth)
+        let inset = ((width - layout.contentSize.width) / 2).rounded()
+        layout.cardFrames = layout.cardFrames.map { $0.offsetBy(dx: inset, dy: header - Metrics.contentPadding + 2) }
+        layout.contentSize = CGSize(width: width, height: layout.contentSize.height + header - Metrics.contentPadding + 2)
+        layout.headerHeight = header
+        return layout
+    }
+
+    private static func computeCards(
         aspectRatios: [CGFloat],
         thumbnailHeight requestedHeight: CGFloat,
         showTitles: Bool,
@@ -359,6 +401,60 @@ enum DockPreviewPeekPlacement {
         return CGRect(
             x: (visibleFrame.midX - size.width / 2).rounded(),
             y: (visibleFrame.midY - size.height / 2).rounded(),
+            width: size.width,
+            height: size.height
+        )
+    }
+}
+
+/// Places a window on a screen from its Dock preview.
+enum WindowArrangement: String, CaseIterable, Sendable {
+    case leftHalf
+    case rightHalf
+    case fill
+    case center
+
+    var title: String {
+        switch self {
+        case .leftHalf: "Left Half"
+        case .rightHalf: "Right Half"
+        case .fill: "Fill Screen"
+        case .center: "Center"
+        }
+    }
+
+    /// The window's new frame inside a screen's usable area. Works in any coordinate system.
+    func frame(windowSize: CGSize, in visibleFrame: CGRect) -> CGRect {
+        switch self {
+        case .leftHalf:
+            return CGRect(x: visibleFrame.minX, y: visibleFrame.minY, width: (visibleFrame.width / 2).rounded(.down), height: visibleFrame.height)
+        case .rightHalf:
+            let width = (visibleFrame.width / 2).rounded(.down)
+            return CGRect(x: visibleFrame.maxX - width, y: visibleFrame.minY, width: width, height: visibleFrame.height)
+        case .fill:
+            return visibleFrame
+        case .center:
+            let size = CGSize(width: min(windowSize.width, visibleFrame.width), height: min(windowSize.height, visibleFrame.height))
+            return CGRect(
+                x: (visibleFrame.midX - size.width / 2).rounded(),
+                y: (visibleFrame.midY - size.height / 2).rounded(),
+                width: size.width,
+                height: size.height
+            )
+        }
+    }
+
+    /// Moves a window to another screen, keeping its place relative to the screen and shrinking
+    /// it if the destination is smaller.
+    static func frame(moving windowFrame: CGRect, from source: CGRect, to destination: CGRect) -> CGRect {
+        let size = CGSize(width: min(windowFrame.width, destination.width), height: min(windowFrame.height, destination.height))
+        let xRange = max(source.width - windowFrame.width, 1)
+        let yRange = max(source.height - windowFrame.height, 1)
+        let xFraction = min(max((windowFrame.minX - source.minX) / xRange, 0), 1)
+        let yFraction = min(max((windowFrame.minY - source.minY) / yRange, 0), 1)
+        return CGRect(
+            x: (destination.minX + (destination.width - size.width) * xFraction).rounded(),
+            y: (destination.minY + (destination.height - size.height) * yFraction).rounded(),
             width: size.width,
             height: size.height
         )

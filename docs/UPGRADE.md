@@ -59,6 +59,12 @@ Dock previews were rebuilt as their own feature instead of a mode of the window 
 - **Peek.** Resting the pointer on a card for half a second shows that window at full size: in place when it is on screen, centered when it is minimized, hidden, or on another Space. The peek ignores the pointer and sits just beneath the preview.
 - **Keyboard.** While the pointer is over a preview, arrow keys move between cards, Return brings the selected window forward, Command-W closes it, and Escape dismisses. A key-down event tap exists only while a preview is open, and it passes every key through unless the pointer is over the preview, so typing with the pointer parked on the Dock is unaffected.
 - **Minimized windows in the Dock** show a preview of that window. The Dock tile carries only the window's title, so the owning application is found by matching minimized windows by title.
+- **Header.** Each preview names its application and window count, with Hide and Quit buttons.
+- **Arranging.** The right-click menu moves a window to the left or right half, fills or centers it on its screen, or sends it to the next display. The menu is an AppKit menu; a SwiftUI context menu on the constantly redrawing preview opened but did not run its actions.
+- **Drag and drop.** A drag that starts away from the Dock and carries items shows previews as it crosses Dock icons; resting on a card for half a second brings that window forward so the item can be dropped into it.
+- **Exclusions.** Applications can be listed to never show a preview.
+- **Near-live thumbnails.** The highlighted card and an open peek refresh about ten times a second and the other cards about three, one awaited batch at a time.
+- **Window switcher.** Opens with the current Space at once, then appends windows from other Spaces found off the main thread.
 - **One window comes forward.** Clicking a preview raises that window only, switching Space when needed, instead of bringing every window of the app to the front.
 - **Hover detection.** An Accessibility observer on the Dock reports the hovered icon. Pointer movement is only examined within the Dock's screen-edge band, so movement elsewhere costs a rectangle test rather than a round trip to the Dock.
 - **Pointer behavior.** Sliding along the Dock swaps previews almost immediately. A corridor from the icon to the preview keeps it open while the pointer travels to a distant card, even across neighboring icons.
@@ -68,7 +74,7 @@ Dock previews were rebuilt as their own feature instead of a mode of the window 
 
 Private interfaces used: `CGSHWCaptureWindowList` (capture), `_SLPSSetFrontProcessWithOptions` and `SLPSPostEventRecordTo` (single-window focus), `CGSCopySpacesForWindows` and `CGSCopyManagedDisplaySpaces` (Spaces), `_AXUIElementCreateWithRemoteToken` and `_AXUIElementGetWindow` (window identity). All are resolved at run time; if one disappears the feature degrades to public API (ScreenCaptureKit capture, whole-app activation, current-Space windows) rather than failing to launch. The implementation is independent of the GPL-licensed utilities that use the same interfaces.
 
-Verified on macOS 27.2 (26B131) with a bottom, auto-hiding, magnified Dock on one display: hover, hand-off between icons, travel to the preview, close button, middle-click close, minimize and restore, single-window raise (confirmed by window-server order), activation of a full-screen window on another Space, peek, arrow-key selection with Return and Escape, and a minimized-window tile preview restoring its window. Not yet exercised on real hardware: left/right Docks and multiple displays (covered by unit tests of the geometry only).
+Verified on macOS 27.2 (26B131) with a bottom, auto-hiding, magnified Dock on one display: hover, hand-off between icons, travel to the preview, close button, middle-click close, minimize and restore, single-window raise (confirmed by window-server order), activation of a full-screen window on another Space, peek, arrow-key selection with Return, Command-W and Escape, a minimized-window tile preview restoring its window, previews for a hidden app, the right-click menu and window arranging, header Hide and Quit, drag-and-drop spring-loading, and placement beside a left Dock. Not yet exercised on real hardware: a right-side Dock and multiple displays (covered by unit-tested geometry only), and other-Space windows appearing in the keyboard switcher.
 
 ## Architecture and behavior
 
@@ -84,7 +90,7 @@ Verified on macOS 27.2 (26B131) with a bottom, auto-hiding, magnified Dock on on
 
 1. Physical mouse/trackpad matching through HID: current classification distinguishes continuous input from discrete wheels, not individual hardware. The UI now says so and hides the ineffective separate Magic Mouse rule.
 2. Window search and configurable per-application window exclusions. The current catalog and overlay can support this, but keyboard text routing needs its own interaction design.
-3. Dock preview discovery runs off the main thread; the keyboard window switcher still discovers windows on the main thread and only lists the current Space. Move it onto the same engine.
+3. The keyboard window switcher still discovers current-Space windows on the main thread and has its own card design; move it fully onto the shared engine and visual style. Thumbnails are frequent snapshots, not a video stream.
 4. Menu item organization using an independently validated macOS 27 implementation. Avoid unsupported Control Center preference guesses or process injection.
 5. Developer ID signing, notarization, and a physical-device test matrix before moving beyond the public preview.
 

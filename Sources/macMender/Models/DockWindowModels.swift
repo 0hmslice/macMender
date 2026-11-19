@@ -108,6 +108,38 @@ struct WindowSwitcherSettings: Codable, Equatable {
     var thumbnailSize: Double
     var includeMinimizedWindows: Bool
     var includeHiddenApps: Bool
+    /// Also list windows on other Spaces and in full screen.
+    var includeOtherSpaces = true
+
+    init(
+        enabled: Bool,
+        shortcut: String,
+        layout: SwitcherLayout,
+        thumbnailSize: Double,
+        includeMinimizedWindows: Bool,
+        includeHiddenApps: Bool,
+        includeOtherSpaces: Bool = true
+    ) {
+        self.enabled = enabled
+        self.shortcut = shortcut
+        self.layout = layout
+        self.thumbnailSize = thumbnailSize
+        self.includeMinimizedWindows = includeMinimizedWindows
+        self.includeHiddenApps = includeHiddenApps
+        self.includeOtherSpaces = includeOtherSpaces
+    }
+
+    /// `includeOtherSpaces` is absent from settings saved by earlier versions.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decode(Bool.self, forKey: .enabled)
+        shortcut = try container.decode(String.self, forKey: .shortcut)
+        layout = try container.decode(SwitcherLayout.self, forKey: .layout)
+        thumbnailSize = try container.decode(Double.self, forKey: .thumbnailSize)
+        includeMinimizedWindows = try container.decode(Bool.self, forKey: .includeMinimizedWindows)
+        includeHiddenApps = try container.decode(Bool.self, forKey: .includeHiddenApps)
+        includeOtherSpaces = try container.decodeIfPresent(Bool.self, forKey: .includeOtherSpaces) ?? true
+    }
 
     static let `default` = WindowSwitcherSettings(
         enabled: true,
@@ -157,6 +189,10 @@ struct DockPreviewSettings: Codable, Equatable {
     var peekOnHover: Bool
     /// Arrow keys, Return, and Escape act on the preview while the pointer is over it.
     var keyboardNavigation: Bool
+    /// Show the application's name, with Hide and Quit, above its windows.
+    var showAppHeader: Bool
+    /// Applications that never show a preview.
+    var excludedBundleIdentifiers: [String]
 
     enum CodingKeys: String, CodingKey {
         case enabled
@@ -174,6 +210,8 @@ struct DockPreviewSettings: Codable, Equatable {
         case includeOtherSpaces
         case peekOnHover
         case keyboardNavigation
+        case showAppHeader
+        case excludedBundleIdentifiers
     }
 
     init(
@@ -190,7 +228,9 @@ struct DockPreviewSettings: Codable, Equatable {
         includeHiddenApps: Bool = true,
         includeOtherSpaces: Bool = true,
         peekOnHover: Bool = true,
-        keyboardNavigation: Bool = true
+        keyboardNavigation: Bool = true,
+        showAppHeader: Bool = true,
+        excludedBundleIdentifiers: [String] = []
     ) {
         self.enabled = enabled
         self.hoverDelay = Self.clampedHoverDelay(hoverDelay)
@@ -206,6 +246,8 @@ struct DockPreviewSettings: Codable, Equatable {
         self.includeOtherSpaces = includeOtherSpaces
         self.peekOnHover = peekOnHover
         self.keyboardNavigation = keyboardNavigation
+        self.showAppHeader = showAppHeader
+        self.excludedBundleIdentifiers = excludedBundleIdentifiers
     }
 
     /// Values saved by earlier versions decode cleanly: retired keys (`previewIdleTimeout`,
@@ -233,6 +275,8 @@ struct DockPreviewSettings: Codable, Equatable {
         includeOtherSpaces = try container.decodeIfPresent(Bool.self, forKey: .includeOtherSpaces) ?? fallback.includeOtherSpaces
         peekOnHover = try container.decodeIfPresent(Bool.self, forKey: .peekOnHover) ?? fallback.peekOnHover
         keyboardNavigation = try container.decodeIfPresent(Bool.self, forKey: .keyboardNavigation) ?? fallback.keyboardNavigation
+        showAppHeader = try container.decodeIfPresent(Bool.self, forKey: .showAppHeader) ?? fallback.showAppHeader
+        excludedBundleIdentifiers = try container.decodeIfPresent([String].self, forKey: .excludedBundleIdentifiers) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -251,6 +295,8 @@ struct DockPreviewSettings: Codable, Equatable {
         try container.encode(includeOtherSpaces, forKey: .includeOtherSpaces)
         try container.encode(peekOnHover, forKey: .peekOnHover)
         try container.encode(keyboardNavigation, forKey: .keyboardNavigation)
+        try container.encode(showAppHeader, forKey: .showAppHeader)
+        try container.encode(excludedBundleIdentifiers, forKey: .excludedBundleIdentifiers)
     }
 
     static let `default` = DockPreviewSettings()

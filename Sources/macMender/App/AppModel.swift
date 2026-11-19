@@ -178,7 +178,9 @@ final class AppModel: ObservableObject {
         runtimeStartedAt = Date()
         refreshSystemState(force: true)
         #if DEBUG
-        dockPreview.runDebugSnapshotIfRequested()
+        dockPreview.runDebugSnapshotIfRequested { [weak self] in
+            self?.requestMainWindow(section: .dockWindows)
+        }
         #endif
     }
 

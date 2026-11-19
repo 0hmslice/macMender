@@ -409,3 +409,98 @@ struct DockPreviewInteractionTests {
         #expect(roundTripped == changed)
     }
 }
+
+struct DockPreviewFeatureTests {
+    private let visible = CGRect(x: 0, y: 25, width: 1440, height: 850)
+
+    @Test func headerSitsAboveTheCardsWithoutMovingThemSideways() {
+        let limit = CGSize(width: 1600, height: 620)
+        let plain = DockPreviewLayout.compute(aspectRatios: [1.6, 1.6], thumbnailHeight: 150, showTitles: true, edge: .bottom, maximumContentSize: limit)
+        let headed = DockPreviewLayout.compute(aspectRatios: [1.6, 1.6], thumbnailHeight: 150, showTitles: true, showHeader: true, edge: .bottom, maximumContentSize: limit)
+        #expect(plain.headerHeight == 0)
+        #expect(headed.headerHeight == DockPreviewLayout.Metrics.headerHeight)
+        #expect(headed.contentSize.width == plain.contentSize.width)
+        #expect(headed.contentSize.height > plain.contentSize.height)
+        for (card, original) in zip(headed.cardFrames, plain.cardFrames) {
+            #expect(card.minY >= headed.headerHeight)
+            #expect(card.minX == original.minX)
+            #expect(card.maxY <= headed.contentSize.height)
+        }
+    }
+
+    @Test func headerWidensANarrowPreviewAndCentersItsCard() {
+        let layout = DockPreviewLayout.compute(
+            aspectRatios: [0.72],
+            thumbnailHeight: 90,
+            showTitles: true,
+            showHeader: true,
+            edge: .bottom,
+            maximumContentSize: CGSize(width: 1600, height: 620)
+        )
+        #expect(layout.contentSize.width == DockPreviewLayout.Metrics.minimumHeaderWidth)
+        #expect(abs(layout.cardFrames[0].midX - layout.contentSize.width / 2) <= 1)
+    }
+
+    @Test func headerStillFitsWithinTheAvailableHeight() {
+        let limit = CGSize(width: 900, height: 420)
+        let layout = DockPreviewLayout.compute(
+            aspectRatios: Array(repeating: 1.6, count: 9),
+            thumbnailHeight: 180,
+            showTitles: true,
+            showHeader: true,
+            edge: .bottom,
+            maximumContentSize: limit
+        )
+        #expect(layout.contentSize.height <= limit.height)
+        #expect(layout.contentSize.width <= limit.width)
+    }
+
+    @Test func halvesSplitTheScreenAndFillCoversIt() {
+        let size = CGSize(width: 800, height: 600)
+        let left = WindowArrangement.leftHalf.frame(windowSize: size, in: visible)
+        let right = WindowArrangement.rightHalf.frame(windowSize: size, in: visible)
+        #expect(left == CGRect(x: 0, y: 25, width: 720, height: 850))
+        #expect(right == CGRect(x: 720, y: 25, width: 720, height: 850))
+        #expect(WindowArrangement.fill.frame(windowSize: size, in: visible) == visible)
+    }
+
+    @Test func centerKeepsSizeUnlessTheWindowIsTooLarge() {
+        let centered = WindowArrangement.center.frame(windowSize: CGSize(width: 800, height: 600), in: visible)
+        #expect(centered.size == CGSize(width: 800, height: 600))
+        #expect(abs(centered.midX - visible.midX) <= 1)
+        #expect(abs(centered.midY - visible.midY) <= 1)
+
+        let oversized = WindowArrangement.center.frame(windowSize: CGSize(width: 3000, height: 2000), in: visible)
+        #expect(oversized == visible)
+    }
+
+    @Test func movingToAnotherDisplayKeepsRelativePlaceAndFits() {
+        let source = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let destination = CGRect(x: 1440, y: 0, width: 1920, height: 1080)
+        let topRight = CGRect(x: 1440 - 600, y: 0, width: 600, height: 400)
+        let moved = WindowArrangement.frame(moving: topRight, from: source, to: destination)
+        #expect(moved.size == topRight.size)
+        #expect(moved.maxX == destination.maxX)
+        #expect(moved.minY == destination.minY)
+
+        let small = CGRect(x: 2000, y: 0, width: 1024, height: 700)
+        let large = CGRect(x: 100, y: 50, width: 1800, height: 1000)
+        let shrunk = WindowArrangement.frame(moving: large, from: destination, to: small)
+        #expect(small.contains(shrunk))
+    }
+
+    @Test func settingsSavedEarlierGainNewOptionsWithDefaults() throws {
+        let preview = try JSONDecoder().decode(DockPreviewSettings.self, from: Data(#"{"enabled": true}"#.utf8))
+        #expect(preview.showAppHeader)
+        #expect(preview.excludedBundleIdentifiers.isEmpty)
+
+        var changed = preview
+        changed.showAppHeader = false
+        changed.excludedBundleIdentifiers = ["com.example.app"]
+        #expect(try JSONDecoder().decode(DockPreviewSettings.self, from: JSONEncoder().encode(changed)) == changed)
+
+        let legacySwitcher = #"{"enabled": true, "shortcut": "Option+Tab", "layout": "grid", "thumbnailSize": 180, "includeMinimizedWindows": true, "includeHiddenApps": false}"#
+        let switcher = try JSONDecoder().decode(WindowSwitcherSettings.self, from: Data(legacySwitcher.utf8))
+        #expect(switcher.includeOtherSpaces)
+    }
+}

@@ -40,6 +40,8 @@ final class DockHoverService: ObservableObject {
     private var settleEvaluation: Task<Void, Never>?
     private var cachedItem: (element: AXUIElement, identity: DockAppIdentity)?
     private var edge = DockEdge.bottom
+    private var pressBeganNearDock = false
+    private var dragPasteboardChangeCount = 0
     private let evaluationInterval: TimeInterval = 1.0 / 30.0
     /// Tallest Dock (largest magnification) plus room for the pointer to arrive.
     private let edgeBandDepth: CGFloat = 180
@@ -52,7 +54,8 @@ final class DockHoverService: ObservableObject {
         edge = Self.edgeFromDockPreferences()
         connectToDock()
 
-        let moveMask: NSEvent.EventTypeMask = [.mouseMoved]
+        // Drags are watched too, so a file dragged onto a Dock icon can reach that app's windows.
+        let moveMask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
         let downMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         mouseMonitors = [
             NSEvent.addGlobalMonitorForEvents(matching: moveMask) { [weak self] _ in
@@ -64,6 +67,10 @@ final class DockHoverService: ObservableObject {
             },
             NSEvent.addGlobalMonitorForEvents(matching: downMask) { [weak self] _ in
                 MainActor.assumeIsolated { self?.mouseDown() }
+            },
+            NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
+                MainActor.assumeIsolated { self?.noteLeftMouseDown() }
+                return event
             }
         ].compactMap { $0 }
 
@@ -145,8 +152,23 @@ final class DockHoverService: ObservableObject {
     }
 
     private func mouseDown() {
-        guard isRunning, currentTarget != nil else { return }
+        guard isRunning else { return }
+        noteLeftMouseDown()
+        guard currentTarget != nil else { return }
         onDockMouseDown?()
+    }
+
+    private func noteLeftMouseDown() {
+        pressBeganNearDock = isNearDockEdge(NSEvent.mouseLocation)
+        dragPasteboardChangeCount = NSPasteboard(name: .drag).changeCount
+    }
+
+    /// A drag-and-drop session that began away from the Dock. Presses that begin on the Dock
+    /// rearrange its icons, and other drags (moving a window, selecting text) carry nothing.
+    private var isDraggingItemsFromElsewhere: Bool {
+        NSEvent.pressedMouseButtons == 1
+            && !pressBeganNearDock
+            && NSPasteboard(name: .drag).changeCount != dragPasteboardChangeCount
     }
 
     // MARK: Evaluation
@@ -158,7 +180,8 @@ final class DockHoverService: ObservableObject {
 
     private func hoveredTarget() -> DockHoverTarget? {
         // The Dock also selects icons during keyboard navigation; previews follow the pointer.
-        guard NSEvent.pressedMouseButtons == 0, isNearDockEdge(NSEvent.mouseLocation) else { return nil }
+        let isDragging = isDraggingItemsFromElsewhere
+        guard NSEvent.pressedMouseButtons == 0 || isDragging, isNearDockEdge(NSEvent.mouseLocation) else { return nil }
         if dock == nil { connectToDock() }
         guard let dock else { return nil }
 
@@ -168,7 +191,21 @@ final class DockHoverService: ObservableObject {
             disconnectFromDock()
             return nil
         }
-        guard result == .success, let item = (value as? [AXUIElement])?.first else { return nil }
+        if result == .success, let item = (value as? [AXUIElement])?.first {
+            return makeTarget(from: item)
+        }
+        // The Dock does not always mark a selection while something is dragged over it.
+        return isDragging ? targetUnderPointer(in: dock.list) : nil
+    }
+
+    private func targetUnderPointer(in list: AXUIElement) -> DockHoverTarget? {
+        guard let primaryHeight = NSScreen.screens.first?.frame.height,
+              let items = WindowDiscoveryEngine.copyAttribute(kAXChildrenAttribute, from: list) as? [AXUIElement] else {
+            return nil
+        }
+        let pointer = NSEvent.mouseLocation
+        let point = CGPoint(x: pointer.x, y: primaryHeight - pointer.y)
+        guard let item = items.first(where: { WindowDiscoveryEngine.frame(of: $0).contains(point) }) else { return nil }
         return makeTarget(from: item)
     }
 

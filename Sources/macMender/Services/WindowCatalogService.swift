@@ -15,6 +15,13 @@ protocol WindowCatalogProviding {
     func minimize(_ window: WindowSummary)
     func close(_ window: WindowSummary)
     func thumbnails(for windows: [WindowSummary], maxSize: CGSize) async -> [WindowSummary.ID: NSImage]
+    /// Windows on Spaces that are not visible, including full-screen Spaces. Slower to find than
+    /// `visibleWindows`, so it runs off the main thread.
+    func otherSpaceWindows() async -> [WindowSummary]
+}
+
+extension WindowCatalogProviding {
+    func otherSpaceWindows() async -> [WindowSummary] { [] }
 }
 
 /// Window list and actions for the keyboard window switcher.
@@ -45,6 +52,19 @@ final class WindowCatalogService: WindowCatalogProviding {
         cachedDiscovery = CachedWindowDiscovery(createdAt: now, result: result)
         logger.debug("Window discovery \(result.report.summary, privacy: .public)")
         return result.windows
+    }
+
+    func otherSpaceWindows() async -> [WindowSummary] {
+        guard PrivateWindowAPI.canEnumerateAllSpaces else { return [] }
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        let apps = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.processIdentifier != currentPID }
+            .map(WindowAppTarget.init)
+        let scope = WindowDiscoveryScope(includeOtherSpaces: true, screenFrames: NSScreen.screens.map(\.frame))
+        let result = await Task.detached(priority: .userInitiated) {
+            WindowDiscoveryEngine.discover(apps: apps, scope: scope)
+        }.value
+        return result.windows.filter(\.isOnOtherSpace)
     }
 
     @discardableResult
@@ -200,6 +220,70 @@ enum WindowActions {
         let isFullScreen = WindowDiscoveryEngine.boolAttribute("AXFullScreen", from: element)
         let value: CFBoolean = isFullScreen ? kCFBooleanFalse : kCFBooleanTrue
         return AXUIElementSetAttributeValue(element, "AXFullScreen" as CFString, value) == .success
+    }
+
+    /// Screen usable areas in Accessibility coordinates (origin at the top left of the primary display).
+    private static func accessibilityVisibleFrames() -> [CGRect] {
+        guard let primaryHeight = NSScreen.screens.first?.frame.height else { return [] }
+        return NSScreen.screens.map { screen in
+            let frame = screen.visibleFrame
+            return CGRect(x: frame.minX, y: primaryHeight - frame.maxY, width: frame.width, height: frame.height)
+        }
+    }
+
+    private static func screenIndex(containing frame: CGRect, in screens: [CGRect]) -> Int? {
+        guard !screens.isEmpty else { return nil }
+        let best = screens.enumerated().max { lhs, rhs in
+            let left = lhs.element.intersection(frame)
+            let right = rhs.element.intersection(frame)
+            return left.width * left.height < right.width * right.height
+        }
+        return best?.offset
+    }
+
+    @discardableResult
+    private static func setFrame(_ frame: CGRect, of element: AXUIElement) -> Bool {
+        var origin = frame.origin
+        var size = frame.size
+        guard let positionValue = AXValueCreate(.cgPoint, &origin), let sizeValue = AXValueCreate(.cgSize, &size) else {
+            return false
+        }
+        // Size first so a large window fits before it moves, then again in case the first
+        // attempt was limited by the old screen.
+        AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeValue)
+        let moved = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionValue) == .success
+        AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeValue)
+        return moved
+    }
+
+    /// Resizes and moves a window within the screen it is on, restoring it first if needed.
+    @discardableResult
+    static func arrange(_ window: WindowSummary, as arrangement: WindowArrangement) -> Bool {
+        guard let element = WindowDiscoveryEngine.resolveElement(for: window),
+              !WindowDiscoveryEngine.boolAttribute("AXFullScreen", from: element) else {
+            return false
+        }
+        if WindowDiscoveryEngine.boolAttribute(kAXMinimizedAttribute, from: element) {
+            AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        }
+        let screens = accessibilityVisibleFrames()
+        let current = WindowDiscoveryEngine.frame(of: element)
+        guard let index = screenIndex(containing: current, in: screens) else { return false }
+        return setFrame(arrangement.frame(windowSize: current.size, in: screens[index]), of: element)
+    }
+
+    /// Moves a window to the next display, wrapping around.
+    @discardableResult
+    static func moveToNextDisplay(_ window: WindowSummary) -> Bool {
+        guard let element = WindowDiscoveryEngine.resolveElement(for: window),
+              !WindowDiscoveryEngine.boolAttribute("AXFullScreen", from: element) else {
+            return false
+        }
+        let screens = accessibilityVisibleFrames()
+        let current = WindowDiscoveryEngine.frame(of: element)
+        guard screens.count > 1, let index = screenIndex(containing: current, in: screens) else { return false }
+        let destination = screens[(index + 1) % screens.count]
+        return setFrame(WindowArrangement.frame(moving: current, from: screens[index], to: destination), of: element)
     }
 
     static func canClose(_ window: WindowSummary) -> Bool {

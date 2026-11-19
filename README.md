@@ -59,7 +59,9 @@ Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → 
 | Next / previous window | **⌥ Tab** / **⌥ ⇧ Tab**; release Option to select, Escape to cancel |
 | Quick controls | Click the menu bar icon; **⌘ ⇧ M** while macMender is active |
 | Dock preview | Hover a Dock icon; click a window to bring it forward |
-| Close from a preview | Red button, or middle-click the preview; right-click for Quit, Hide, and Close All |
+| Close from a preview | Red button, or middle-click the preview; Hide and Quit are in the preview's header |
+| Arrange from a preview | Right-click a preview: Left Half, Right Half, Fill Screen, Center, Move to Next Display |
+| Drop onto a window | Drag a file over a Dock icon, then rest it on a preview to bring that window forward |
 | Peek at a window | Rest the pointer on a preview to see that window at full size |
 | Preview keys | With the pointer over a preview: arrow keys select, Return opens, **⌘ W** closes, Escape dismisses |
 | Middle click | Three-finger trackpad tap |

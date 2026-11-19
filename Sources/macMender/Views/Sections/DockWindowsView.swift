@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct DockWindowsView: View {
     @ObservedObject var appModel: AppModel
-    @State private var selectedArea = DockArea.switcher
+    @State private var selectedArea = DockArea.initial
     @State private var showingApplyConfirmation = false
     @State private var showingDockResetConfirmation = false
 
@@ -13,6 +14,17 @@ struct DockWindowsView: View {
         case settings = "Dock Settings"
 
         var id: String { rawValue }
+
+        static var initial: DockArea {
+            #if DEBUG
+            // Development aid: open straight to one area when taking screenshots.
+            if let name = ProcessInfo.processInfo.environment["MACMENDER_DOCK_AREA"],
+               let area = allCases.first(where: { $0.rawValue.localizedCaseInsensitiveContains(name) }) {
+                return area
+            }
+            #endif
+            return .switcher
+        }
     }
 
     var body: some View {
@@ -96,6 +108,7 @@ struct DockWindowsView: View {
                     Toggle("Include minimized windows", isOn: binding(\.windowSwitcher.includeMinimizedWindows))
                     Toggle("Include hidden apps", isOn: binding(\.windowSwitcher.includeHiddenApps))
                 }
+                Toggle("Include windows on other Spaces and in full screen", isOn: binding(\.windowSwitcher.includeOtherSpaces))
 
                 Divider()
 
@@ -167,6 +180,7 @@ struct DockWindowsView: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: MacMenderSpacing.small) {
+                    Toggle("Show the app name with Hide and Quit buttons", isOn: binding(\.dockPreviews.showAppHeader))
                     Toggle("Show window titles", isOn: binding(\.dockPreviews.showTitles))
                     Toggle("Show close, minimize, and full screen buttons", isOn: binding(\.dockPreviews.showWindowControls))
                     Toggle("Keep previews live while open", isOn: binding(\.dockPreviews.livePreviews))
@@ -181,6 +195,8 @@ struct DockWindowsView: View {
                     Toggle("Windows of hidden apps", isOn: binding(\.dockPreviews.includeHiddenApps))
                     Toggle("Windows on other Spaces and in full screen", isOn: binding(\.dockPreviews.includeOtherSpaces))
                 }
+
+                excludedAppsEditor
 
                 Divider()
 
@@ -221,11 +237,82 @@ struct DockWindowsView: View {
                     .disabled(appModel.activeProfile.dockPreviews == .default)
                 }
 
-                Text("Middle-click a preview to close its window. Right-click for more actions, including Quit. Minimized windows in the Dock show a preview too.")
+                Text("Middle-click a preview to close its window. Right-click to move and resize it. Drag a file onto a preview to bring that window forward. Minimized windows in the Dock show a preview too.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Applications that never show a Dock preview.
+    private var excludedAppsEditor: some View {
+        let excluded = appModel.activeProfile.dockPreviews.excludedBundleIdentifiers
+        let candidates = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != Bundle.main.bundleIdentifier }
+            .compactMap { app in app.bundleIdentifier.map { (id: $0, name: app.localizedName ?? $0) } }
+            .filter { !excluded.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+        return VStack(alignment: .leading, spacing: MacMenderSpacing.small) {
+            Text("No Previews For")
+                .font(.subheadline.weight(.medium))
+            if excluded.isEmpty {
+                Text("Every app shows previews.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(excluded, id: \.self) { bundleIdentifier in
+                HStack(spacing: MacMenderSpacing.small) {
+                    Text(Self.applicationName(for: bundleIdentifier))
+                    Spacer()
+                    Button {
+                        setExcludedApps(excluded.filter { $0 != bundleIdentifier })
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Show previews for this app again")
+                    .accessibilityLabel("Remove \(Self.applicationName(for: bundleIdentifier))")
+                }
+            }
+            HStack(spacing: MacMenderSpacing.small) {
+                Menu("Add Running App") {
+                    ForEach(candidates, id: \.id) { candidate in
+                        Button(candidate.name) { setExcludedApps(excluded + [candidate.id]) }
+                    }
+                }
+                .disabled(candidates.isEmpty)
+                .fixedSize()
+                Button("Choose App…") {
+                    let panel = NSOpenPanel()
+                    panel.allowedContentTypes = [.application]
+                    panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
+                    panel.allowsMultipleSelection = false
+                    guard panel.runModal() == .OK, let url = panel.url,
+                          let bundleIdentifier = Bundle(url: url)?.bundleIdentifier,
+                          !excluded.contains(bundleIdentifier) else {
+                        return
+                    }
+                    setExcludedApps(excluded + [bundleIdentifier])
+                }
+            }
+        }
+    }
+
+    private func setExcludedApps(_ bundleIdentifiers: [String]) {
+        var profile = appModel.activeProfile
+        profile.dockPreviews.excludedBundleIdentifiers = bundleIdentifiers
+        appModel.updateActiveProfile(profile)
+    }
+
+    private static func applicationName(for bundleIdentifier: String) -> String {
+        if let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first?.localizedName {
+            return running
+        }
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+            return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        }
+        return bundleIdentifier
     }
 
     @ViewBuilder

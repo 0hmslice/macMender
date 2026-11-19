@@ -22,6 +22,7 @@ final class WindowSwitcherService: ObservableObject {
     private var panel: NSPanel?
     private var activeSettings = WindowSwitcherSettings.default
     private var thumbnailTask: Task<Void, Never>?
+    private var otherSpacesTask: Task<Void, Never>?
     private var thumbnailCache: [WindowSummary.ID: ThumbnailCacheEntry] = [:]
     private var thumbnailCacheOrder: [WindowSummary.ID] = []
     private let thumbnailCacheLimit = 80
@@ -58,6 +59,32 @@ final class WindowSwitcherService: ObservableObject {
             panel?.orderFrontRegardless()
             prefetchThumbnails()
         }
+        appendOtherSpaceWindows(settings: settings)
+    }
+
+    /// Windows on other Spaces take longer to find, so the switcher opens with the current
+    /// Space at once and these join the end of the list a moment later.
+    private func appendOtherSpaceWindows(settings: WindowSwitcherSettings) {
+        otherSpacesTask?.cancel()
+        guard settings.includeOtherSpaces else { return }
+        otherSpacesTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let found = await self.catalog.otherSpaceWindows()
+            guard !Task.isCancelled, self.isShowing else { return }
+            let existing = Set(self.windows.map(\.id))
+            let additions = found.filter { window in
+                !existing.contains(window.id)
+                    && (settings.includeMinimizedWindows || !window.isMinimized)
+                    && (settings.includeHiddenApps || !window.isAppHidden)
+            }
+            guard !additions.isEmpty else { return }
+            self.windows.append(contentsOf: additions)
+            self.presentationStatus = "\(self.windows.count) windows available"
+            if self.presentsPanel {
+                self.ensurePanel(settings: settings)
+                self.prefetchThumbnails()
+            }
+        }
     }
 
     func refreshDiscovery(settings: WindowSwitcherSettings) {
@@ -73,6 +100,8 @@ final class WindowSwitcherService: ObservableObject {
 
     func cancel() {
         isShowing = false
+        otherSpacesTask?.cancel()
+        otherSpacesTask = nil
         thumbnailTask?.cancel()
         thumbnailTask = nil
         panel?.orderOut(nil)
