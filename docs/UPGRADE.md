@@ -1,6 +1,6 @@
 # macMender utility upgrade
 
-Research checked September 23, 2026. The v0.10.0 public preview builds on v0.9.0 and keeps existing profiles and direction rules. Its download is signed with an Apple Development certificate and is not notarized.
+Research checked September 23, 2026; Dock preview work added November 19, 2026. The v0.11.0 public preview builds on v0.10.0 and keeps existing profiles and direction rules. Its download is signed with an Apple Development certificate and is not notarized.
 
 ## Comparison and decisions
 

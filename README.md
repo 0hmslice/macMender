@@ -1,29 +1,61 @@
 <p align="center">
-  <img src="Sources/macMender/Resources/Brand/MacMenderAppIcon.png" width="104" alt="macMender icon">
+  <img src="Sources/macMender/Resources/Brand/MacMenderAppIcon.png" width="112" alt="macMender icon">
 </p>
 <h1 align="center">macMender</h1>
 <p align="center"><strong>Small improvements. A Mac that feels like yours.</strong></p>
-<p align="center">Window previews · Better scrolling · Trackpad middle click · Keep Awake</p>
 <p align="center">
-  <a href="https://github.com/0hmslice/macMender/releases/latest">Download</a> ·
+  Dock window previews · Window switching · Better scrolling · Trackpad middle click · Keep Awake
+</p>
+<p align="center">
+  <a href="https://github.com/0hmslice/macMender/releases/latest"><img src="https://img.shields.io/github/v/release/0hmslice/macMender?label=download&color=2f6fed" alt="Latest release"></a>
+  <a href="https://github.com/0hmslice/macMender/actions/workflows/ci.yml"><img src="https://github.com/0hmslice/macMender/actions/workflows/ci.yml/badge.svg" alt="macOS checks"></a>
+  <img src="https://img.shields.io/badge/macOS-26%2B-black" alt="macOS 26 or newer">
+  <img src="https://img.shields.io/badge/Swift-6-orange" alt="Swift 6">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/0hmslice/macMender/releases/latest"><strong>Download</strong></a> ·
   <a href="#get-started">Get started</a> ·
+  <a href="#at-your-fingertips">Shortcuts</a> ·
   <a href="#build-it">Build it</a> ·
   <a href="https://github.com/0hmslice/macMender/issues">Report an issue</a>
 </p>
 
-![macMender overview with searchable settings and feature shortcuts](.github/assets/upgrade/overview.jpg)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/v0.11.0/dock-preview-dark.png">
+    <img src=".github/assets/v0.11.0/dock-preview-light.png" alt="A Dock preview showing four TextEdit windows, with close, minimize, and full screen buttons on the one under the pointer and Hide and Quit in the header">
+  </picture>
+</p>
 
-Free, open source, and local. No accounts, analytics, or subscriptions.
+<p align="center">Free, open source, and local. No accounts, no analytics, no subscriptions.</p>
 
-> **Public preview · v0.10.0:** [Download the app](https://github.com/0hmslice/macMender/releases/tag/v0.10.0) with Keep Awake, searchable settings, and improved scrolling.
+> **New in v0.11.0 — Dock previews, rebuilt.** Hover any Dock icon to see every window that app has open, then switch, close, minimize, arrange, or peek at full size without leaving the Dock. [Download the preview release](https://github.com/0hmslice/macMender/releases/tag/v0.11.0).
 
-## Make everyday things easier
+## Dock previews
+
+Rest the pointer on a Dock icon and macMender shows that app's windows, live.
+
+| | |
+| :-- | :-- |
+| **Every window** | Windows that are minimized, hidden, full screen, or on another Space appear alongside the ones in front of you. Minimized-window tiles in the Dock get a preview too. |
+| **Act from the preview** | Click to bring one window forward. Use the red, yellow, and green buttons to close, minimize, or go full screen, or middle-click to close. Hide or quit the app from the header. |
+| **Peek** | Rest on a preview to see that window at full size, in place, before you commit to switching. |
+| **Arrange** | Right-click a preview for Left Half, Right Half, Fill Screen, Center, or Move to Next Display. |
+| **Drag and drop** | Drag a file onto a Dock icon, then rest it on a preview to bring that window forward and drop into it. |
+| **Keyboard** | With the pointer over a preview: arrow keys select, Return opens, **⌘ W** closes, Escape dismisses. |
+| **Yours to tune** | Preview size, hover delay, titles, buttons, and a list of apps that should never show previews. |
+
+<p align="center">
+  <img src=".github/assets/v0.11.0/dock-settings.jpg" width="720" alt="Dock preview settings: size, delays, window controls, peek, keyboard, and excluded apps">
+</p>
+
+## Everything else
 
 | | What you get |
 | :-- | :-- |
-| **Dock previews** | Hover over a Dock app to see live previews of every window it has open—including minimized, hidden, full-screen, and other-Space windows. Click to switch, or close, minimize, and full-screen right from the preview. |
-| **Window switching** | Option–Tab through windows, with thumbnails and Shift to cycle backwards. |
-| **Scrolling** | Tune mouse smoothing and direction. Give individual apps their own rules—or leave their scrolling native. |
+| **Window switching** | **⌥ Tab** through windows with thumbnails, including windows on other Spaces. Add Shift to go backwards. |
+| **Scrolling** | Tune mouse smoothing and direction. Give individual apps their own rules, or leave their scrolling native. |
 | **Middle click** | Use a three-finger trackpad tap, modifier-click, or an extra mouse button. |
 | **Keep Awake** | Start a 15-minute to 2-hour session, or keep going until stopped. Optionally keep the display awake. |
 | **Profiles & quick controls** | Save different setups, search settings, and pause helpers from the menu bar. |
@@ -35,6 +67,8 @@ Free, open source, and local. No accounts, analytics, or subscriptions.
   </tr>
 </table>
 
+![macMender overview with searchable settings and feature shortcuts](.github/assets/upgrade/overview.jpg)
+
 ## Get started
 
 **Release requirements:** Apple silicon · macOS 26 or newer.
@@ -44,6 +78,8 @@ The preview is signed with an Apple Development certificate and **is not notariz
 1. Download the ZIP from [Releases](https://github.com/0hmslice/macMender/releases/latest), unzip it, and move **macMender.app** to **Applications**.
 2. Open macMender and follow onboarding. If macOS blocks the download, review **System Settings → Privacy & Security → Open Anyway**.
 3. Enable the features you want. Open **Privacy** in macMender to review permissions.
+
+macMender lives in the menu bar. Opening it again from Spotlight or Finder while it is running shows its settings.
 
 | Permission | Why it is used |
 | :-- | :-- |
@@ -86,7 +122,7 @@ swift test
 ./script/build_and_run.sh
 ```
 
-The script creates and opens `dist/macMender.app`. For an optimized bundle without launching:
+The script creates and opens `dist/build.noindex/macMender.app` (the `.noindex` folder keeps development builds out of Spotlight). For an optimized bundle without launching:
 
 ```sh
 BUILD_CONFIGURATION=release ./script/build_and_run.sh --build-only

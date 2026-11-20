@@ -1024,7 +1024,7 @@ extension DockPreviewController {
             if let presentation = self.presentation, let panel = self.panel {
                 lines.append("presented=\(presentation.identity.bundleIdentifier ?? "?") windows=\(presentation.windows.count) cards=\(presentation.layout.cardFrames.count) hidden=\(presentation.layout.hiddenCount) thumbnailHeight=\(presentation.layout.thumbnailHeight) content=\(presentation.layout.contentSize) panel=\(panel.frame) phase=\(self.phase)")
                 lines.append("thumbnails=\(presentation.windows.filter { self.thumbnails[$0.id] != nil }.count)/\(presentation.windows.count)")
-                if let image = await Self.debugScreenshot(of: panel.frame.insetBy(dx: -40, dy: -40)) {
+                if let image = await Self.debugScreenshot(of: panel) {
                     let url = directory.appendingPathComponent("preview.png")
                     if let destination = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) {
                         CGImageDestinationAddImage(destination, image, nil)
@@ -1047,7 +1047,7 @@ extension DockPreviewController {
                     NSApp.activate(ignoringOtherApps: true)
                     window.orderFrontRegardless()
                     try? await Task.sleep(for: .milliseconds(900))
-                    if let image = await Self.debugScreenshot(of: window.frame),
+                    if let image = await Self.debugScreenshot(of: window),
                        let destination = CGImageDestinationCreateWithURL(directory.appendingPathComponent("settings.png") as CFURL, "public.png" as CFString, 1, nil) {
                         CGImageDestinationAddImage(destination, image, nil)
                         lines.append("settings=\(CGImageDestinationFinalize(destination))")
@@ -1059,14 +1059,45 @@ extension DockPreviewController {
         }
     }
 
-    private static func debugScreenshot(of appKitRect: CGRect) async -> CGImage? {
-        guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(appKitRect) }),
-              let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
-              let content = try? await SCShareableContent.current,
-              let display = content.displays.first(where: { $0.displayID == displayID }) else {
+    /// Captures one of this app's own windows and nothing else, so whatever else is on screen
+    /// never ends up in a development screenshot.
+    /// Captures a window of this app over a plain backdrop. Only this app's windows are included,
+    /// so whatever else is on screen never ends up in a development screenshot.
+    private static func debugScreenshot(of window: NSWindow) async -> CGImage? {
+        let appKitRect = window.frame.insetBy(dx: -40, dy: -40)
+        guard let screen = window.screen ?? NSScreen.main,
+              let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else {
             return nil
         }
         let rect = appKitRect.intersection(screen.frame)
+
+        let backdrop = NSWindow(contentRect: rect, styleMask: .borderless, backing: .buffered, defer: false)
+        backdrop.level = window.level
+        backdrop.ignoresMouseEvents = true
+        backdrop.isReleasedWhenClosed = false
+        let view = NSView(frame: CGRect(origin: .zero, size: rect.size))
+        view.wantsLayer = true
+        let gradient = CAGradientLayer()
+        gradient.frame = view.bounds
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        gradient.colors = isDark
+            ? [NSColor(red: 0.10, green: 0.13, blue: 0.30, alpha: 1).cgColor, NSColor(red: 0.33, green: 0.16, blue: 0.45, alpha: 1).cgColor, NSColor(red: 0.75, green: 0.33, blue: 0.36, alpha: 1).cgColor]
+            : [NSColor(red: 0.55, green: 0.75, blue: 0.98, alpha: 1).cgColor, NSColor(red: 0.80, green: 0.72, blue: 0.97, alpha: 1).cgColor, NSColor(red: 0.99, green: 0.80, blue: 0.70, alpha: 1).cgColor]
+        gradient.startPoint = CGPoint(x: 0, y: 1)
+        gradient.endPoint = CGPoint(x: 1, y: 0)
+        view.layer?.addSublayer(gradient)
+        backdrop.contentView = view
+        backdrop.order(.below, relativeTo: window.windowNumber)
+        defer { backdrop.close() }
+        try? await Task.sleep(for: .milliseconds(400))
+
+        // Looked up after the backdrop is showing: an app with no ordinary window is not listed.
+        guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false),
+              let display = content.displays.first(where: { $0.displayID == displayID }),
+              let application = content.applications.first(where: { $0.processID == ProcessInfo.processInfo.processIdentifier }) else {
+            return nil
+        }
+
         let configuration = SCStreamConfiguration()
         configuration.sourceRect = CGRect(
             x: rect.minX - screen.frame.minX,
@@ -1078,7 +1109,7 @@ extension DockPreviewController {
         configuration.height = Int(rect.height * screen.backingScaleFactor)
         configuration.showsCursor = false
         return try? await SCScreenshotManager.captureImage(
-            contentFilter: SCContentFilter(display: display, excludingWindows: []),
+            contentFilter: SCContentFilter(display: display, including: [application], exceptingWindows: []),
             configuration: configuration
         )
     }
