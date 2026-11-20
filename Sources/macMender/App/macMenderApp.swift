@@ -15,12 +15,14 @@ struct MacMenderApp: App {
                 .frame(minWidth: 980, minHeight: 680)
                 .onAppear {
                     appModel.markFirstWindowReady()
-                    statusItemController.install(appModel: appModel) {
+                    let showSettings = {
                         if !appModel.focusPreferencesWindow() {
                             openWindow(id: "preferences")
                         }
                         appModel.activateApp()
                     }
+                    statusItemController.install(appModel: appModel, openPreferences: showSettings)
+                    appDelegate.showSettings = showSettings
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(250))
                         appModel.startRuntimeIfNeeded()
@@ -63,6 +65,18 @@ struct MacMenderApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "Startup")
+
+    /// Shows the settings window; set once the first window has appeared.
+    @MainActor var showSettings: (() -> Void)?
+
+    /// Opening the app again while it runs (Spotlight, Finder, Launchpad) shows its settings.
+    /// Without this, a second launch does nothing visible when the Dock icon is hidden.
+    @MainActor
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        guard let showSettings else { return true }
+        showSettings()
+        return false
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logLaunchIdentity()
