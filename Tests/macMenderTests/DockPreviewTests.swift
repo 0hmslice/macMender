@@ -124,6 +124,48 @@ struct DockPreviewPlacementTests {
         )
     }
 
+    @Test func hiddenOrSlidingDockIsMovedToItsRestingPosition() {
+        // Bottom Dock halfway through sliding in, then fully hidden.
+        for hiddenBy in [CGFloat(30), 65] {
+            let resting = DockPreviewPlacement.restingFrames(
+                iconFrame: CGRect(x: 800, y: -4 - hiddenBy, width: 49, height: 65),
+                dockFrame: CGRect(x: 35, y: -hiddenBy, width: 1640, height: 65),
+                edge: .bottom,
+                screenFrame: screen
+            )
+            #expect(resting.dockFrame == CGRect(x: 35, y: 0, width: 1640, height: 65))
+            #expect(resting.iconFrame == CGRect(x: 800, y: -4, width: 49, height: 65))
+            let result = frame(icon: resting.iconFrame, dock: resting.dockFrame, edge: .bottom)
+            #expect(result.minY == 65 + DockPreviewLayout.Metrics.dockGap)
+        }
+
+        let left = DockPreviewPlacement.restingFrames(
+            iconFrame: CGRect(x: -60, y: 500, width: 56, height: 49),
+            dockFrame: CGRect(x: -65, y: 100, width: 65, height: 900),
+            edge: .left,
+            screenFrame: screen
+        )
+        #expect(left.dockFrame.minX == 0)
+        #expect(left.iconFrame.minX == 5)
+
+        let right = DockPreviewPlacement.restingFrames(
+            iconFrame: CGRect(x: 1714, y: 500, width: 56, height: 49),
+            dockFrame: CGRect(x: 1710, y: 100, width: 65, height: 900),
+            edge: .right,
+            screenFrame: screen
+        )
+        #expect(right.dockFrame.maxX == 1710)
+        #expect(right.iconFrame.minX == 1649)
+    }
+
+    @Test func visibleDockIsLeftWhereItIs() {
+        let icon = CGRect(x: 800, y: 4, width: 56, height: 60)
+        let dock = CGRect(x: 40, y: 0, width: 1630, height: 69)
+        let resting = DockPreviewPlacement.restingFrames(iconFrame: icon, dockFrame: dock, edge: .bottom, screenFrame: screen)
+        #expect(resting.iconFrame == icon)
+        #expect(resting.dockFrame == dock)
+    }
+
     @Test func bottomDockPreviewSitsAboveTheIconAndCentersOnIt() {
         let icon = CGRect(x: 800, y: 4, width: 56, height: 60)
         let result = frame(icon: icon, dock: CGRect(x: 40, y: 0, width: 1630, height: 69), edge: .bottom)

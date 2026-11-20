@@ -267,6 +267,27 @@ struct DockPreviewLayout: Equatable, Sendable {
 /// Where a preview sits relative to its Dock icon. Rectangles use AppKit screen coordinates
 /// (origin at the bottom left).
 enum DockPreviewPlacement {
+    /// Where the Dock and one of its icons sit once the Dock is fully on screen.
+    ///
+    /// An auto-hiding Dock reports frames beyond the screen edge while it is hidden or sliding in,
+    /// so frames read at that moment would put the preview on top of the Dock.
+    static func restingFrames(
+        iconFrame: CGRect,
+        dockFrame: CGRect,
+        edge: DockEdge,
+        screenFrame: CGRect
+    ) -> (iconFrame: CGRect, dockFrame: CGRect) {
+        guard !dockFrame.isEmpty else { return (iconFrame, dockFrame) }
+        var dx: CGFloat = 0
+        var dy: CGFloat = 0
+        switch edge {
+        case .bottom: dy = max(0, screenFrame.minY - dockFrame.minY)
+        case .left: dx = max(0, screenFrame.minX - dockFrame.minX)
+        case .right: dx = -max(0, dockFrame.maxX - screenFrame.maxX)
+        }
+        return (iconFrame.offsetBy(dx: dx, dy: dy), dockFrame.offsetBy(dx: dx, dy: dy))
+    }
+
     static func contentFrame(
         contentSize: CGSize,
         iconFrame: CGRect,

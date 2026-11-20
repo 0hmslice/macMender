@@ -233,6 +233,18 @@ final class DockPreviewController: ObservableObject {
 
     private func present(windows: [WindowSummary], anchor: DockHoverTarget) {
         let isNewContent = presentation?.identity.isSameDockItem(as: anchor.identity) != true
+        var anchor = anchor
+        if let screenFrame = screen(for: anchor.iconFrame)?.frame {
+            // An auto-hiding Dock may still be sliding in when its frames are read.
+            let resting = DockPreviewPlacement.restingFrames(
+                iconFrame: anchor.iconFrame,
+                dockFrame: anchor.dockFrame,
+                edge: anchor.edge,
+                screenFrame: screenFrame
+            )
+            anchor.iconFrame = resting.iconFrame
+            anchor.dockFrame = resting.dockFrame
+        }
         self.anchor = anchor
         hideTask?.cancel()
         hideTask = nil
@@ -370,12 +382,17 @@ final class DockPreviewController: ObservableObject {
     private func screen(for frame: CGRect) -> NSScreen? {
         let center = CGPoint(x: frame.midX, y: frame.midY)
         return NSScreen.screens.first { $0.frame.insetBy(dx: -2, dy: -2).contains(center) }
-            ?? NSScreen.screens.max { lhs, rhs in
-                let left = lhs.frame.intersection(frame)
-                let right = rhs.frame.intersection(frame)
-                return left.width * left.height < right.width * right.height
+            ?? NSScreen.screens.min { lhs, rhs in
+                // A hidden Dock's frames lie just beyond the edge of its screen.
+                Self.distance(from: center, to: lhs.frame) < Self.distance(from: center, to: rhs.frame)
             }
             ?? NSScreen.main
+    }
+
+    private static func distance(from point: CGPoint, to rect: CGRect) -> CGFloat {
+        let dx = max(rect.minX - point.x, 0, point.x - rect.maxX)
+        let dy = max(rect.minY - point.y, 0, point.y - rect.maxY)
+        return hypot(dx, dy)
     }
 
     // MARK: Pointer tracking
