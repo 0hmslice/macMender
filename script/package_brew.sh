@@ -5,7 +5,10 @@ APP_NAME="macMender"
 # This creates a local Homebrew cask template for the public GitHub release.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
-APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+# Spotlight skips folders whose names end in .noindex, so a development build is never offered
+# in place of the copy installed in /Applications.
+BUILD_DIR="$DIST_DIR/build.noindex"
+APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 RELEASE_DIR="$DIST_DIR/release"
 VERSION="${1:-${RELEASE_VERSION:-}}"
 if [[ -z "$VERSION" ]]; then
@@ -25,7 +28,7 @@ mkdir -p "$RELEASE_DIR"
 rm -f "$ZIP_PATH" "$CASK_PATH" "$RELEASE_DIR/SHA256SUMS"
 
 (
-  cd "$DIST_DIR"
+  cd "$BUILD_DIR"
   COPYFILE_DISABLE=1 /usr/bin/zip -qry "$ZIP_PATH" "$APP_NAME.app" \
     -x "*/.DS_Store" "*/._*" "__MACOSX/*"
 )

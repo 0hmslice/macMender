@@ -18,7 +18,7 @@ struct ConfigurationTests {
         config.schemaVersion = 5
         config.profiles[0].scroll.appRules[0].bypassScrolling = true
         let result = try ConfigurationFileService.decodeImportedConfig(from: ConfigurationFileService.exportData(for: config))
-        #expect(result.schemaVersion == 6)
+        #expect(result.schemaVersion == 7)
         #expect(result.activeProfile.scroll.appRules[0].bypassScrolling)
         #expect(result.activeProfileID == config.activeProfileID)
     }

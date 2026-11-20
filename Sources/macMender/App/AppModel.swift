@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     let systemEvents: SystemEventService
     let windowSwitcher: WindowSwitcherService
     let dockHover: DockHoverService
+    let dockPreview: DockPreviewController
     let multitouchMiddleClick: MultitouchMiddleClickService
     let keepAwake = KeepAwakeService()
 
@@ -39,6 +40,7 @@ final class AppModel: ObservableObject {
         systemEvents: SystemEventService = SystemEventService(),
         windowSwitcher: WindowSwitcherService = WindowSwitcherService(),
         dockHover: DockHoverService = DockHoverService(),
+        dockPreview: DockPreviewController = DockPreviewController(),
         multitouchMiddleClick: MultitouchMiddleClickService = MultitouchMiddleClickService()
     ) {
         self.store = store
@@ -50,6 +52,8 @@ final class AppModel: ObservableObject {
         self.systemEvents = systemEvents
         self.windowSwitcher = windowSwitcher
         self.dockHover = dockHover
+        self.dockPreview = dockPreview
+        WindowDiscoveryEngine.configureAccessibilityTimeout()
         self.multitouchMiddleClick = multitouchMiddleClick
         bindChildChanges()
         wireRuntimeHandlers()
@@ -127,7 +131,7 @@ final class AppModel: ObservableObject {
         if !store.config.hasCompletedOnboarding || store.config.safeModeEnabled || permissions.needsAttention {
             return .error
         }
-        if dockHover.lastHoveredApp != nil || windowSwitcher.isShowing {
+        if dockHover.lastHoveredApp != nil || windowSwitcher.isShowing || dockPreview.isShowing {
             return .scanning
         }
         return .success
@@ -173,6 +177,11 @@ final class AppModel: ObservableObject {
         hasStartedRuntime = true
         runtimeStartedAt = Date()
         refreshSystemState(force: true)
+        #if DEBUG
+        dockPreview.runDebugSnapshotIfRequested { [weak self] in
+            self?.requestMainWindow(section: .dockWindows)
+        }
+        #endif
     }
 
     func refreshPassiveState() {
@@ -389,6 +398,7 @@ final class AppModel: ObservableObject {
         if runtimePaused {
             keepAwake.stop()
             windowSwitcher.cancel()
+            dockPreview.stop()
         }
 
         systemEvents.update(
@@ -417,8 +427,7 @@ final class AppModel: ObservableObject {
             )
         }
 
-        if previousProfile.dockPreviews != currentProfile.dockPreviews ||
-            previousProfile.windowSwitcher != currentProfile.windowSwitcher {
+        if previousProfile.dockPreviews != currentProfile.dockPreviews {
             applyDockPreviewRuntime(runtimePaused: runtimePaused)
         }
 
@@ -428,12 +437,7 @@ final class AppModel: ObservableObject {
     }
 
     private func applyDockPreviewRuntime(runtimePaused: Bool) {
-        dockHover.hoverDelay = activeProfile.dockPreviews.hoverDelay
-        windowSwitcher.updateDockPreviewIdleTimeout(activeProfile.dockPreviews.previewIdleTimeout)
-        windowSwitcher.updateDockPreviewAnimation(
-            style: activeProfile.dockPreviews.animationStyle,
-            duration: activeProfile.dockPreviews.animationDuration
-        )
+        dockPreview.update(settings: activeProfile.dockPreviews)
 
         if permissions.accessibility == .granted,
            !runtimePaused,
@@ -442,6 +446,7 @@ final class AppModel: ObservableObject {
             dockHover.start()
         } else {
             dockHover.stop()
+            dockPreview.stop()
         }
     }
 
@@ -515,19 +520,14 @@ final class AppModel: ObservableObject {
         systemEvents.onCancelSwitcher = { [weak self] in
             self?.windowSwitcher.cancel()
         }
-        dockHover.onHoverApp = { [weak self] identity, frame in
-            guard let self else { return }
-            self.windowSwitcher.showDockPreview(
-                identity: identity,
-                settings: self.activeProfile.dockPreviews.overlaySettings(using: self.activeProfile.windowSwitcher),
-                anchorFrame: frame
-            )
+        dockHover.onHoverChanged = { [weak self] target in
+            self?.dockPreview.hoverChanged(target)
         }
-        dockHover.onExitDock = { [weak self] in
-            self?.windowSwitcher.scheduleDockPreviewDismiss()
+        dockHover.onDockMouseDown = { [weak self] in
+            self?.dockPreview.dockMouseDown()
         }
-        dockHover.onContextMenuInteraction = { [weak self] in
-            self?.windowSwitcher.suppressDockPreviewPresentation()
+        dockPreview.dockItemLocator = { [weak self] bundleIdentifier in
+            self?.dockHover.target(forBundleIdentifier: bundleIdentifier)
         }
     }
 
@@ -547,6 +547,7 @@ final class AppModel: ObservableObject {
                     self?.systemEvents.stop()
                     self?.windowSwitcher.cancel()
                     self?.dockHover.stop()
+                    self?.dockPreview.stop()
                     self?.multitouchMiddleClick.stop()
                 }
             }.store(in: &cancellables)

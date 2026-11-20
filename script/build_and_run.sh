@@ -13,7 +13,10 @@ STRIP_RELEASE_BINARY="${STRIP_RELEASE_BINARY:-1}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="$ROOT_DIR/VERSION"
 DIST_DIR="$ROOT_DIR/dist"
-APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
+# Spotlight skips folders whose names end in .noindex, so a development build is never offered
+# in place of the copy installed in /Applications.
+BUILD_DIR="$DIST_DIR/build.noindex"
+APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"

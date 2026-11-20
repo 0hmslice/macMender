@@ -3,488 +3,369 @@ import ApplicationServices
 import Foundation
 import os
 
+/// The Dock application icon or minimized-window tile currently under the pointer.
+struct DockHoverTarget: Equatable {
+    var identity: DockAppIdentity
+    var isRunning: Bool
+    /// AppKit screen coordinates.
+    var iconFrame: CGRect
+    /// The whole Dock's frame in AppKit screen coordinates.
+    var dockFrame: CGRect
+    var edge: DockEdge
+}
+
+/// Reports which Dock application icon the pointer is over.
+///
+/// The Dock marks the hovered icon as its selected child. An Accessibility observer delivers that
+/// change the moment it happens; pointer movement near the Dock's screen edge is a second,
+/// throttled trigger in case a notification is missed. Pointer movement elsewhere costs nothing
+/// beyond a rectangle test.
 @MainActor
 final class DockHoverService: ObservableObject {
     @Published private(set) var isRunning = false
     @Published private(set) var lastHoveredApp: String?
-    @Published private(set) var lastDiagnostic = "Dock previews idle"
 
-    var hoverDelay: TimeInterval = 0.35
-    var onHoverApp: ((DockAppIdentity, CGRect) -> Void)?
-    var onExitDock: (() -> Void)?
-    var onContextMenuInteraction: (() -> Void)?
+    /// Called when the hovered item changes; `nil` when the pointer is not on an application icon or minimized window.
+    var onHoverChanged: ((DockHoverTarget?) -> Void)?
+    /// Called when a mouse button goes down on a Dock application icon.
+    var onDockMouseDown: (() -> Void)?
 
-    private var globalMouseMonitor: Any?
-    private var localMouseMonitor: Any?
-    private var fallbackTimer: Timer?
-    private var hoverTask: Task<Void, Never>?
-    private var hoverStart: Date?
-    private var pendingApp: DockAppIdentity?
-    private var displayedApp: DockAppIdentity?
-    private var suppressHoverUntil: Date?
-    private var lastInsideDockAt: Date?
-    private var cachedDockItems: [DockItem] = []
-    private var lastDockItemRefresh: Date?
-    private var lastDiagnosticMessage = "Dock previews idle"
-    private var lastDiagnosticAt: Date?
-    private let exitGrace: TimeInterval = 0.22
-    private let dockItemCacheDuration: TimeInterval = 30
-    private let fallbackPollInterval: TimeInterval = 1.25
-    private let diagnosticPublishInterval: TimeInterval = 1.25
+    private(set) var currentTarget: DockHoverTarget?
+
+    private var mouseMonitors = [Any]()
+    private var workspaceObserver: NSObjectProtocol?
+    private var dock: DockConnection?
+    private var lastConnectionAttempt = Date.distantPast
+    private var lastEvaluation = Date.distantPast
+    private var settleEvaluation: Task<Void, Never>?
+    private var cachedItem: (element: AXUIElement, identity: DockAppIdentity)?
+    private var edge = DockEdge.bottom
+    private var pressBeganNearDock = false
+    private var dragPasteboardChangeCount = 0
+    private let evaluationInterval: TimeInterval = 1.0 / 30.0
+    /// Tallest Dock (largest magnification) plus room for the pointer to arrive.
+    private let edgeBandDepth: CGFloat = 180
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.ryan.macMender", category: "DockHover")
 
     func start() {
-        guard globalMouseMonitor == nil, localMouseMonitor == nil else { return }
+        guard !isRunning else { return }
+        isRunning = true
+        logger.debug("Dock hover watching started")
+        edge = Self.edgeFromDockPreferences()
+        connectToDock()
 
-        let mask: NSEvent.EventTypeMask = [
-            .mouseMoved,
-            .leftMouseDragged,
-            .rightMouseDragged,
-            .otherMouseDragged,
-            .leftMouseDown,
-            .rightMouseDown,
-            .otherMouseDown
-        ]
-        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
-            Task { @MainActor [weak self] in
-                self?.handleMonitoredEvent(event)
+        // Drags are watched too, so a file dragged onto a Dock icon can reach that app's windows.
+        let moveMask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
+        let downMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        mouseMonitors = [
+            NSEvent.addGlobalMonitorForEvents(matching: moveMask) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pointerMoved() }
+            },
+            NSEvent.addLocalMonitorForEvents(matching: moveMask) { [weak self] event in
+                MainActor.assumeIsolated { self?.pointerMoved() }
+                return event
+            },
+            NSEvent.addGlobalMonitorForEvents(matching: downMask) { [weak self] _ in
+                MainActor.assumeIsolated { self?.mouseDown() }
+            },
+            NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
+                MainActor.assumeIsolated { self?.noteLeftMouseDown() }
+                return event
             }
-        }
-        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-            Task { @MainActor [weak self] in
-                self?.handleMonitoredEvent(event)
-            }
-            return event
-        }
-        fallbackTimer = Timer.scheduledTimer(withTimeInterval: fallbackPollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.pollFallback()
-            }
-        }
+        ].compactMap { $0 }
 
-        setRunning(true)
-        refreshDockItems(force: true)
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard app?.bundleIdentifier == "com.apple.dock" else { return }
+            MainActor.assumeIsolated {
+                // The Dock restarted; its old Accessibility elements are dead.
+                self?.disconnectFromDock()
+                self?.connectToDock()
+            }
+        }
     }
 
     func stop() {
-        if let globalMouseMonitor {
-            NSEvent.removeMonitor(globalMouseMonitor)
+        guard isRunning else { return }
+        isRunning = false
+        mouseMonitors.forEach(NSEvent.removeMonitor)
+        mouseMonitors = []
+        if let workspaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
         }
-        if let localMouseMonitor {
-            NSEvent.removeMonitor(localMouseMonitor)
-        }
-        fallbackTimer?.invalidate()
-        globalMouseMonitor = nil
-        localMouseMonitor = nil
-        fallbackTimer = nil
-        setRunning(false)
-        setLastHoveredApp(nil)
-        hoverStart = nil
-        pendingApp = nil
-        displayedApp = nil
-        hoverTask?.cancel()
-        hoverTask = nil
-        suppressHoverUntil = nil
-        cachedDockItems = []
-        lastDockItemRefresh = nil
-        onExitDock?()
+        workspaceObserver = nil
+        settleEvaluation?.cancel()
+        settleEvaluation = nil
+        disconnectFromDock()
+        setTarget(nil)
     }
 
-    private func poll(allowNewHover: Bool = true) {
-        guard let item = dockItemUnderMouse() else {
-            suppressHoverUntil = nil
-            clearPendingHover()
-            if let lastInsideDockAt, Date().timeIntervalSince(lastInsideDockAt) < exitGrace {
-                return
+    /// Finds the Dock icon for an application without the pointer being on it.
+    func target(forBundleIdentifier bundleIdentifier: String) -> DockHoverTarget? {
+        if dock == nil { connectToDock() }
+        guard let dock,
+              let items = WindowDiscoveryEngine.copyAttribute(kAXChildrenAttribute, from: dock.list) as? [AXUIElement] else {
+            return nil
+        }
+        for item in items {
+            guard let target = makeTarget(from: item), target.identity.bundleIdentifier == bundleIdentifier else { continue }
+            return target
+        }
+        return nil
+    }
+
+    // MARK: Triggers
+
+    private func pointerMoved() {
+        guard isRunning else { return }
+        guard isNearDockEdge(NSEvent.mouseLocation) else {
+            settleEvaluation?.cancel()
+            settleEvaluation = nil
+            if currentTarget != nil {
+                setTarget(nil)
             }
-            if displayedApp != nil {
-                displayedApp = nil
-                onExitDock?()
+            return
+        }
+
+        if Date().timeIntervalSince(lastEvaluation) >= evaluationInterval {
+            evaluate()
+        }
+        // The Dock updates its selection a moment after the pointer arrives, and its icons keep
+        // moving while magnification animates. Look again once the pointer has settled.
+        settleEvaluation?.cancel()
+        settleEvaluation = Task { @MainActor [weak self] in
+            for delay in [40, 140, 320] {
+                try? await Task.sleep(for: .milliseconds(delay))
+                guard let self, !Task.isCancelled, self.isRunning else { return }
+                self.evaluate()
             }
-            return
-        }
-
-        lastInsideDockAt = Date()
-        setLastHoveredApp(item.identity.displayName)
-        guard !isHoverSuppressed() else {
-            clearPendingHover()
-            displayedApp = nil
-            return
-        }
-        guard allowNewHover || pendingApp != nil || displayedApp != nil else {
-            return
-        }
-        if pendingApp != item.identity {
-            pendingApp = item.identity
-            hoverStart = Date()
-            schedulePreview(for: item)
-            return
-        }
-
-        guard displayedApp != item.identity,
-              let hoverStart,
-              Date().timeIntervalSince(hoverStart) >= hoverDelay else {
-            return
-        }
-
-        displayedApp = item.identity
-        onHoverApp?(item.identity, item.anchorFrame)
-    }
-
-    private func pollFallback() {
-        guard pendingApp != nil || displayedApp != nil || lastInsideDockAt != nil else {
-            return
-        }
-        poll(allowNewHover: false)
-    }
-
-    private func schedulePreview(for item: DockItem) {
-        hoverTask?.cancel()
-        hoverTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(for: .milliseconds(Int(self.hoverDelay * 1000)))
-            guard !Task.isCancelled,
-                  !self.isHoverSuppressed(),
-                  self.pendingApp == item.identity,
-                  self.displayedApp != item.identity,
-                  let current = self.dockItemUnderMouse(),
-                  current.identity == item.identity else {
-                return
-            }
-
-            self.displayedApp = item.identity
-            self.onHoverApp?(item.identity, current.anchorFrame)
         }
     }
 
-    private func handleMonitoredEvent(_ event: NSEvent) {
-        if handleContextMenuTriggerIfNeeded(event) {
-            return
-        }
-
-        switch event.type {
-        case .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
-            poll()
-        default:
-            break
-        }
+    fileprivate func dockSelectionChanged() {
+        guard isRunning else { return }
+        evaluate()
     }
 
-    private func handleContextMenuTriggerIfNeeded(_ event: NSEvent) -> Bool {
-        guard DockPreviewContextMenuInteraction.isTrigger(eventType: event.type, modifierFlags: event.modifierFlags),
-              dockItemUnderMouse() != nil else {
-            return false
-        }
-
-        suppressHoverUntil = Date().addingTimeInterval(DockPreviewContextMenuInteraction.suppressionDuration)
-        clearPendingHover()
-        displayedApp = nil
-        onContextMenuInteraction?()
-        return true
+    private func mouseDown() {
+        guard isRunning else { return }
+        noteLeftMouseDown()
+        guard currentTarget != nil else { return }
+        onDockMouseDown?()
     }
 
-    private func isHoverSuppressed(now: Date = Date()) -> Bool {
-        guard let suppressHoverUntil else { return false }
-        guard suppressHoverUntil > now else {
-            self.suppressHoverUntil = nil
-            return false
-        }
-        return true
+    private func noteLeftMouseDown() {
+        pressBeganNearDock = isNearDockEdge(NSEvent.mouseLocation)
+        dragPasteboardChangeCount = NSPasteboard(name: .drag).changeCount
     }
 
-    private func dockItemUnderMouse() -> DockItem? {
-        guard let mouse = CGEvent(source: nil)?.location else { return nil }
-        guard let dockList = visibleDockList() else {
-            cachedDockItems = []
-            lastDockItemRefresh = nil
-            recordDiagnostic("suppressed: Dock list unavailable mouse=\(mouse.debugDescription)")
+    /// A drag-and-drop session that began away from the Dock. Presses that begin on the Dock
+    /// rearrange its icons, and other drags (moving a window, selecting text) carry nothing.
+    private var isDraggingItemsFromElsewhere: Bool {
+        NSEvent.pressedMouseButtons == 1
+            && !pressBeganNearDock
+            && NSPasteboard(name: .drag).changeCount != dragPasteboardChangeCount
+    }
+
+    // MARK: Evaluation
+
+    private func evaluate() {
+        lastEvaluation = Date()
+        setTarget(hoveredTarget())
+    }
+
+    private func hoveredTarget() -> DockHoverTarget? {
+        // The Dock also selects icons during keyboard navigation; previews follow the pointer.
+        let isDragging = isDraggingItemsFromElsewhere
+        guard NSEvent.pressedMouseButtons == 0 || isDragging, isNearDockEdge(NSEvent.mouseLocation) else { return nil }
+        if dock == nil { connectToDock() }
+        guard let dock else { return nil }
+
+        var value: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(dock.list, kAXSelectedChildrenAttribute as CFString, &value)
+        if result == .invalidUIElement || result == .cannotComplete {
+            disconnectFromDock()
             return nil
         }
-
-        if let selectedItem = selectedDockItem(in: dockList),
-           let item = dockItem(from: selectedItem),
-           item.identity.hasResolvedApplicationIdentity,
-           item.hitFrame.contains(mouse) {
-            recordDiagnostic("selected Dock item title=\(item.identity.displayName) frame=\(item.hitFrame.debugDescription) bundle=\(item.identity.bundleIdentifier ?? "nil") pid=\(item.identity.processIdentifier.map(String.init) ?? "nil")")
-            return item
+        if result == .success, let item = (value as? [AXUIElement])?.first {
+            return makeTarget(from: item)
         }
+        // The Dock does not always mark a selection while something is dragged over it.
+        return isDragging ? targetUnderPointer(in: dock.list) : nil
+    }
 
-        refreshDockItemsIfNeeded(near: mouse)
-        let candidates = cachedDockItems.filter {
-            $0.identity.hasResolvedApplicationIdentity &&
-                !$0.identity.displayName.isEmpty &&
-                $0.hitFrame.contains(mouse)
-        }
-        guard !candidates.isEmpty else {
-            recordDiagnostic("suppressed: no resolved Dock item under mouse=\(mouse.debugDescription)")
+    private func targetUnderPointer(in list: AXUIElement) -> DockHoverTarget? {
+        guard let primaryHeight = NSScreen.screens.first?.frame.height,
+              let items = WindowDiscoveryEngine.copyAttribute(kAXChildrenAttribute, from: list) as? [AXUIElement] else {
             return nil
         }
-        guard candidates.count == 1, let item = candidates.first else {
-            let titles = candidates.map(\.identity.displayName).joined(separator: ", ")
-            recordDiagnostic("suppressed: ambiguous Dock hit mouse=\(mouse.debugDescription) candidates=\(titles)")
-            return nil
-        }
-        recordDiagnostic("frame Dock item title=\(item.identity.displayName) frame=\(item.hitFrame.debugDescription) bundle=\(item.identity.bundleIdentifier ?? "nil") pid=\(item.identity.processIdentifier.map(String.init) ?? "nil")")
-        return item
+        let pointer = NSEvent.mouseLocation
+        let point = CGPoint(x: pointer.x, y: primaryHeight - pointer.y)
+        guard let item = items.first(where: { WindowDiscoveryEngine.frame(of: $0).contains(point) }) else { return nil }
+        return makeTarget(from: item)
     }
 
-    private func recordDiagnostic(_ message: String) {
-        let now = Date()
-        let messageChanged = message != lastDiagnosticMessage
-        let shouldPublish = messageChanged ||
-            lastDiagnosticAt.map { now.timeIntervalSince($0) >= diagnosticPublishInterval } ?? true
-        guard shouldPublish else { return }
-        lastDiagnosticMessage = message
-        lastDiagnosticAt = now
-        lastDiagnostic = message
-        logger.debug("\(message, privacy: .private)")
-    }
-
-    private func refreshDockItems(force: Bool) {
-        guard force || shouldRefreshDockItems(near: nil) else {
-            return
-        }
-        cachedDockItems = loadDockItems()
-        lastDockItemRefresh = Date()
-    }
-
-    private func refreshDockItemsIfNeeded(near mouse: CGPoint) {
-        if cachedDockItems.isEmpty {
-            refreshDockItems(force: true)
-            return
-        }
-        guard shouldRefreshDockItems(near: mouse) else { return }
-        refreshDockItems(force: true)
-    }
-
-    private func shouldRefreshDockItems(near mouse: CGPoint?) -> Bool {
-        guard let lastDockItemRefresh else { return true }
-        guard Date().timeIntervalSince(lastDockItemRefresh) >= dockItemCacheDuration else { return false }
-        guard let mouse else { return true }
-        return cachedDockItems
-            .map(\.hitFrame)
-            .reduce(CGRect.null) { $0.union($1) }
-            .insetBy(dx: -180, dy: -140)
-            .contains(mouse)
-    }
-
-    private func clearPendingHover() {
-        setLastHoveredApp(nil)
-        if pendingApp != nil {
-            pendingApp = nil
-        }
-        if hoverStart != nil {
-            hoverStart = nil
-        }
-        if hoverTask != nil {
-            hoverTask?.cancel()
-            hoverTask = nil
-        }
-    }
-
-    private func setRunning(_ value: Bool) {
-        if isRunning != value {
-            isRunning = value
-        }
-    }
-
-    private func setLastHoveredApp(_ value: String?) {
-        if lastHoveredApp != value {
-            lastHoveredApp = value
-        }
-    }
-
-    private func loadDockItems() -> [DockItem] {
-        guard let list = visibleDockList() else {
-            return []
-        }
-
-        var itemValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(list, kAXChildrenAttribute as CFString, &itemValue) == .success,
-              let elements = itemValue as? [AXUIElement] else {
-            return []
-        }
-
-        return elements.compactMap(dockItem(from:))
-    }
-
-    private func identity(for element: AXUIElement, title: String) -> DockAppIdentity {
-        if let bundleIdentifier = bundleIdentifierFromDockURL(element) {
-            let runningApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first
-            return DockAppIdentity(
-                title: runningApp?.localizedName ?? title,
-                bundleIdentifier: bundleIdentifier,
-                processIdentifier: runningApp?.processIdentifier
-            )
-        }
-
-        return DockAppIdentity(
-            title: title,
-            bundleIdentifier: nil,
-            processIdentifier: nil
-        )
-    }
-
-    private func dockItem(from element: AXUIElement) -> DockItem? {
-        var roleValue: CFTypeRef?
-        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
-        guard (roleValue as? String) == "AXDockItem" else { return nil }
-
-        var titleValue: CFTypeRef?
-        var positionValue: CFTypeRef?
-        var sizeValue: CFTypeRef?
-        AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue)
-        AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue)
-        AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
-
-        guard let title = titleValue as? String,
-              let positionValue,
-              let sizeValue else {
-            return nil
-        }
-
-        var position = CGPoint.zero
-        var size = CGSize.zero
-        AXValueGetValue(positionValue as! AXValue, .cgPoint, &position)
-        AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
-        let hitFrame = quartzFrame(fromAccessibilityPosition: position, size: size)
-        return DockItem(
-            identity: identity(for: element, title: title),
-            hitFrame: hitFrame,
-            anchorFrame: appKitFrame(fromQuartzFrame: hitFrame)
-        )
-    }
-
-    private func bundleIdentifierFromDockURL(_ element: AXUIElement) -> String? {
-        var urlValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXURLAttribute as CFString, &urlValue) == .success else {
-            return nil
-        }
-        let url: URL?
-        if let value = urlValue as? URL {
-            url = value
-        } else if let value = urlValue as? String {
-            url = URL(string: value)
+    private func makeTarget(from item: AXUIElement) -> DockHoverTarget? {
+        guard let dock else { return nil }
+        let identity: DockAppIdentity
+        if let cachedItem, CFEqual(cachedItem.element, item) {
+            identity = cachedItem.identity
         } else {
-            url = nil
-        }
-        guard let url, url.isFileURL, let bundle = Bundle(url: url) else {
-            return nil
-        }
-        return bundle.bundleIdentifier
-    }
-
-    private func isDockCurrentlyVisible() -> Bool {
-        visibleDockList() != nil
-    }
-
-    private func visibleDockList() -> AXUIElement? {
-        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
-            return nil
+            let subrole = WindowDiscoveryEngine.copyAttribute(kAXSubroleAttribute, from: item) as? String
+            let resolved: DockAppIdentity?
+            switch subrole {
+            case "AXApplicationDockItem": resolved = Self.identity(of: item)
+            case "AXMinimizedWindowDockItem": resolved = Self.minimizedWindowIdentity(of: item)
+            default: resolved = nil
+            }
+            guard let resolved else { return nil }
+            identity = resolved
+            cachedItem = (item, resolved)
         }
 
-        let dockElement = AXUIElementCreateApplication(dock.processIdentifier)
-        var childrenValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(dockElement, kAXChildrenAttribute as CFString, &childrenValue) == .success,
-              let children = childrenValue as? [AXUIElement],
-              let list = children.first else {
-            return nil
+        let itemFrame = WindowDiscoveryEngine.frame(of: item)
+        guard itemFrame.width > 0, itemFrame.height > 0 else { return nil }
+        let listFrame = WindowDiscoveryEngine.frame(of: dock.list)
+        edge = Self.edge(of: dock.list, listFrame: listFrame) ?? edge
+
+        // Running state changes while the icon stays the same, so it is never cached.
+        let runningApp = identity.bundleIdentifier.flatMap {
+            NSRunningApplication.runningApplications(withBundleIdentifier: $0).first { !$0.isTerminated }
         }
-
-        return isDockListVisible(list) ? list : nil
-    }
-
-    private func selectedDockItem(in list: AXUIElement) -> AXUIElement? {
-        var selectedChildren: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(list, kAXSelectedChildrenAttribute as CFString, &selectedChildren) == .success,
-              let selected = selectedChildren as? [AXUIElement],
-              let hoveredItem = selected.first else {
-            return nil
-        }
-        return hoveredItem
-    }
-
-    private func isDockListVisible(_ list: AXUIElement) -> Bool {
-        let frame = rawFrame(for: list)
-        guard frame.width > 0, frame.height > 0 else { return false }
-
-        return NSScreen.screens.contains { screen in
-            let intersection = frame.intersection(screen.frame)
-            let visibleArea = intersection.width * intersection.height
-            let totalArea = frame.width * frame.height
-            return visibleArea >= totalArea * 0.55
-        }
-    }
-
-    private func rawFrame(for element: AXUIElement) -> CGRect {
-        var positionValue: CFTypeRef?
-        var sizeValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue) == .success,
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue) == .success,
-              let positionValue,
-              let sizeValue else {
-            return .zero
-        }
-
-        var position = CGPoint.zero
-        var size = CGSize.zero
-        AXValueGetValue(positionValue as! AXValue, .cgPoint, &position)
-        AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
-        return CGRect(origin: position, size: size)
-    }
-
-    private func quartzFrame(fromAccessibilityPosition position: CGPoint, size: CGSize) -> CGRect {
-        let screen = NSScreen.screens.first { screen in
-            position.x >= screen.frame.minX &&
-                position.x <= screen.frame.maxX &&
-                position.y >= screen.frame.minY &&
-                position.y <= screen.frame.maxY
-        } ?? NSScreen.main
-
-        guard let screen else {
-            return CGRect(origin: position, size: size)
-        }
-
-        var origin = position
-        if position.y >= screen.frame.maxY - 1 {
-            origin.y = screen.frame.maxY - size.height
-        }
-        if position.x >= screen.frame.maxX - 1 {
-            origin.x = screen.frame.maxX - size.width
-        }
-
-        return CGRect(origin: origin, size: size)
-    }
-
-    private func appKitFrame(fromQuartzFrame frame: CGRect) -> CGRect {
-        let screen = NSScreen.screens.first { screen in
-            frame.midX >= screen.frame.minX &&
-                frame.midX <= screen.frame.maxX &&
-                frame.midY >= screen.frame.minY &&
-                frame.midY <= screen.frame.maxY
-        } ?? NSScreen.main
-
-        guard let screen else {
-            return frame
-        }
-
-        return CGRect(
-            x: frame.minX,
-            y: screen.frame.maxY - frame.maxY,
-            width: frame.width,
-            height: frame.height
+        var current = identity
+        current.processIdentifier = runningApp?.processIdentifier
+        return DockHoverTarget(
+            identity: current,
+            isRunning: runningApp != nil || identity.isMinimizedWindow,
+            iconFrame: Self.appKitFrame(fromAccessibilityFrame: itemFrame),
+            dockFrame: Self.appKitFrame(fromAccessibilityFrame: listFrame),
+            edge: edge
         )
     }
-}
 
-private struct DockItem {
-    var identity: DockAppIdentity
-    var hitFrame: CGRect
-    var anchorFrame: CGRect
-}
+    private func setTarget(_ target: DockHoverTarget?) {
+        let changed = currentTarget?.identity != target?.identity || currentTarget?.isRunning != target?.isRunning
+        currentTarget = target
+        guard changed else { return }
+        let name = target?.identity.displayName
+        logger.debug("Dock hover changed onIcon=\(target != nil, privacy: .public) running=\(target?.isRunning ?? false, privacy: .public) app=\(name ?? "none", privacy: .private)")
+        if lastHoveredApp != name {
+            lastHoveredApp = name
+        }
+        onHoverChanged?(target)
+    }
 
-private extension CGRect {
-    var center: CGPoint {
-        CGPoint(x: midX, y: midY)
+    private func isNearDockEdge(_ point: CGPoint) -> Bool {
+        guard let screen = NSScreen.screens.first(where: { $0.frame.insetBy(dx: -1, dy: -1).contains(point) }) else {
+            return false
+        }
+        switch edge {
+        case .bottom: return point.y - screen.frame.minY <= edgeBandDepth
+        case .left: return point.x - screen.frame.minX <= edgeBandDepth
+        case .right: return screen.frame.maxX - point.x <= edgeBandDepth
+        }
+    }
+
+    // MARK: Dock connection
+
+    private struct DockConnection {
+        var processIdentifier: pid_t
+        var list: AXUIElement
+        var observer: AXObserver?
+    }
+
+    private func connectToDock() {
+        let now = Date()
+        guard dock == nil, now.timeIntervalSince(lastConnectionAttempt) >= 1 else { return }
+        lastConnectionAttempt = now
+
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
+            return
+        }
+        let pid = app.processIdentifier
+        let appElement = AXUIElementCreateApplication(pid)
+        guard let children = WindowDiscoveryEngine.copyAttribute(kAXChildrenAttribute, from: appElement) as? [AXUIElement],
+              let list = children.first(where: {
+                  WindowDiscoveryEngine.copyAttribute(kAXRoleAttribute, from: $0) as? String == kAXListRole as String
+              }) else {
+            return
+        }
+
+        var observer: AXObserver?
+        let callback: AXObserverCallback = { _, _, _, context in
+            guard let context else { return }
+            let service = Unmanaged<DockHoverService>.fromOpaque(context).takeUnretainedValue()
+            MainActor.assumeIsolated { service.dockSelectionChanged() }
+        }
+        if AXObserverCreate(pid, callback, &observer) == .success, let observer {
+            let context = Unmanaged.passUnretained(self).toOpaque()
+            if AXObserverAddNotification(observer, list, kAXSelectedChildrenChangedNotification as CFString, context) == .success {
+                CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
+            } else {
+                logger.debug("Dock selection observer unavailable; using pointer movement only")
+            }
+        }
+        dock = DockConnection(processIdentifier: pid, list: list, observer: observer)
+        logger.debug("Connected to Dock pid=\(pid, privacy: .public)")
+    }
+
+    private func disconnectFromDock() {
+        if let observer = dock?.observer {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
+        }
+        dock = nil
+        cachedItem = nil
+        lastConnectionAttempt = .distantPast
+    }
+
+    // MARK: Dock item details
+
+    private static func identity(of item: AXUIElement) -> DockAppIdentity? {
+        let title = WindowDiscoveryEngine.copyAttribute(kAXTitleAttribute, from: item) as? String ?? ""
+        let urlValue = WindowDiscoveryEngine.copyAttribute(kAXURLAttribute, from: item)
+        let url = (urlValue as? URL) ?? (urlValue as? String).flatMap(URL.init(string:))
+        guard let url, url.isFileURL, let bundleIdentifier = Bundle(url: url)?.bundleIdentifier else {
+            return nil
+        }
+        return DockAppIdentity(title: title, bundleIdentifier: bundleIdentifier, processIdentifier: nil)
+    }
+
+    /// A minimized window's Dock tile carries the window's title and nothing about its application.
+    private static func minimizedWindowIdentity(of item: AXUIElement) -> DockAppIdentity? {
+        guard let title = WindowDiscoveryEngine.copyAttribute(kAXTitleAttribute, from: item) as? String,
+              !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return DockAppIdentity(title: title, bundleIdentifier: nil, processIdentifier: nil, isMinimizedWindow: true)
+    }
+
+    private static func edge(of list: AXUIElement, listFrame: CGRect) -> DockEdge? {
+        guard let orientation = WindowDiscoveryEngine.copyAttribute(kAXOrientationAttribute, from: list) as? String else {
+            return nil
+        }
+        if orientation == kAXHorizontalOrientationValue as String {
+            return .bottom
+        }
+        let frame = appKitFrame(fromAccessibilityFrame: listFrame)
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(center) }) ?? NSScreen.screens.first else {
+            return nil
+        }
+        return frame.midX < screen.frame.midX ? .left : .right
+    }
+
+    private static func edgeFromDockPreferences() -> DockEdge {
+        let orientation = UserDefaults(suiteName: "com.apple.dock")?.string(forKey: "orientation")
+        return orientation.flatMap(DockEdge.init(rawValue:)) ?? .bottom
+    }
+
+    /// Accessibility frames have their origin at the top left of the primary display.
+    private static func appKitFrame(fromAccessibilityFrame frame: CGRect) -> CGRect {
+        guard let primaryHeight = NSScreen.screens.first?.frame.height else { return frame }
+        return CGRect(x: frame.minX, y: primaryHeight - frame.maxY, width: frame.width, height: frame.height)
     }
 }
