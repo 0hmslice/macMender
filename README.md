@@ -23,14 +23,14 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/v1.0.0/dock-preview-dark.png">
-    <img src=".github/assets/v1.0.0/dock-preview-light.png" alt="A Dock preview showing four TextEdit windows, with close, minimize, and full screen buttons on the one under the pointer and Hide and Quit in the header">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/v0.20.0/dock-preview-dark.png">
+    <img src=".github/assets/v0.20.0/dock-preview-light.png" alt="A Dock preview showing four TextEdit windows, with close, minimize, and full screen buttons on the one under the pointer and Hide and Quit in the header">
   </picture>
 </p>
 
 <p align="center">Free, open source, and local. No accounts, no analytics, no subscriptions.</p>
 
-> **macMender 1.0.** Rebuilt Dock previews, a redesigned settings window, new onboarding, and Control Center–style quick controls, all in Apple's Liquid Glass on macOS 26 and later. [Download v1.0.0](https://github.com/0hmslice/macMender/releases/tag/v1.0.0).
+> **New in v0.20.0 — the biggest update yet.** Rebuilt Dock previews, a redesigned settings window, new onboarding, and Control Center–style quick controls, in Apple's Liquid Glass on macOS 26 and later. [Download the preview release](https://github.com/0hmslice/macMender/releases/tag/v0.20.0).
 
 ## Dock previews
 
@@ -47,7 +47,7 @@ Rest the pointer on a Dock icon and macMender shows that app's windows, live.
 | **Yours to tune** | Preview size, hover delay, titles, buttons, and a list of apps that should never show previews. |
 
 <p align="center">
-  <img src=".github/assets/v1.0.0/dock-previews.jpg" width="760" alt="The Dock Previews settings page: a switch, status, preview size, and timing sliders">
+  <img src=".github/assets/v0.20.0/dock-previews.jpg" width="760" alt="The Dock Previews settings page: a switch, status, preview size, and timing sliders">
 </p>
 
 ## Everything else
@@ -67,13 +67,13 @@ One window, one layout, and a page for each feature. The Overview shows what is 
 On macOS 26 and later the app uses Apple's Liquid Glass for its switches, sliders, toolbar, and menu bar dropdown, with a frosted sidebar that shows what is behind the window.
 
 <p align="center">
-  <img src=".github/assets/v1.0.0/overview.jpg" width="760" alt="The Overview page: each feature with its status and a switch">
+  <img src=".github/assets/v0.20.0/overview.jpg" width="760" alt="The Overview page: each feature with its status and a switch">
 </p>
 
 <table>
   <tr>
-    <td width="50%"><img src=".github/assets/v1.0.0/mouse-trackpad.jpg" alt="Mouse and Trackpad settings with smoothing sliders and a response preview"><br><strong>Scrolling, your way</strong></td>
-    <td width="50%"><img src=".github/assets/v1.0.0/window-switcher.jpg" alt="Window Switcher settings with shortcut, layout, and thumbnail size"><br><strong>Switch windows, not just apps</strong></td>
+    <td width="50%"><img src=".github/assets/v0.20.0/mouse-trackpad.jpg" alt="Mouse and Trackpad settings with smoothing sliders and a response preview"><br><strong>Scrolling, your way</strong></td>
+    <td width="50%"><img src=".github/assets/v0.20.0/window-switcher.jpg" alt="Window Switcher settings with shortcut, layout, and thumbnail size"><br><strong>Switch windows, not just apps</strong></td>
   </tr>
 </table>
 
@@ -81,8 +81,8 @@ On macOS 26 and later the app uses Apple's Liquid Glass for its switches, slider
 
 <table>
   <tr>
-    <td width="42%"><img src=".github/assets/v1.0.0/quick-controls.png" alt="The menu bar dropdown: tiles for Dock Previews, Window Switcher, Three-Finger Tap and Reverse Wheel, with Keep Awake and Pause"><br><strong>Everything one click away</strong><br>Click the menu bar icon to turn features on and off, start Keep Awake, or pause macMender.</td>
-    <td width="58%"><img src=".github/assets/v1.0.0/onboarding.jpg" alt="The setup screen for choosing which features to turn on"><br><strong>Set up in a minute</strong><br>Pick the features you want, allow access, and you are done.</td>
+    <td width="42%"><img src=".github/assets/v0.20.0/quick-controls.png" alt="The menu bar dropdown: tiles for Dock Previews, Window Switcher, Three-Finger Tap and Reverse Wheel, with Keep Awake and Pause"><br><strong>Everything one click away</strong><br>Click the menu bar icon to turn features on and off, start Keep Awake, or pause macMender.</td>
+    <td width="58%"><img src=".github/assets/v0.20.0/onboarding.jpg" alt="The setup screen for choosing which features to turn on"><br><strong>Set up in a minute</strong><br>Pick the features you want, allow access, and you are done.</td>
   </tr>
 </table>
 
