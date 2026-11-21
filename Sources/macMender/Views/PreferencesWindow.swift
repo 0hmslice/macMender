@@ -7,9 +7,11 @@ struct PreferencesWindow: View {
     var body: some View {
         if appModel.store.config.hasCompletedOnboarding {
             NavigationSplitView(columnVisibility: $columnVisibility) {
-                SidebarView(selection: $appModel.selectedSection)
-                    .navigationTitle("macMender")
-                    .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 260)
+                SidebarView(
+                    selection: $appModel.selectedSection,
+                    glass: appModel.store.config.appBehavior.sidebarGlass
+                )
+                .navigationSplitViewColumnWidth(min: 200, ideal: 224, max: 280)
             } detail: {
                 DetailRouter(appModel: appModel)
                     .safeAreaInset(edge: .bottom) {
@@ -25,7 +27,11 @@ struct PreferencesWindow: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(nsColor: .windowBackgroundColor))
+                    // The page shows its own title, so the window's title bar stays clear and
+                    // runs unbroken into the content beneath it.
                     .navigationTitle(appModel.selectedSection.title)
+                    .hidingToolbarTitle()
+                    .toolbarBackground(.hidden, for: .windowToolbar)
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             ProfilePicker(appModel: appModel)
@@ -33,9 +39,6 @@ struct PreferencesWindow: View {
                     }
             }
             .navigationSplitViewStyle(.balanced)
-            .onChange(of: appModel.selectedSection) {
-                columnVisibility = .all
-            }
             .onChange(of: appModel.navigationPresentationID) {
                 columnVisibility = .all
             }
@@ -60,8 +63,12 @@ private struct DetailRouter: View {
             MenuBarSpacingView(appModel: appModel)
         case .input:
             InputScrollingView(appModel: appModel)
-        case .dockWindows:
-            DockWindowsView(appModel: appModel)
+        case .dockPreviews:
+            DockPreviewsSettingsView(appModel: appModel)
+        case .windowSwitcher:
+            WindowSwitcherSettingsView(appModel: appModel)
+        case .dockSettings:
+            DockSettingsView(appModel: appModel)
         case .profiles:
             ProfilesView(appModel: appModel)
         case .privacy:
@@ -85,7 +92,7 @@ private struct ProfilePicker: View {
                 }
                 .pickerStyle(.menu)
                 .controlSize(.regular)
-                .frame(width: 172)
+                .frame(minWidth: 110, maxWidth: 200)
                 .help("Switch profile")
                 .accessibilityLabel("Profile")
                 .accessibilityValue(appModel.activeProfile.name)
@@ -99,5 +106,17 @@ private struct ProfilePicker: View {
             get: { appModel.store.config.activeProfileID },
             set: { appModel.setActiveProfile($0) }
         )
+    }
+}
+
+private extension View {
+    /// Hides the title text in the window's toolbar while keeping it as the window's name.
+    @ViewBuilder
+    func hidingToolbarTitle() -> some View {
+        if #available(macOS 15.0, *) {
+            toolbar(removing: .title)
+        } else {
+            self
+        }
     }
 }

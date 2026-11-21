@@ -3,105 +3,177 @@ import SwiftUI
 struct OverviewView: View {
     @ObservedObject var appModel: AppModel
 
+    private var isPaused: Bool { appModel.store.config.safeModeEnabled }
+
     var body: some View {
-        MacMenderScrollablePage(maxContentWidth: 820) {
-            MacMenderPageHeader(
-                title: "Overview",
-                subtitle: "Review the current profile and open the features you want to adjust.",
-                systemImage: SettingsSection.overview.symbolName
-            )
-
-            OverviewProfileSummary(appModel: appModel)
-
-            if appModel.permissions.needsAttention {
-                MacMenderCallout(systemImage: "exclamationmark.circle", tone: .attention) {
-                    HStack {
-                        Text("Accessibility is required for shortcuts, Dock previews, and window actions.")
-                            .foregroundStyle(.secondary)
-                        Spacer(minLength: MacMenderSpacing.standard)
-                        Button("Review Permissions") {
-                            appModel.selectedSection = .privacy
+        SettingsPage(section: .overview) {
+            if appModel.permissions.needsAttention || isPaused {
+                Section {
+                    if appModel.permissions.needsAttention {
+                        SettingsRow(
+                            title: "macMender needs Accessibility access",
+                            detail: "Previews, window switching, and shortcuts stay off until you allow it.",
+                            systemImage: "exclamationmark.triangle.fill",
+                            tint: .orange
+                        ) {
+                            Button("Fix…") { appModel.selectedSection = .privacy }
+                        }
+                    }
+                    if isPaused {
+                        SettingsRow(
+                            title: "macMender is paused",
+                            detail: "Every feature is off until you resume.",
+                            systemImage: "pause.fill",
+                            tint: .yellow
+                        ) {
+                            Button("Resume") { appModel.toggleSafeMode() }
                         }
                     }
                 }
-            } else if appModel.store.config.safeModeEnabled {
-                MacMenderCallout(systemImage: "pause.circle", tone: .paused) {
-                    Text("Safe Mode is pausing input and window helpers.")
-                        .foregroundStyle(.secondary)
-                }
             }
 
-            MacMenderContentSection(
-                title: "Features",
-                subtitle: "Open a feature to review its settings.",
-                systemImage: "slider.horizontal.3"
-            ) {
-                VStack(spacing: 0) {
-                    OverviewFeatureRow(
-                        title: "Permissions",
-                        summary: permissionsSummary,
-                        systemImage: "lock.shield",
-                        action: { appModel.selectedSection = .privacy }
+            Section("Features") {
+                featureRow(
+                    .dockPreviews,
+                    summary: dockPreviewSummary,
+                    isOn: Binding(
+                        get: { appModel.activeProfile.dockPreviews.enabled },
+                        set: { appModel.setDockPreviewsEnabled($0) }
                     )
-
-                    Divider()
-
-                    OverviewFeatureRow(
-                        title: "Three-Finger Tap",
-                        summary: threeFingerTapSummary,
-                        systemImage: "hand.tap",
-                        action: { appModel.selectedSection = .input }
+                )
+                featureRow(
+                    .windowSwitcher,
+                    summary: windowSwitcherSummary,
+                    isOn: Binding(
+                        get: { appModel.activeProfile.windowSwitcher.enabled },
+                        set: { appModel.setWindowSwitcherEnabled($0) }
                     )
+                )
+                featureRow(
+                    .input,
+                    title: "Middle Click",
+                    summary: middleClickSummary,
+                    isOn: appModel.profileBinding(\.middleClick.enabled)
+                )
+                featureRow(
+                    .input,
+                    title: "Smooth Scrolling",
+                    summary: scrollingSummary,
+                    isOn: nil
+                )
+                featureRow(.keepAwake, summary: keepAwakeSummary, isOn: nil)
+                featureRow(.menuBarSpacing, summary: menuBarSummary, isOn: nil)
+            }
 
-                    Divider()
-
-                    OverviewFeatureRow(
-                        title: "Window Switcher",
-                        summary: windowSwitcherSummary,
-                        systemImage: "rectangle.3.group",
-                        action: { appModel.selectedSection = .dockWindows }
+            Section("Setup") {
+                OverviewLinkRow(
+                    title: "Permissions",
+                    detail: permissionsSummary.detail,
+                    systemImage: SettingsSection.privacy.symbolName,
+                    tint: SettingsSection.privacy.tint,
+                    status: SettingsStatusBadge(
+                        title: permissionsSummary.kind == .needsAttention ? "Needs access" : "Ready",
+                        tone: MacMenderStatusTone(featureStatusKind: permissionsSummary.kind)
                     )
+                ) { appModel.selectedSection = .privacy }
 
-                    Divider()
-
-                    OverviewFeatureRow(
-                        title: "Dock Previews",
-                        summary: dockPreviewSummary,
-                        systemImage: "dock.arrow.up.rectangle",
-                        action: { appModel.selectedSection = .dockWindows }
-                    )
-
-                    Divider()
-
-                    OverviewFeatureRow(
-                        title: "Keep Awake",
-                        summary: FeatureStatusSummary(
-                            title: appModel.keepAwake.isActive ? "Active" : "Ready",
-                            detail: appModel.keepAwake.isActive ? "A keep-awake session is running." : "Keep your Mac awake for a timed session.",
-                            kind: appModel.keepAwake.isActive ? .active : .ready
-                        ),
-                        systemImage: "cup.and.saucer",
-                        action: { appModel.selectedSection = .keepAwake }
-                    )
-                }
+                OverviewLinkRow(
+                    title: "Profile",
+                    detail: appModel.store.config.profiles.count == 1
+                        ? "One profile. Add more to keep different setups."
+                        : "\(appModel.store.config.profiles.count) profiles saved.",
+                    systemImage: SettingsSection.profiles.symbolName,
+                    tint: SettingsSection.profiles.tint,
+                    status: Text(appModel.activeProfile.name).foregroundStyle(.secondary)
+                ) { appModel.selectedSection = .profiles }
             }
         }
+    }
+
+    /// One feature: what it is doing, a switch when it has one, and a way into its page.
+    private func featureRow(
+        _ section: SettingsSection,
+        title: String? = nil,
+        summary: FeatureStatusSummary,
+        isOn: Binding<Bool>?
+    ) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                appModel.selectedSection = section
+            } label: {
+                HStack(spacing: 12) {
+                    SettingsIconTile(systemImage: section.symbolName, tint: section.tint, size: 26)
+                    SettingsRowText(title: title ?? section.title, detail: summary.detail)
+                    Spacer(minLength: 8)
+                    if isOn == nil {
+                        SettingsStatusBadge(title: summary.title, tone: MacMenderStatusTone(featureStatusKind: summary.kind))
+                    }
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens \(section.title) settings")
+
+            if let isOn {
+                Toggle(title ?? section.title, isOn: isOn)
+                    .labelsHidden()
+            }
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, 2)
     }
 
     private var permissionsSummary: FeatureStatusSummary {
         PermissionStatusPolicy.permissionsSummary(
             accessibility: appModel.permissions.accessibility,
             screenRecording: appModel.permissions.screenRecording,
-            inputMonitoring: appModel.permissions.inputMonitoring
+            inputMonitoring: .granted
         )
     }
 
-    private var threeFingerTapSummary: FeatureStatusSummary {
-        PermissionStatusPolicy.threeFingerTapStatus(
-            settings: appModel.activeProfile.middleClick,
-            accessibility: appModel.permissions.accessibility,
-            safeModeEnabled: appModel.store.config.safeModeEnabled,
-            runtimeRunning: appModel.multitouchMiddleClick.isRunning
+    private var middleClickSummary: FeatureStatusSummary {
+        let settings = appModel.activeProfile.middleClick
+        guard settings.enabled else {
+            return FeatureStatusSummary(title: "Off", detail: "Middle click from a trackpad or two-button mouse.", kind: .off)
+        }
+        if settings.trigger == .experimentalThreeFinger {
+            return PermissionStatusPolicy.threeFingerTapStatus(
+                settings: settings,
+                accessibility: appModel.permissions.accessibility,
+                safeModeEnabled: isPaused,
+                runtimeRunning: appModel.multitouchMiddleClick.isRunning
+            )
+        }
+        return FeatureStatusSummary(title: "On", detail: "\(settings.trigger.title) middle-clicks.", kind: isPaused ? .paused : .active)
+    }
+
+    private var scrollingSummary: FeatureStatusSummary {
+        let scroll = appModel.activeProfile.scroll
+        let smoothing = scroll.verticalSmoothingEnabled || scroll.horizontalSmoothingEnabled
+        return FeatureStatusSummary(
+            title: smoothing ? scroll.preset.title : "Off",
+            detail: smoothing ? "Mouse wheel scrolling is smoothed." : "Mouse wheel scrolling is unchanged.",
+            kind: smoothing ? (isPaused ? .paused : .active) : .off
+        )
+    }
+
+    private var keepAwakeSummary: FeatureStatusSummary {
+        if let session = appModel.keepAwake.session {
+            let until = session.endsAt.map { "Awake until \($0.formatted(date: .omitted, time: .shortened))." } ?? "Awake until you stop it."
+            return FeatureStatusSummary(title: "On", detail: until, kind: .active)
+        }
+        return FeatureStatusSummary(title: "Off", detail: "Your Mac sleeps as usual.", kind: .off)
+    }
+
+    private var menuBarSummary: FeatureStatusSummary {
+        let preference = appModel.store.config.appBehavior.menuBarSpacing
+        return FeatureStatusSummary(
+            title: preference.title,
+            detail: preference == .systemDefault ? "Menu bar icons use the macOS spacing." : "Menu bar icons use your spacing.",
+            kind: preference == .systemDefault ? .off : .active
         )
     }
 
@@ -110,7 +182,7 @@ struct OverviewView: View {
             settings: appModel.activeProfile.windowSwitcher,
             featureEnabled: appModel.store.config.featureToggles.windowSwitcher,
             accessibility: appModel.permissions.accessibility,
-            safeModeEnabled: appModel.store.config.safeModeEnabled
+            safeModeEnabled: isPaused
         )
     }
 
@@ -118,108 +190,36 @@ struct OverviewView: View {
         PermissionStatusPolicy.dockPreviewStatus(
             settings: appModel.activeProfile.dockPreviews,
             accessibility: appModel.permissions.accessibility,
-            safeModeEnabled: appModel.store.config.safeModeEnabled,
+            safeModeEnabled: isPaused,
             runtimeRunning: appModel.dockHover.isRunning
         )
     }
 }
 
-private struct OverviewProfileSummary: View {
-    @ObservedObject var appModel: AppModel
-
-    var body: some View {
-        HStack(alignment: .center, spacing: MacMenderSpacing.standard) {
-            Image(systemName: SettingsSection.profiles.symbolName)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 28)
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                Text(appModel.activeProfile.name)
-                    .font(.headline)
-                Text("Current profile · Input, Dock, and window settings")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: MacMenderSpacing.standard)
-
-            Button("Manage Profiles") {
-                appModel.selectedSection = .profiles
-            }
-            .controlSize(.small)
-        }
-        .padding(MacMenderSpacing.standard)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .macMenderContentSurface()
-        .accessibilityElement(children: .contain)
-    }
-}
-
-private struct OverviewFeatureRow: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isHovered = false
-
+/// A row that opens another page, with a status on the right.
+private struct OverviewLinkRow<Status: View>: View {
     var title: String
-    var summary: FeatureStatusSummary
+    var detail: String
     var systemImage: String
+    var tint: Color
+    var status: Status
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: MacMenderSpacing.standard) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 28)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                    Text(title)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(.primary)
-                    Text(summary.detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: MacMenderSpacing.standard)
-
-                if shouldShowStatus {
-                    MacMenderStatusLabel(
-                        title: summary.title,
-                        tone: MacMenderStatusTone(featureStatusKind: summary.kind)
-                    )
-                }
-
+            HStack(spacing: 12) {
+                SettingsIconTile(systemImage: systemImage, tint: tint, size: 26)
+                SettingsRowText(title: title, detail: detail)
+                Spacer(minLength: 8)
+                status
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
-            .padding(.horizontal, MacMenderSpacing.small)
-            .padding(.vertical, MacMenderSpacing.standard)
+            .padding(.vertical, 2)
             .contentShape(.rect)
-            .background(
-                Color.primary.opacity(isHovered ? 0.05 : 0),
-                in: RoundedRectangle(cornerRadius: MacMenderRadius.control, style: .continuous)
-            )
         }
         .buttonStyle(.plain)
-        .animation(MacMenderMotion.feedback(reduceMotion: reduceMotion), value: isHovered)
-        .onHover { isHovered = $0 }
-        .accessibilityLabel("\(title), \(summary.title). \(summary.detail)")
-        .accessibilityHint("Open settings")
-    }
-
-    private var shouldShowStatus: Bool {
-        switch summary.kind {
-        case .active, .ready:
-            false
-        case .paused, .needsAttention, .off, .optional:
-            true
-        }
     }
 }

@@ -4,7 +4,7 @@ import Foundation
 final class DiagnosticsService: ObservableObject {
     @Published private(set) var latestMessages: [String] = [
         "macMender stores configuration locally.",
-        "Input event modification is disabled while Safe Mode is on.",
+        "Input event modification is disabled while macMender is paused.",
         "Window thumbnails require Screen Recording permission."
     ]
 

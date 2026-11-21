@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct RunningAppOption: Identifiable {
     var id: String { bundleIdentifier }
@@ -18,58 +19,67 @@ extension Array where Element == RunningAppOption {
     }
 }
 
-struct DeviceRuleRow: View {
-    var rule: DeviceScrollRule
-    var smoothing: Binding<Bool>
-    var reverseVertical: Binding<Bool>
-    var reverseHorizontal: Binding<Bool>
+/// A menu that adds an application: any running app, or one chosen from disk.
+struct AddApplicationMenu: View {
+    var title = "Add App"
+    var candidates: [RunningAppOption]
+    var onOpen: () -> Void = {}
+    var onAdd: (_ bundleIdentifier: String, _ name: String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
-            HStack(spacing: MacMenderSpacing.standard) {
-                Image(systemName: rule.deviceKind == .builtInTrackpad ? "rectangle.and.hand.point.up.left" : "computermouse")
-                    .foregroundStyle(.secondary)
-                    .frame(width: 24)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                    Text(rule.deviceKind == .builtInTrackpad ? "Trackpads & Magic Mouse" : rule.displayName)
-                        .font(.body.weight(.medium))
-                    if rule.displayName != rule.deviceKind.title {
-                        Text(rule.deviceKind.title)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Spacer()
-
-                if rule.isPhysicalDeviceSpecific {
-                    MacMenderStatusLabel(title: "Device-specific", tone: .neutral, systemImage: "sensor")
-                }
+        Menu {
+            ForEach(candidates) { candidate in
+                Button(candidate.name) { onAdd(candidate.bundleIdentifier, candidate.name) }
             }
+            if !candidates.isEmpty { Divider() }
+            Button("Choose from Applications…", action: chooseApplication)
+        } label: {
+            Label(title, systemImage: "plus")
+        }
+        .fixedSize()
+        .onAppear(perform: onOpen)
+    }
 
-            HStack(spacing: MacMenderSpacing.section) {
-                if rule.deviceKind == .builtInTrackpad {
-                    Text("Native momentum")
-                        .foregroundStyle(.secondary)
-                } else {
-                    Toggle("Smooth", isOn: smoothing)
-                        .accessibilityLabel("Smooth scrolling for \(rule.displayName)")
-                }
-                Toggle("Reverse Vertical", isOn: reverseVertical)
-                    .accessibilityLabel("Reverse vertical scrolling for \(rule.displayName)")
-                Toggle("Reverse Horizontal", isOn: reverseHorizontal)
-                    .accessibilityLabel("Reverse horizontal scrolling for \(rule.displayName)")
+    private func chooseApplication() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose an App"
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url,
+                  let bundleIdentifier = Bundle(url: url)?.bundleIdentifier else { return }
+            onAdd(bundleIdentifier, url.deletingPathExtension().lastPathComponent)
+        }
+    }
+}
+
+/// An application's icon, looked up by bundle identifier.
+struct ApplicationIcon: View {
+    var bundleIdentifier: String
+    var size: CGFloat = 24
+    @State private var icon: NSImage?
+
+    var body: some View {
+        Group {
+            if let icon {
+                Image(nsImage: icon).resizable()
+            } else {
+                Image(systemName: "app.dashed").resizable().foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, MacMenderSpacing.standard)
+        .scaledToFit()
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+        .task(id: bundleIdentifier) {
+            icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
+                .map { NSWorkspace.shared.icon(forFile: $0.path) }
+        }
     }
 }
 
 struct AppOverrideRow: View {
-    @State private var appIcon: NSImage?
-
     var rule: AppScrollRule
     var bypass: Binding<Bool>
     var smoothing: Binding<Bool?>
@@ -78,77 +88,43 @@ struct AppOverrideRow: View {
     var deleteAction: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
-            HStack(spacing: MacMenderSpacing.standard) {
-                Group {
-                    if let appIcon {
-                        Image(nsImage: appIcon)
-                            .resizable()
-                    } else {
-                        Image(systemName: "app")
-                            .resizable()
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .scaledToFit()
-                .frame(width: 28, height: 28)
-                .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                    Text(rule.appName)
-                        .font(.body.weight(.medium))
-                    Text(rule.bundleIdentifier)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                }
-
-                Spacer()
-
-                Button("Remove", role: .destructive, action: deleteAction)
-                    .accessibilityLabel("Remove scroll override for \(rule.appName)")
-            }
-
-            Toggle("Use native scrolling in this app", isOn: bypass)
-                .help("Bypass all macMender scrolling changes, including direction, speed, and smoothing.")
-                .accessibilityLabel("Use native scrolling in \(rule.appName)")
-
-            HStack(spacing: MacMenderSpacing.standard) {
-                TriStateOverridePicker(
-                    title: "Smoothing",
-                    accessibilityLabel: "Smoothing override for \(rule.appName)",
-                    value: smoothing
-                )
-                TriStateOverridePicker(
-                    title: "Reverse Vertical",
-                    accessibilityLabel: "Reverse vertical scrolling override for \(rule.appName)",
-                    value: reverseVertical
-                )
-                TriStateOverridePicker(
-                    title: "Reverse Horizontal",
-                    accessibilityLabel: "Reverse horizontal scrolling override for \(rule.appName)",
-                    value: reverseHorizontal
-                )
+        DisclosureGroup {
+            Toggle("Scroll the way macOS does", isOn: bypass)
+                .help("macMender leaves this app's scrolling completely alone.")
+            Group {
+                TriStateOverridePicker(title: "Smoothing", value: smoothing)
+                TriStateOverridePicker(title: "Reverse vertical", value: reverseVertical)
+                TriStateOverridePicker(title: "Reverse horizontal", value: reverseHorizontal)
             }
             .disabled(bypass.wrappedValue)
-        }
-        .padding(.vertical, MacMenderSpacing.standard)
-        .task(id: rule.bundleIdentifier) {
-            appIcon = resolveIcon()
+        } label: {
+            HStack(spacing: 10) {
+                ApplicationIcon(bundleIdentifier: rule.bundleIdentifier)
+                SettingsRowText(title: rule.appName, detail: summary)
+                Spacer()
+                Button(role: .destructive, action: deleteAction) {
+                    Image(systemName: "minus.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Remove this exception")
+                .accessibilityLabel("Remove exception for \(rule.appName)")
+            }
         }
     }
 
-    private func resolveIcon() -> NSImage? {
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: rule.bundleIdentifier) else {
-            return NSImage(systemSymbolName: "app", accessibilityDescription: nil)
-        }
-        return NSWorkspace.shared.icon(forFile: appURL.path)
+    private var summary: String {
+        if bypass.wrappedValue { return "Scrolls the way macOS does" }
+        var parts: [String] = []
+        if let value = smoothing.wrappedValue { parts.append(value ? "Smoothing on" : "Smoothing off") }
+        if let value = reverseVertical.wrappedValue { parts.append(value ? "Vertical reversed" : "Vertical not reversed") }
+        if let value = reverseHorizontal.wrappedValue { parts.append(value ? "Horizontal reversed" : "Horizontal not reversed") }
+        return parts.isEmpty ? "Same as other apps" : parts.joined(separator: " · ")
     }
 }
 
 private struct TriStateOverridePicker: View {
     var title: String
-    var accessibilityLabel: String
     var value: Binding<Bool?>
 
     var body: some View {
@@ -160,10 +136,6 @@ private struct TriStateOverridePicker: View {
                 Text(option.title).tag(option)
             }
         }
-        .pickerStyle(.menu)
-        .frame(minWidth: 150)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(OverrideValue(value.wrappedValue).title)
     }
 }
 
@@ -188,7 +160,7 @@ private enum OverrideValue: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .inherit:
-            "Inherit"
+            "Same as other apps"
         case .on:
             "On"
         case .off:
@@ -228,27 +200,22 @@ struct ScrollPreview: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MacMenderSpacing.small) {
-            Text("Response Preview")
-                .font(.subheadline.weight(.medium))
-
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .bottom, spacing: 5) {
                 ForEach(Array(samples.enumerated()), id: \.offset) { _, sample in
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.accentColor.opacity(0.72))
-                        .frame(width: 14, height: max(4, min(72, abs(sample.y))))
-                        .accessibilityHidden(true)
+                        .fill(Color.accentColor.opacity(0.75))
+                        .frame(width: 14, height: max(4, min(56, abs(sample.y))))
                 }
             }
-            .frame(height: 82, alignment: .bottom)
+            .frame(maxWidth: .infinity, minHeight: 60, alignment: .bottomLeading)
+            .animation(.snappy(duration: 0.2), value: samples.map(\.y))
 
-            Text("A taller early response feels more immediate; a longer tail feels smoother.")
+            Text("One turn of the wheel over time. A tall start feels immediate; a long tail feels smooth.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(MacMenderSpacing.standard)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .macMenderContentSurface(radius: MacMenderRadius.control)
+        .padding(.vertical, 4)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Scroll response preview")
         .accessibilityValue(accessibilityValue)

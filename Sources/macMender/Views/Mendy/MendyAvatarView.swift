@@ -106,7 +106,7 @@ enum MendyAssets {
             settings
         case .input:
             input
-        case .dockWindows:
+        case .dockPreviews, .windowSwitcher, .dockSettings:
             dockWindows
         case .privacy:
             privacy

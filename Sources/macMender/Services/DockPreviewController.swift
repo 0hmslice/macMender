@@ -985,7 +985,7 @@ extension DockPreviewController {
     /// Development aid: with `MACMENDER_PREVIEW_SNAPSHOT=<directory>` set, shows a preview shortly
     /// after launch and writes a screenshot of it plus a discovery report to that directory.
     /// `MACMENDER_PREVIEW_APP=<bundle id>` picks the application.
-    func runDebugSnapshotIfRequested(openSettings: (() -> Void)? = nil) {
+    func runDebugSnapshotIfRequested(openSettings: ((SettingsSection) -> Void)? = nil) {
         let environment = ProcessInfo.processInfo.environment
         guard let path = environment["MACMENDER_PREVIEW_SNAPSHOT"], !path.isEmpty else { return }
         let directory = URL(fileURLWithPath: path, isDirectory: true)
@@ -1017,40 +1017,54 @@ extension DockPreviewController {
                 }
             }
 
-            self.showSamplePreview(preferring: preferred, pinnedFor: 6)
-            try? await Task.sleep(for: .milliseconds(1500))
-            self.hoveredWindowID = self.presentation?.windows.first?.id
-            try? await Task.sleep(for: .milliseconds(400))
-            if let presentation = self.presentation, let panel = self.panel {
-                lines.append("presented=\(presentation.identity.bundleIdentifier ?? "?") windows=\(presentation.windows.count) cards=\(presentation.layout.cardFrames.count) hidden=\(presentation.layout.hiddenCount) thumbnailHeight=\(presentation.layout.thumbnailHeight) content=\(presentation.layout.contentSize) panel=\(panel.frame) phase=\(self.phase)")
-                lines.append("thumbnails=\(presentation.windows.filter { self.thumbnails[$0.id] != nil }.count)/\(presentation.windows.count)")
-                if let image = await Self.debugScreenshot(of: panel) {
-                    let url = directory.appendingPathComponent("preview.png")
-                    if let destination = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) {
-                        CGImageDestinationAddImage(destination, image, nil)
-                        lines.append("screenshot=\(CGImageDestinationFinalize(destination))")
+            if environment["MACMENDER_SNAPSHOT_SKIP_PREVIEW"] == nil {
+                self.showSamplePreview(preferring: preferred, pinnedFor: 6)
+                try? await Task.sleep(for: .milliseconds(1500))
+                self.hoveredWindowID = self.presentation?.windows.first?.id
+                try? await Task.sleep(for: .milliseconds(400))
+                if let presentation = self.presentation, let panel = self.panel {
+                    lines.append("presented=\(presentation.identity.bundleIdentifier ?? "?") windows=\(presentation.windows.count) cards=\(presentation.layout.cardFrames.count) hidden=\(presentation.layout.hiddenCount) thumbnailHeight=\(presentation.layout.thumbnailHeight) content=\(presentation.layout.contentSize) panel=\(panel.frame) phase=\(self.phase)")
+                    lines.append("thumbnails=\(presentation.windows.filter { self.thumbnails[$0.id] != nil }.count)/\(presentation.windows.count)")
+                    if let image = await Self.debugScreenshot(of: panel) {
+                        let url = directory.appendingPathComponent("preview.png")
+                        if let destination = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) {
+                            CGImageDestinationAddImage(destination, image, nil)
+                            lines.append("screenshot=\(CGImageDestinationFinalize(destination))")
+                        }
+                    } else {
+                        lines.append("screenshot=unavailable")
                     }
                 } else {
-                    lines.append("screenshot=unavailable")
+                    lines.append("presented=nothing status=\(self.lastStatus)")
                 }
-            } else {
-                lines.append("presented=nothing status=\(self.lastStatus)")
             }
             if wantsSettings, let openSettings {
                 self.dismiss(animated: false)
-                openSettings()
-                try? await Task.sleep(for: .milliseconds(1800))
-                if let window = NSApp.windows.first(where: { $0.isVisible && $0.styleMask.contains(.titled) }),
-                   let screen = window.screen ?? NSScreen.main {
+                // `MACMENDER_SNAPSHOT_SETTINGS=all` captures every section; anything else, Dock & Windows.
+                let sections = environment["MACMENDER_SNAPSHOT_SETTINGS"] == "all" ? SettingsSection.allCases : [.dockPreviews]
+                let size = environment["MACMENDER_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap { Double($0) } ?? []
+                for section in sections {
+                    openSettings(section)
+                    try? await Task.sleep(for: .milliseconds(section == sections.first ? 1800 : 500))
+                    guard let window = NSApp.windows.first(where: { $0.isVisible && $0.styleMask.contains(.titled) }),
+                          let screen = window.screen ?? NSScreen.main else { continue }
                     let visible = screen.visibleFrame
-                    window.setFrame(CGRect(x: visible.minX + 40, y: visible.minY, width: 1100, height: visible.height), display: true)
+                    let width = size.count == 2 ? size[0] : 1100
+                    let height = size.count == 2 ? min(size[1], visible.height - 80) : visible.height
+                    window.setFrame(CGRect(x: visible.minX + 60, y: visible.maxY - height - 40, width: width, height: height), display: true)
                     NSApp.activate(ignoringOtherApps: true)
                     window.orderFrontRegardless()
-                    try? await Task.sleep(for: .milliseconds(900))
+                    try? await Task.sleep(for: .milliseconds(700))
+                    if environment["MACMENDER_SNAPSHOT_SIDEBAR_COLOR"] != nil {
+                        // What is really on screen where the sidebar is, as one averaged colour.
+                        let patch = CGRect(x: window.frame.minX + 30, y: window.frame.minY + 40, width: 120, height: 120)
+                        lines.append("sidebarColor=\(await Self.debugAverageColor(of: patch, on: screen) ?? "unavailable")")
+                    }
+                    let name = sections.count == 1 ? "settings.png" : "settings-\(section.rawValue).png"
                     if let image = await Self.debugScreenshot(of: window),
-                       let destination = CGImageDestinationCreateWithURL(directory.appendingPathComponent("settings.png") as CFURL, "public.png" as CFString, 1, nil) {
+                       let destination = CGImageDestinationCreateWithURL(directory.appendingPathComponent(name) as CFURL, "public.png" as CFString, 1, nil) {
                         CGImageDestinationAddImage(destination, image, nil)
-                        lines.append("settings=\(CGImageDestinationFinalize(destination))")
+                        lines.append("\(name)=\(CGImageDestinationFinalize(destination))")
                     }
                 }
             }
@@ -1061,6 +1075,35 @@ extension DockPreviewController {
 
     /// Captures one of this app's own windows and nothing else, so whatever else is on screen
     /// never ends up in a development screenshot.
+    /// The average colour of a screen region as composited, everything included. Only the
+    /// colour leaves this function; no picture of the screen is kept.
+    private static func debugAverageColor(of appKitRect: CGRect, on screen: NSScreen) async -> String? {
+        guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
+              let content = try? await SCShareableContent.current,
+              let display = content.displays.first(where: { $0.displayID == displayID }) else { return nil }
+        let configuration = SCStreamConfiguration()
+        configuration.sourceRect = CGRect(
+            x: appKitRect.minX - screen.frame.minX,
+            y: screen.frame.maxY - appKitRect.maxY,
+            width: appKitRect.width,
+            height: appKitRect.height
+        )
+        configuration.width = 1
+        configuration.height = 1
+        configuration.showsCursor = false
+        guard let image = try? await SCScreenshotManager.captureImage(
+            contentFilter: SCContentFilter(display: display, excludingWindows: []),
+            configuration: configuration
+        ) else { return nil }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard let context = CGContext(
+            data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return "\(pixel[0]),\(pixel[1]),\(pixel[2])"
+    }
+
     /// Captures a window of this app over a plain backdrop. Only this app's windows are included,
     /// so whatever else is on screen never ends up in a development screenshot.
     private static func debugScreenshot(of window: NSWindow) async -> CGImage? {

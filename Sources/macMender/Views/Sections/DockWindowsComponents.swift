@@ -87,51 +87,41 @@ private struct WindowDiscoveryEntryLineView: View {
 struct DockSettingsPreview: View {
     var settings: DockSettings
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: MacMenderSpacing.standard) {
-            HStack {
-                Text("Dock Preview")
-                    .font(.subheadline.weight(.medium))
-                Spacer()
-                Text(settings.position.title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+    /// Scales the largest possible icon to fit the preview's height.
+    private static let scale = 0.5
 
-            HStack(spacing: MacMenderSpacing.small) {
-                ForEach(0..<8, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: MacMenderRadius.control, style: .continuous)
-                        .fill(index == 2 ? Color.accentColor.opacity(0.72) : Color.secondary.opacity(0.22))
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 6) {
+            ForEach(0..<8, id: \.self) { index in
+                VStack(spacing: 3) {
+                    RoundedRectangle(cornerRadius: dockItemSize(index) * 0.24, style: .continuous)
+                        .fill(index == 2 ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(Color.secondary.opacity(0.28)))
                         .frame(width: dockItemSize(index), height: dockItemSize(index))
-                        .overlay(alignment: .bottom) {
-                            if settings.showIndicators && [1, 2, 4].contains(index) {
-                                Circle()
-                                    .fill(.primary.opacity(0.55))
-                                    .frame(width: 4, height: 4)
-                                    .offset(y: 8)
-                            }
-                        }
-                        .accessibilityHidden(true)
+                    Circle()
+                        .fill(.primary.opacity(settings.showIndicators && [1, 2, 4].contains(index) ? 0.6 : 0))
+                        .frame(width: 4, height: 4)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 92, alignment: .center)
         }
-        .padding(MacMenderSpacing.standard)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .macMenderContentSurface(radius: MacMenderRadius.control)
-        .accessibilityElement(children: .combine)
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .background(.quaternary.opacity(0.7), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity, minHeight: 92, alignment: .bottom)
+        .animation(.snappy(duration: 0.2), value: settings)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(previewAccessibilityLabel)
     }
 
     private var previewAccessibilityLabel: String {
         let magnification = settings.magnificationEnabled ? "on" : "off"
         let indicators = settings.showIndicators ? "shown" : "hidden"
-        return "Dock preview. Position \(settings.position.title), size \(Int(settings.size)), magnification \(magnification), open app indicators \(indicators)."
+        return "Dock illustration. Position \(settings.position.title), size \(Int(settings.size)), magnification \(magnification), open app indicators \(indicators)."
     }
 
     private func dockItemSize(_ index: Int) -> Double {
-        guard settings.magnificationEnabled, index == 2 else { return settings.size * 0.7 }
-        return settings.magnificationSize * 0.7
+        guard settings.magnificationEnabled, index == 2 else { return settings.size * Self.scale }
+        return max(settings.magnificationSize, settings.size) * Self.scale
     }
 }
 
@@ -140,16 +130,16 @@ struct DockProfilesDisclosure: View {
     var activeProfileID: UUID
 
     var body: some View {
-        DisclosureGroup("Compare Dock Settings Across Profiles") {
+        DisclosureGroup("Dock settings in each profile") {
             VStack(spacing: 0) {
                 ForEach(Array(profiles.enumerated()), id: \.element.id) { index, profile in
                     HStack(spacing: MacMenderSpacing.standard) {
                         Label(profile.name, systemImage: profile.symbolName)
                         Spacer()
                         if profile.id == activeProfileID {
-                            MacMenderStatusLabel(title: "Active", tone: .active)
+                            SettingsStatusBadge(title: "Active", tone: .active)
                         }
-                        Text("\(profile.dock.position.title), \(Int(profile.dock.size)) px")
+                        Text("\(profile.dock.position.title), \(Int(profile.dock.size)) pt")
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, MacMenderSpacing.small)

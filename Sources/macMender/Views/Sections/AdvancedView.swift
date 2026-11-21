@@ -6,193 +6,111 @@ struct AdvancedView: View {
     @State private var showingResetConfirmation = false
     @State private var showingImportConfirmation = false
     @State private var pendingImport: ConfigurationImportPreview?
-    @State private var configurationStatus = "Autosave keeps current settings on disk."
+    @State private var configurationMessage: String?
     @State private var configurationStatusTone = MacMenderStatusTone.neutral
 
     var body: some View {
-        Form {
+        SettingsPage(section: .advanced) {
             Section {
-                AdvancedStatusRefreshRow(appModel: appModel)
-            } header: {
-                Label("Status", systemImage: "arrow.clockwise")
+                SettingsToggle(
+                    "Pause macMender",
+                    detail: "Stops Dock previews, the window switcher, scrolling changes, and middle click until you turn this off. Your settings are kept.",
+                    isOn: Binding(
+                        get: { appModel.store.config.safeModeEnabled },
+                        set: { if $0 != appModel.store.config.safeModeEnabled { appModel.toggleSafeMode() } }
+                    )
+                )
             } footer: {
-                Text("Refreshes permissions, login item state, Dock values, and helper status without scanning windows or capturing thumbnails.")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .multilineTextAlignment(.leading)
+                SettingsFooter("Useful when something on your Mac misbehaves and you want to rule macMender out.")
             }
 
             Section {
-                AdvancedActionRow(
-                    title: "Save Now",
-                    detail: "Write the current settings to disk.",
-                    buttonTitle: "Save Now",
-                    systemImage: "square.and.arrow.down"
-                ) {
-                    switch appModel.saveConfigurationNow() {
-                    case .success(let url):
-                        setConfigurationStatus("Saved current settings to \(url.lastPathComponent).", tone: .active)
-                    case .failure(let error):
-                        setConfigurationStatus(configurationErrorMessage(error), tone: .unavailable)
-                    }
-                }
-
-                AdvancedActionRow(
-                    title: "Export Configuration",
-                    detail: "Save a JSON copy you can back up or move to another Mac.",
-                    buttonTitle: "Export…",
-                    systemImage: "square.and.arrow.up"
-                ) {
-                    appModel.exportConfiguration { result in
-                        switch result {
-                        case .success(let url):
-                            setConfigurationStatus("Exported configuration to \(url.lastPathComponent).", tone: .active)
-                        case .failure(let error):
-                            setConfigurationStatus(configurationErrorMessage(error), tone: .unavailable)
-                        }
-                    }
-                }
-
-                AdvancedActionRow(
-                    title: "Import Configuration",
-                    detail: "Validate a macMender JSON file before replacing local settings.",
-                    buttonTitle: "Import…",
-                    systemImage: "tray.and.arrow.down"
-                ) {
-                    appModel.chooseConfigurationImport { result in
-                        switch result {
-                        case .success(let preview):
-                            pendingImport = preview
-                            showingImportConfirmation = true
-                        case .failure(let error):
-                            setConfigurationStatus(configurationErrorMessage(error), tone: .unavailable)
-                        }
-                    }
-                }
-
-                AdvancedActionRow(
-                    title: "Show Config in Finder",
-                    detail: "Reveal the active local configuration file.",
-                    buttonTitle: "Show in Finder",
-                    systemImage: "folder"
-                ) {
-                    appModel.openConfigurationFolder()
-                    setConfigurationStatus("Asked Finder to show the local configuration file.", tone: .neutral)
-                }
-
-                MacMenderCallout(
-                    systemImage: configurationStatusTone.defaultSymbol,
-                    tone: configurationStatusTone
-                ) {
-                    Text(configurationStatus)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } header: {
-                Label("Configuration", systemImage: "externaldrive")
-            }
-
-            Section {
-                HStack(alignment: .top, spacing: MacMenderSpacing.standard) {
-                    VStack(alignment: .leading, spacing: MacMenderSpacing.compact) {
-                        HStack(spacing: MacMenderSpacing.small) {
-                            Text("Safe Mode")
-                                .font(.body.weight(.medium))
-                            MacMenderStatusLabel(
-                                title: appModel.store.config.safeModeEnabled ? "Enabled" : "Off",
-                                tone: appModel.store.config.safeModeEnabled ? .paused : .neutral,
-                                systemImage: appModel.store.config.safeModeEnabled ? "pause.circle.fill" : "circle.fill"
-                            )
-                        }
-                        Text("Pauses active input handling, Dock previews, Window Switcher shortcuts, and Three-Finger Tap while settings remain available.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    Spacer(minLength: MacMenderSpacing.standard)
-
-                    Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
-                        appModel.toggleSafeMode()
-                    }
-                }
-                .padding(.vertical, MacMenderSpacing.small)
-
-                AdvancedActionRow(
-                    title: "Refresh Dock Values",
-                    detail: appModel.dock.lastReadDescription,
-                    buttonTitle: "Refresh Dock Values",
-                    systemImage: "dock.rectangle"
-                ) {
-                    appModel.dock.refresh()
-                }
-            } header: {
-                Label("Troubleshooting", systemImage: "wrench.and.screwdriver")
-            }
-
-            Section {
-                DisclosureGroup("Local Messages") {
-                    localMessages
-                        .padding(.top, MacMenderSpacing.small)
-                }
-
-                DisclosureGroup("Service Status") {
-                    VStack(spacing: 0) {
-                        ForEach(Array(runtimeSummaries.enumerated()), id: \.offset) { index, entry in
-                            AdvancedRuntimeRow(title: entry.title, summary: entry.summary)
-                            if index < runtimeSummaries.count - 1 {
-                                Divider()
+                SettingsRow(title: "Export settings", detail: "Save a copy to back up or move to another Mac.") {
+                    Button("Export…") {
+                        appModel.exportConfiguration { result in
+                            switch result {
+                            case .success(let url):
+                                setConfigurationStatus("Exported to \(url.lastPathComponent).", tone: .active)
+                            case .failure(let error):
+                                setConfigurationStatus(configurationErrorMessage(error), tone: .unavailable)
                             }
                         }
                     }
-                    .padding(.top, MacMenderSpacing.small)
                 }
-
-                DisclosureGroup("Technical Details") {
-                    VStack(spacing: 0) {
-                        AdvancedBoundaryRow(title: "Launch timing", detail: launchTimingDetail)
-                        Divider()
-                        AdvancedBoundaryRow(
-                            title: "Dock icon hover previews",
-                            detail: "Reads the Dock accessibility tree and disables itself when Accessibility is unavailable."
-                        )
-                        Divider()
-                        AdvancedBoundaryRow(
-                            title: "Three-finger global gestures",
-                            detail: "Uses local multitouch callbacks where available and falls back to mouse-button triggers otherwise."
-                        )
-                        Divider()
-                        AdvancedBoundaryRow(
-                            title: "Spaces movement",
-                            detail: "Only actions with a reliable local runtime path are exposed in the UI."
-                        )
+                SettingsRow(title: "Import settings", detail: "Replace everything here with a saved copy. Your current settings are backed up first.") {
+                    Button("Import…") {
+                        appModel.chooseConfigurationImport { result in
+                            switch result {
+                            case .success(let preview):
+                                pendingImport = preview
+                                showingImportConfirmation = true
+                            case .failure(let error):
+                                setConfigurationStatus(configurationErrorMessage(error), tone: .unavailable)
+                            }
+                        }
                     }
-                    .padding(.top, MacMenderSpacing.small)
+                }
+                SettingsRow(title: "Settings file", detail: "Saved automatically as you make changes.") {
+                    Button("Show in Finder") { appModel.openConfigurationFolder() }
                 }
             } header: {
-                Label("Diagnostics", systemImage: "stethoscope")
+                Text("Backup")
             } footer: {
-                Text("Diagnostic notes and technical details remain on this Mac.")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .multilineTextAlignment(.leading)
+                if let configurationMessage {
+                    Label(configurationMessage, systemImage: configurationStatusTone.defaultSymbol)
+                        .font(.callout)
+                        .foregroundStyle(configurationStatusTone == .unavailable ? Color.red : Color.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            Section("Diagnostics") {
+                AdvancedStatusRefreshRow(appModel: appModel)
+
+                DisclosureGroup("What is running") {
+                    ForEach(Array(runtimeSummaries.enumerated()), id: \.offset) { _, entry in
+                        AdvancedRuntimeRow(title: entry.title, summary: entry.summary)
+                    }
+                }
+
+                DisclosureGroup("Window list") {
+                    HStack {
+                        Text("Scan for the windows the switcher and previews can see.")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Scan") {
+                            appModel.windowSwitcher.refreshDiscovery(settings: appModel.activeProfile.windowSwitcher)
+                        }
+                    }
+                    WindowDiscoveryDiagnosticsView(
+                        report: appModel.windowSwitcher.lastDiscoveryReport,
+                        hasRunDiscovery: appModel.windowSwitcher.hasRunWindowDiscovery,
+                        activationDiagnostic: appModel.windowSwitcher.lastActivationDiagnostic
+                    )
+                }
+
+                DisclosureGroup("Messages") {
+                    localMessages
+                }
+
+                LabeledContent("macOS") {
+                    Text(systemDescription)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
             }
 
             Section {
-                Button("Reset macMender…", role: .destructive) {
-                    showingResetConfirmation = true
+                HStack {
+                    Spacer()
+                    Button("Reset macMender…", role: .destructive) {
+                        showingResetConfirmation = true
+                    }
                 }
-                .foregroundStyle(.red)
-            } header: {
-                Label("Reset", systemImage: "exclamationmark.triangle")
             } footer: {
-                Text("Replaces all local profiles and app-wide settings with defaults, then returns to onboarding. macOS permissions and system Dock or menu bar preferences are not reset.")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .multilineTextAlignment(.leading)
+                SettingsFooter("Removes every profile and setting and shows the welcome screens again. macOS permissions, the Dock, and the menu bar are left as they are.")
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .frame(maxWidth: 780)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .confirmationDialog("Reset macMender?", isPresented: $showingResetConfirmation) {
             Button("Reset to Onboarding", role: .destructive) {
                 appModel.resetToOnboarding()
@@ -269,8 +187,8 @@ struct AdvancedView: View {
         )
 
         return [
-            ("Input event tap", eventTapSummary),
-            ("Three-Finger Tap", threeFingerSummary),
+            ("Scrolling and middle click", eventTapSummary),
+            ("Three-finger tap", threeFingerSummary),
             ("Dock Previews", dockPreviewSummary),
             ("Window Switcher", windowSwitcherSummary)
         ]
@@ -296,14 +214,9 @@ struct AdvancedView: View {
         return .off
     }
 
-    private var launchTimingDetail: String {
-        let firstWindow = appModel.firstWindowReadyAt.map {
-            "first window marked \($0.formatted(date: .omitted, time: .standard))"
-        } ?? "first window not marked yet"
-        let runtime = appModel.runtimeStartedAt.map {
-            "runtime started \($0.formatted(date: .omitted, time: .standard))"
-        } ?? "runtime not started yet"
-        return "\(firstWindow); \(runtime). Heavier helpers start after the first window appears."
+    private var systemDescription: String {
+        let system = appModel.menuBarSpacing.systemContext
+        return "\(system.majorVersion).\(system.minorVersion).\(system.patchVersion) (\(system.buildVersion))"
     }
 
     private var importConfirmationMessage: String {
@@ -318,7 +231,7 @@ struct AdvancedView: View {
     }
 
     private func setConfigurationStatus(_ message: String, tone: MacMenderStatusTone) {
-        configurationStatus = message
+        configurationMessage = message
         configurationStatusTone = tone
         AccessibilityNotification.Announcement(message).post()
     }

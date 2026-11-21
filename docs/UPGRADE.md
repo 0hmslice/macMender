@@ -1,6 +1,16 @@
 # macMender utility upgrade
 
-Research checked September 23, 2026; Dock preview work added November 19, 2026. The v0.11.0 public preview builds on v0.10.0 and keeps existing profiles and direction rules. Its download is signed with an Apple Development certificate and is not notarized.
+Research checked September 23, 2026; Dock preview work added November 19, 2026; settings redesign added November 20, 2026. The v0.12.0 public preview builds on v0.11.0 and keeps existing profiles and direction rules. Its download is signed with an Apple Development certificate and is not notarized.
+
+## Settings window
+
+Every settings page is built from one small kit in `Views/DesignSystem/SettingsKit.swift`: `SettingsPage` (a width-limited native grouped form that opens with the section's header), `SettingsToggle`, `SettingsSlider`, `SettingsRow`, and `SettingsStatusBadge`. Pages compose these and draw no cards of their own, so widths, spacing, and control placement match from page to page.
+
+- **Sections.** Dock Previews, Window Switcher, and Dock are separate pages; they used to share one page behind a segmented control, so links to "Dock Previews" opened the switcher. The sidebar groups pages under Features and macMender.
+- **Sliders** snap in their binding and are drawn without tick marks. Dependent controls are disabled or hidden when the setting they depend on is off.
+- **Sidebar glass** (`AppBehavior.sidebarGlass`, 0 to 1, default 1) is drawn by `SidebarGlassBackground`. A solid layer fades out over the first 60% of the range, uncovering a frosted blur of what is behind the window; over the rest the frost thins to 30%. The backdrop is installed as the first subview of the view that hosts the sidebar, because the sidebar's content is drawn above the window's close, minimize, and zoom buttons and a SwiftUI background would cover them. The host's own frost is masked away. If a future macOS arranges the sidebar differently, no host is found and the sidebar keeps the system's standard look.
+- **Wording.** "Safe Mode" and "Pause Helpers" were two names for one switch; it is "Pause macMender" everywhere. Input Monitoring is no longer listed under Privacy because no feature uses it.
+- **Behaviour fixes found in review:** the quick-control middle-click switch could stick off when another trigger was chosen; changing scroll direction no longer marks the smoothing preset as custom; the Dock's magnified size can no longer be set below its icon size.
 
 ## Comparison and decisions
 

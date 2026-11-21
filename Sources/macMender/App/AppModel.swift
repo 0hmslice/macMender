@@ -85,7 +85,7 @@ final class AppModel: ObservableObject {
             return "Open Settings to finish onboarding"
         }
         if store.config.safeModeEnabled {
-            return "Safe Mode is on"
+            return "macMender is paused"
         }
         if permissions.accessibility != .granted {
             return "Open Settings to finish setup"
@@ -114,9 +114,7 @@ final class AppModel: ObservableObject {
             return keepAwake.isActive ? .success : .idle
         case .menuBarSpacing:
             return .thinking
-        case .input:
-            return .scanning
-        case .dockWindows:
+        case .input, .dockPreviews, .windowSwitcher, .dockSettings:
             return .scanning
         case .profiles:
             return .thinking
@@ -178,8 +176,8 @@ final class AppModel: ObservableObject {
         runtimeStartedAt = Date()
         refreshSystemState(force: true)
         #if DEBUG
-        dockPreview.runDebugSnapshotIfRequested { [weak self] in
-            self?.requestMainWindow(section: .dockWindows)
+        dockPreview.runDebugSnapshotIfRequested { [weak self] section in
+            self?.requestMainWindow(section: section)
         }
         #endif
     }
@@ -209,6 +207,10 @@ final class AppModel: ObservableObject {
         if isHidden {
             keepPreferencesWindowFrontIfVisible()
         }
+    }
+
+    func setSidebarGlass(_ amount: Double) {
+        store.config.appBehavior.sidebarGlass = min(max(amount, 0), 1)
     }
 
     func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference) {
@@ -562,7 +564,7 @@ final class AppModel: ObservableObject {
             return "Updated permissions and service status. A permission still needs review."
         }
         if store.config.safeModeEnabled {
-            return "Updated permissions and service status. Safe Mode is on."
+            return "Updated permissions and service status. macMender is paused."
         }
         return "Updated permissions, login item status, Dock defaults, and active helpers."
     }

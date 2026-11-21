@@ -30,7 +30,7 @@
 
 <p align="center">Free, open source, and local. No accounts, no analytics, no subscriptions.</p>
 
-> **New in v0.11.0 — Dock previews, rebuilt.** Hover any Dock icon to see every window that app has open, then switch, close, minimize, arrange, or peek at full size without leaving the Dock. [Download the preview release](https://github.com/0hmslice/macMender/releases/tag/v0.11.0).
+> **New in v0.12.0 — a redesigned settings window.** Every page now shares one clear layout, each feature has its own page, and the sidebar can be as glassy or as solid as you like. [Download the preview release](https://github.com/0hmslice/macMender/releases/tag/v0.12.0).
 
 ## Dock previews
 
@@ -47,7 +47,7 @@ Rest the pointer on a Dock icon and macMender shows that app's windows, live.
 | **Yours to tune** | Preview size, hover delay, titles, buttons, and a list of apps that should never show previews. |
 
 <p align="center">
-  <img src=".github/assets/v0.11.0/dock-settings.jpg" width="720" alt="Dock preview settings: size, delays, window controls, peek, keyboard, and excluded apps">
+  <img src=".github/assets/v0.12.0/dock-previews.jpg" width="760" alt="The Dock Previews settings page: a switch, status, preview size, and timing sliders">
 </p>
 
 ## Everything else
@@ -58,16 +58,28 @@ Rest the pointer on a Dock icon and macMender shows that app's windows, live.
 | **Scrolling** | Tune mouse smoothing and direction. Give individual apps their own rules, or leave their scrolling native. |
 | **Middle click** | Use a three-finger trackpad tap, modifier-click, or an extra mouse button. |
 | **Keep Awake** | Start a 15-minute to 2-hour session, or keep going until stopped. Optionally keep the display awake. |
-| **Profiles & quick controls** | Save different setups, search settings, and pause helpers from the menu bar. |
+| **Profiles & quick controls** | Save different setups, search settings, and pause everything from the menu bar. |
+
+## Settings that make sense
+
+One window, one layout, and a page for each feature. The Overview shows what is running and lets you switch features on and off without hunting for them.
+
+<p align="center">
+  <img src=".github/assets/v0.12.0/overview.jpg" width="760" alt="The Overview page: each feature with its status and a switch">
+</p>
 
 <table>
   <tr>
-    <td width="50%"><img src=".github/assets/upgrade/input.jpg" alt="Input settings with per-axis scrolling controls"><br><strong>Scrolling, your way</strong></td>
-    <td width="50%"><img src=".github/assets/upgrade/keep-awake.jpg" alt="Keep Awake duration and display controls"><br><strong>A little more time awake</strong></td>
+    <td width="50%"><img src=".github/assets/v0.12.0/mouse-trackpad.jpg" alt="Mouse and Trackpad settings with smoothing sliders and a response preview"><br><strong>Scrolling, your way</strong></td>
+    <td width="50%"><img src=".github/assets/v0.12.0/window-switcher.jpg" alt="Window Switcher settings with shortcut, layout, and thumbnail size"><br><strong>Switch windows, not just apps</strong></td>
   </tr>
 </table>
 
-![macMender overview with searchable settings and feature shortcuts](.github/assets/upgrade/overview.jpg)
+**Sidebar glass.** In General, one slider takes the settings sidebar from solid to clear glass that shows your desktop through it.
+
+<p align="center">
+  <img src=".github/assets/v0.12.0/general.jpg" width="760" alt="General settings with the sidebar glass slider set to fully clear">
+</p>
 
 ## Get started
 
@@ -86,7 +98,7 @@ macMender lives in the menu bar. Opening it again from Spotlight or Finder while
 | **Accessibility** | Global shortcuts, input adjustments, Dock detection, and window actions. |
 | **Screen Recording — optional** | Local window thumbnails. Without it, previews and the switcher show app icons instead. |
 
-Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → Configuration** to export or import them. Three-finger tap and Dock previews rely on private macOS interfaces that may change with OS updates; previews fall back to public APIs when one is missing.
+Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → Backup** to export or import them. Three-finger tap and Dock previews rely on private macOS interfaces that may change with OS updates; previews fall back to public APIs when one is missing.
 
 ## At your fingertips
 
@@ -101,15 +113,15 @@ Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → 
 | Peek at a window | Rest the pointer on a preview to see that window at full size |
 | Preview keys | With the pointer over a preview: arrow keys select, Return opens, **⌘ W** closes, Escape dismisses |
 | Middle click | Three-finger trackpad tap |
-| Pause helpers | **Pause Helpers** in quick controls, or Safe Mode in Advanced |
+| Pause everything | **Pause macMender** in quick controls or in Advanced |
 
-Keep Awake ends when stopped, when its timer expires, on sleep, when helpers are paused, or when macMender quits. It does not override closed-lid sleep.
+Keep Awake ends when stopped, when its timer expires, on sleep, when macMender is paused, or when it quits. It does not override closed-lid sleep.
 
 ## Menu bar spacing
 
 **Limited on macOS 27.** macMender adjusts its own icon and saves spacing preferences for compatible apps. Our test on macOS 27.0 (26A428) found **no movement of Apple’s Wi-Fi, sound, battery, Control Center, or clock items**, even with the newly reported MenuBarAgent restart method. Other apps may need relaunch; full system-wide control is not promised.
 
-Use **Menu Bar Spacing → Apply** to try it; **Reset to Default** removes the overrides. Read the [dated findings and limitations](docs/UPGRADE.md#menu-bar-spacing-current-evidence) before relying on it.
+Use **Menu Bar Spacing → Apply** to try it; **Use macOS Default** removes the overrides. Read the [dated findings and limitations](docs/UPGRADE.md#menu-bar-spacing-current-evidence) before relying on it.
 
 ## Build it
 
@@ -135,8 +147,8 @@ The package declares macOS 14 as its compilation minimum; that is not a claim of
 
 - **Input or shortcuts:** check Accessibility permission, then quit and reopen macMender. Pause similar utilities while troubleshooting conflicting rules.
 - **Missing thumbnails:** grant Screen Recording, or use the switcher without thumbnails.
-- **Unexpected scrolling in one app:** add it under Input → App Overrides and enable native scrolling.
-- **Need to undo a setup:** pause helpers immediately; restore an exported configuration from Advanced. Menu bar spacing has its own Reset to Default.
+- **Unexpected scrolling in one app:** add it under Mouse & Trackpad → App Exceptions and choose to scroll the way macOS does.
+- **Need to undo a setup:** pause macMender immediately; restore exported settings from Advanced. Menu bar spacing has its own Reset to Default.
 - **Reporting a bug:** include your macOS version, macMender version, and steps to reproduce. Review diagnostic exports before sharing them.
 
 </details>
