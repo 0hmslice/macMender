@@ -7,6 +7,10 @@ final class AppModel: ObservableObject {
     @Published var selectedSection: SettingsSection = .overview
     @Published private(set) var isRefreshingStatus = false
     @Published private(set) var lastStatusRefresh: Date?
+    #if DEBUG
+    /// Development aid: lets the screenshot helper open the menu bar popover.
+    var debugShowPopover: (() -> Void)?
+    #endif
     @Published private(set) var lastStatusRefreshSummary = "Not refreshed yet"
     @Published private(set) var firstWindowReadyAt: Date?
     @Published private(set) var runtimeStartedAt: Date?
@@ -100,41 +104,6 @@ final class AppModel: ObservableObject {
         return "checkmark.circle.fill"
     }
 
-    var mendyMood: MendyMood {
-        if store.config.safeModeEnabled || permissions.accessibility != .granted {
-            return .error
-        }
-
-        switch selectedSection {
-        case .overview:
-            return .success
-        case .general:
-            return .idle
-        case .keepAwake:
-            return keepAwake.isActive ? .success : .idle
-        case .menuBarSpacing:
-            return .thinking
-        case .input, .dockPreviews, .windowSwitcher, .dockSettings:
-            return .scanning
-        case .profiles:
-            return .thinking
-        case .privacy:
-            return permissions.needsAttention ? .error : .success
-        case .advanced:
-            return .idle
-        }
-    }
-
-    var statusItemMendyMood: MendyMood {
-        if !store.config.hasCompletedOnboarding || store.config.safeModeEnabled || permissions.needsAttention {
-            return .error
-        }
-        if dockHover.lastHoveredApp != nil || windowSwitcher.isShowing || dockPreview.isShowing {
-            return .scanning
-        }
-        return .success
-    }
-
     func refreshSystemState(force: Bool = false) {
         if !force,
            let lastFullRefresh,
@@ -176,9 +145,10 @@ final class AppModel: ObservableObject {
         runtimeStartedAt = Date()
         refreshSystemState(force: true)
         #if DEBUG
-        dockPreview.runDebugSnapshotIfRequested { [weak self] section in
-            self?.requestMainWindow(section: section)
-        }
+        dockPreview.runDebugSnapshotIfRequested(
+            openSettings: { [weak self] section in self?.requestMainWindow(section: section) },
+            showPopover: { [weak self] in self?.debugShowPopover?() }
+        )
         #endif
     }
 
@@ -207,10 +177,6 @@ final class AppModel: ObservableObject {
         if isHidden {
             keepPreferencesWindowFrontIfVisible()
         }
-    }
-
-    func setSidebarGlass(_ amount: Double) {
-        store.config.appBehavior.sidebarGlass = min(max(amount, 0), 1)
     }
 
     func applyMenuBarSpacing(_ preference: MenuBarSpacingPreference) {

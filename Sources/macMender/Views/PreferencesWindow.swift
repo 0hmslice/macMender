@@ -7,10 +7,7 @@ struct PreferencesWindow: View {
     var body: some View {
         if appModel.store.config.hasCompletedOnboarding {
             NavigationSplitView(columnVisibility: $columnVisibility) {
-                SidebarView(
-                    selection: $appModel.selectedSection,
-                    glass: appModel.store.config.appBehavior.sidebarGlass
-                )
+                SidebarView(selection: $appModel.selectedSection)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 224, max: 280)
             } detail: {
                 DetailRouter(appModel: appModel)

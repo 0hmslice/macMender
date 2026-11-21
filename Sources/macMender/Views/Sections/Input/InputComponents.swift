@@ -97,18 +97,17 @@ struct AppOverrideRow: View {
                 TriStateOverridePicker(title: "Reverse horizontal", value: reverseHorizontal)
             }
             .disabled(bypass.wrappedValue)
+            // Kept out of the row's label: a button there is what assistive "press" activates,
+            // so opening the row would delete it.
+            HStack {
+                Spacer()
+                Button("Remove Exception", role: .destructive, action: deleteAction)
+                    .accessibilityLabel("Remove exception for \(rule.appName)")
+            }
         } label: {
             HStack(spacing: 10) {
                 ApplicationIcon(bundleIdentifier: rule.bundleIdentifier)
                 SettingsRowText(title: rule.appName, detail: summary)
-                Spacer()
-                Button(role: .destructive, action: deleteAction) {
-                    Image(systemName: "minus.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.borderless)
-                .help("Remove this exception")
-                .accessibilityLabel("Remove exception for \(rule.appName)")
             }
         }
     }

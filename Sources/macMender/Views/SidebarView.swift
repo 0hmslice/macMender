@@ -2,8 +2,6 @@ import SwiftUI
 
 struct SidebarView: View {
     @Binding var selection: SettingsSection
-    /// 0 is a solid sidebar, 1 is fully glass.
-    var glass: Double
     @State private var searchText = ""
 
     var body: some View {
@@ -31,8 +29,6 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .scrollContentBackground(.hidden)
-        .background { SidebarGlassBackground(amount: glass) }
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search")
         .overlay {
             if matches.isEmpty {

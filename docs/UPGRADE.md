@@ -1,6 +1,6 @@
 # macMender utility upgrade
 
-Research checked September 23, 2026; Dock preview work added November 19, 2026; settings redesign added November 20, 2026. The v0.12.0 public preview builds on v0.11.0 and keeps existing profiles and direction rules. Its download is signed with an Apple Development certificate and is not notarized.
+Research checked September 23, 2026; Dock preview work added November 19, 2026; settings redesign added November 20, 2026. Version 1.0.0 builds on v0.11.0 and keeps existing profiles and direction rules. Its download is signed with an Apple Development certificate and is not notarized.
 
 ## Settings window
 
@@ -8,7 +8,10 @@ Every settings page is built from one small kit in `Views/DesignSystem/SettingsK
 
 - **Sections.** Dock Previews, Window Switcher, and Dock are separate pages; they used to share one page behind a segmented control, so links to "Dock Previews" opened the switcher. The sidebar groups pages under Features and macMender.
 - **Sliders** snap in their binding and are drawn without tick marks. Dependent controls are disabled or hidden when the setting they depend on is off.
-- **Sidebar glass** (`AppBehavior.sidebarGlass`, 0 to 1, default 1) is drawn by `SidebarGlassBackground`. macOS already frosts the sidebar; the setting fades a solid layer over that frost, so 0 is solid and 1 is the system's glass. The layer is installed as the first subview of the view that hosts the sidebar, because the sidebar's content is drawn above the window's close, minimize, and zoom buttons and a SwiftUI background would cover them. A clearer-than-system sidebar (thinning the frost over a transparent window) was built and withdrawn: it was unreadable over ordinary windows.
+- **Liquid Glass.** SwiftPM records the deployment target (macOS 14) as the SDK an app was built with, and macOS reads that as "built for an old system" and draws the previous look. `script/build_and_run.sh` rewrites the recorded SDK to the one really used (`vtool -set-build-version`) before signing, so on macOS 26 and later the sidebar, toolbar, and controls are the system's Liquid Glass. The app draws no glass of its own in the settings window.
+- **Onboarding** is four steps (Welcome, Choose Your Features, Allow Access, done) built from the same kit. Its switches change real settings; the old six-step flow was mostly informational. The Mendy mascot and its images are gone, which took the app from about 41 MB to about 5 MB.
+- **Quick controls.** The menu bar dropdown is a grid of tiles in the style of Control Center, with Keep Awake and Pause, and sizes itself to its content.
+- **Idle cost.** Pointer movement is only monitored while the pointer is at the Dock: the Dock's own accessibility notification says when an icon is under the pointer, and the monitors are removed when the pointer leaves that edge of the screen. Watching every movement cost about 2.5% of a core whenever the pointer moved; it now costs nothing. If the notification cannot be registered, the app falls back to watching movement.
 - **Wording.** "Safe Mode" and "Pause Helpers" were two names for one switch; it is "Pause macMender" everywhere. Input Monitoring is no longer listed under Privacy because no feature uses it.
 - **Behaviour fixes found in review:** the quick-control middle-click switch could stick off when another trigger was chosen; changing scroll direction no longer marks the smoothing preset as custom; the Dock's magnified size can no longer be set below its icon size.
 
@@ -59,6 +62,12 @@ With the owner's approval, we measured Accessibility item frames on **macOS 27.0
 These are gaps between Accessibility frames (`next.x − previous.maxX`), not measurements of individual glyph pixels. All five items' settled frames were unchanged. The original global preferences were **0 / 0**; those exact values and the original macMender selection were restored, and all five frames matched the baseline again. Raw non-personal measurements are in [menu-bar-spacing-measurements.json](menu-bar-spacing-measurements.json).
 
 **Result:** the reported MenuBarAgent method did not produce system-wide spacing changes on this Mac. This directly rules out claiming success for *all icons* in this test. It does not prove that another technique, OS build, or future release cannot work. Protected recording indicators, input-source items, other displays, and the left-hand Apple/application menus were not independently tested. We did not log out, change security settings, inject code, or restart third-party apps.
+
+### Local verification: November 20, 2026
+
+Repeated on **macOS 27.2.1, build 26B131**. Wide (24 / 16) and tight (1 / 6) values were written to the current-host global domain, `MenuBarAgent` was restarted each time (a new process ID confirmed it), and frames were read after the layout settled. All four gaps between Apple's five items stayed at 16 pt in every phase. The original 0 / 0 values were restored. A search of other tools' notes the same day found no reported fix; one states that Apple's own items keep their spacing whatever the value.
+
+**Result:** no change since September. Apple's own menu bar items still ignore these preferences.
 
 ## Dock previews rebuild
 

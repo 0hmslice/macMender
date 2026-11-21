@@ -33,20 +33,6 @@ struct GeneralSettingsView: View {
                         set: { appModel.setHideDockIcon(!$0) }
                     )
                 )
-
-                SettingsSlider(
-                    title: "Sidebar glass",
-                    detail: "How much the sidebar is tinted by what is behind this window. It stays frosted so its text is always readable.",
-                    value: Binding(
-                        get: { appModel.store.config.appBehavior.sidebarGlass },
-                        set: { appModel.setSidebarGlass($0) }
-                    ),
-                    range: 0...1,
-                    step: 0.05,
-                    valueLabel: glassLabel,
-                    minimumLabel: "Solid",
-                    maximumLabel: "Glass"
-                )
             } header: {
                 Text("Appearance")
             } footer: {
@@ -70,12 +56,6 @@ struct GeneralSettingsView: View {
         let status = appModel.loginItems.statusDescription
         return !["Enabled", "On", "Off", "Disabled", "Not Registered", "Unknown"].contains(status)
             || !appModel.loginItems.canManageLaunchAtLogin
-    }
-
-    private var glassLabel: String {
-        let amount = appModel.store.config.appBehavior.sidebarGlass
-        if amount <= 0.001 { return "Solid" }
-        return "\(Int((amount * 100).rounded()))%"
     }
 
     private static var versionDescription: String {

@@ -264,86 +264,31 @@ extension AppModel {
     }
 }
 
-/// The settings sidebar's backdrop, from solid to frosted glass.
-///
-/// macOS already draws the sidebar as frosted glass: a blur of whatever is behind the window,
-/// tuned to keep the sidebar's text readable. This adds one solid layer over that frost and
-/// fades it out as `amount` rises, so 0 is a solid sidebar and 1 is the system's glass.
-/// The frost itself is never thinned. A clearer sidebar was tried and was unreadable over
-/// ordinary windows.
-struct SidebarGlassBackground: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    var amount: Double
-
-    static func solidOpacity(for amount: Double) -> Double {
-        1 - min(max(amount, 0), 1)
-    }
+/// One macOS permission: what it is for, whether it is allowed, and how to change that.
+struct PermissionSettingsRow: View {
+    var title: String
+    var detail: String
+    var systemImage: String
+    var tint: Color
+    var state: PermissionState
+    var request: () -> Void
+    var openSettings: () -> Void
 
     var body: some View {
-        SidebarBackdropInstaller(solidOpacity: reduceTransparency ? 1 : Self.solidOpacity(for: amount))
-            .allowsHitTesting(false)
-    }
-}
-
-/// Places the solid layer at the very bottom of the view that hosts the sidebar.
-///
-/// It cannot simply be a SwiftUI background: the sidebar's content is drawn above the window's
-/// close, minimize, and zoom buttons, so anything opaque there would cover them. The split view
-/// hosts the sidebar inside its own frosted view, and the layer goes in as that host's first
-/// subview, under the buttons. If a future macOS arranges the sidebar differently, no host is
-/// found and the sidebar keeps the system's standard look.
-private struct SidebarBackdropInstaller: NSViewRepresentable {
-    var solidOpacity: Double
-
-    func makeNSView(context: Context) -> InstallerView {
-        InstallerView()
-    }
-
-    func updateNSView(_ nsView: InstallerView, context: Context) {
-        nsView.solidOpacity = solidOpacity
-        nsView.apply()
-    }
-
-    final class InstallerView: NSView {
-        var solidOpacity = 0.0
-        private weak var solid: NSBox?
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            guard window != nil else { return }
-            // The host is only in place once the split view has finished building.
-            DispatchQueue.main.async { [weak self] in self?.install() }
-        }
-
-        private func install() {
-            guard solid == nil, let host = hostingEffectView() else { return }
-            let box = NonInteractiveBox(frame: host.bounds)
-            box.boxType = .custom
-            box.borderWidth = 0
-            box.fillColor = .windowBackgroundColor
-            box.autoresizingMask = [.width, .height]
-            host.addSubview(box, positioned: .below, relativeTo: host.subviews.first)
-            solid = box
-            apply()
-        }
-
-        func apply() {
-            solid?.alphaValue = solidOpacity
-        }
-
-        private func hostingEffectView() -> NSVisualEffectView? {
-            var ancestor = superview
-            var depth = 0
-            while let current = ancestor, depth < 20, !(current is NSSplitView) {
-                if let host = current as? NSVisualEffectView { return host }
-                ancestor = current.superview
-                depth += 1
+        SettingsRow(title: title, detail: detail, systemImage: systemImage, tint: tint) {
+            switch state {
+            case .granted:
+                SettingsStatusBadge(title: "Allowed", tone: .active)
+            case .missing:
+                SettingsStatusBadge(title: "Not allowed", tone: .attention)
+                Button("Allow…", action: request)
+                    .accessibilityLabel("Allow \(title)")
+            case .unavailable:
+                SettingsStatusBadge(title: "Unavailable", tone: .unavailable)
             }
-            return nil
+            Button("Open Settings", action: openSettings)
+                .controlSize(.small)
+                .accessibilityLabel("Open \(title) settings")
         }
     }
-}
-
-private final class NonInteractiveBox: NSBox {
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

@@ -117,6 +117,10 @@ struct OverviewView: View {
             if let isOn {
                 Toggle(title ?? section.title, isOn: isOn)
                     .labelsHidden()
+                    .toggleStyle(.switch)
+                    // Beside a button in the same row, the switch loses its default action
+                    // for assistive technology; this restores it.
+                    .accessibilityAction { isOn.wrappedValue.toggle() }
             }
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
@@ -129,8 +133,7 @@ struct OverviewView: View {
     private var permissionsSummary: FeatureStatusSummary {
         PermissionStatusPolicy.permissionsSummary(
             accessibility: appModel.permissions.accessibility,
-            screenRecording: appModel.permissions.screenRecording,
-            inputMonitoring: .granted
+            screenRecording: appModel.permissions.screenRecording
         )
     }
 

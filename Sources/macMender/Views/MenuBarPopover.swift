@@ -8,93 +8,62 @@ struct MenuBarPopover: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
 
+    private var isPaused: Bool { appModel.store.config.safeModeEnabled }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
             header
 
-            Divider()
-
-            VStack(spacing: 0) {
-                PopoverControlToggle(
-                    title: "Three-Finger Tap",
-                    systemImage: "hand.tap",
-                    isOn: threeFingerTapBinding,
-                    accessibilityHint: "Turn three-finger middle click on or off"
-                )
-                controlDivider
-
-                PopoverControlToggle(
-                    title: "Reverse Mouse Wheel",
-                    systemImage: "computermouse",
-                    isOn: externalMouseReverseBinding,
-                    accessibilityHint: "Reverse vertical scrolling for an external mouse"
-                )
-                controlDivider
-
-                PopoverControlToggle(
-                    title: "Dock Previews",
-                    systemImage: "dock.arrow.up.rectangle",
-                    isOn: dockPreviewsBinding,
-                    accessibilityHint: "Turn Dock window previews on or off"
-                )
-                controlDivider
-
-                PopoverControlToggle(
-                    title: "Window Switcher",
-                    systemImage: "rectangle.3.group",
-                    isOn: windowSwitcherBinding,
-                    accessibilityHint: "Turn the Option-Tab window switcher on or off"
-                )
-                controlDivider
-
-                HStack(spacing: 12) {
-                    Label("Keep Awake", systemImage: "cup.and.saucer")
-                        .labelStyle(PopoverControlLabelStyle())
-                    Spacer()
-                    Menu {
-                        if appModel.keepAwake.isActive {
-                            Button("Stop Session", action: appModel.keepAwake.stop)
-                            Divider()
-                        }
-                        ForEach(KeepAwakeDuration.allCases) { duration in
-                            Button(duration.title) {
-                                appModel.keepAwake.start(duration: duration, keepDisplayAwake: false)
-                            }
-                            .disabled(appModel.store.config.safeModeEnabled)
-                        }
-                        Divider()
-                        Button("Session Settings…") { openSettings(section: .keepAwake) }
-                    } label: {
-                        Text(appModel.keepAwake.isActive ? "On" : "Off")
-                    }
-                    .fixedSize()
-                    .accessibilityLabel("Keep Awake session")
+            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+                GridRow {
+                    QuickControlTile(
+                        title: "Dock Previews",
+                        systemImage: SettingsSection.dockPreviews.symbolName,
+                        isOn: dockPreviewsBinding
+                    )
+                    QuickControlTile(
+                        title: "Window Switcher",
+                        systemImage: SettingsSection.windowSwitcher.symbolName,
+                        isOn: windowSwitcherBinding
+                    )
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                controlDivider
-
-                PopoverControlToggle(
-                    title: "Pause macMender",
-                    systemImage: "pause.circle",
-                    isOn: Binding(
-                        get: { appModel.store.config.safeModeEnabled },
-                        set: { _ in appModel.toggleSafeMode() }
-                    ),
-                    accessibilityHint: "Pause input and window helpers and end Keep Awake sessions"
-                )
+                GridRow {
+                    QuickControlTile(
+                        title: "Three-Finger Tap",
+                        systemImage: "hand.tap",
+                        isOn: threeFingerTapBinding
+                    )
+                    QuickControlTile(
+                        title: "Reverse Wheel",
+                        systemImage: "arrow.up.arrow.down",
+                        isOn: externalMouseReverseBinding
+                    )
+                }
             }
-            .padding(.vertical, 4)
+            .disabled(isPaused)
+            .opacity(isPaused ? 0.5 : 1)
+
+            keepAwakeRow
+
+            if appModel.shouldShowProfileSwitcher {
+                Picker("Profile", selection: Binding(
+                    get: { appModel.store.config.activeProfileID },
+                    set: { appModel.setActiveProfile($0) }
+                )) {
+                    ForEach(appModel.store.config.profiles) { profile in
+                        Text(profile.name).tag(profile.id)
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
 
             Divider()
 
             footer
         }
-        .frame(width: 328, alignment: .topLeading)
+        .padding(12)
+        .frame(width: 380, alignment: .topLeading)
         .fixedSize(horizontal: false, vertical: true)
-        .background {
-            PopoverGlassBackdrop()
-        }
     }
 
     private var header: some View {
@@ -103,69 +72,113 @@ struct MenuBarPopover: View {
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: 32, height: 32)
+                .frame(width: 34, height: 34)
                 .accessibilityHidden(true)
 
-            Text("macMender")
-                .font(.headline)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("macMender")
+                    .font(.headline)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 7, height: 7)
+                        .accessibilityHidden(true)
+                    Text(statusTitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Spacer(minLength: 8)
 
             if appModel.permissions.accessibility != .granted {
+                Button("Fix…") { openSettings(section: .privacy) }
+                    .controlSize(.small)
+                    .accessibilityHint("Opens Privacy settings to allow Accessibility access")
+            } else {
                 Button {
-                    openSettings(section: .privacy)
+                    appModel.toggleSafeMode()
                 } label: {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .frame(width: 22, height: 22)
+                    Label(isPaused ? "Resume" : "Pause", systemImage: isPaused ? "play.fill" : "pause.fill")
                 }
-                .buttonStyle(.plain)
-                .help("Accessibility permission required")
-                .accessibilityLabel("Accessibility permission required")
-                .accessibilityHint("Open Privacy settings in macMender")
-            } else if appModel.store.config.safeModeEnabled {
-                Button {
-                    openSettings(section: .advanced)
-                } label: {
-                    Image(systemName: "pause.circle.fill")
-                        .foregroundStyle(.orange)
-                        .frame(width: 22, height: 22)
-                }
-                .buttonStyle(.plain)
-                .help("macMender is paused")
-                .accessibilityLabel("macMender is paused")
-                .accessibilityHint("Open Advanced settings in macMender")
+                .controlSize(.small)
+                .help(isPaused ? "Turn macMender's features back on" : "Turn every feature off until you resume")
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
     }
 
-    private var controlDivider: some View {
-        Divider().padding(.leading, 42)
+    private var statusTitle: String {
+        if appModel.permissions.accessibility != .granted { return "Needs Accessibility access" }
+        if isPaused { return "Paused" }
+        return appModel.shouldShowProfileSwitcher ? "Running · \(appModel.activeProfile.name)" : "Running"
+    }
+
+    private var statusColor: Color {
+        if appModel.permissions.accessibility != .granted { return .orange }
+        return isPaused ? .yellow : .green
+    }
+
+    private var keepAwakeRow: some View {
+        let session = appModel.keepAwake.session
+
+        return HStack(spacing: 10) {
+            QuickControlIcon(systemImage: session == nil ? "cup.and.saucer" : "cup.and.saucer.fill", isOn: session != nil)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Keep Awake")
+                    .font(.callout.weight(.medium))
+                Text(keepAwakeStatus(session))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if session != nil {
+                Button("Stop", action: appModel.keepAwake.stop)
+                    .controlSize(.small)
+            } else {
+                Menu("Start") {
+                    ForEach(KeepAwakeDuration.allCases) { duration in
+                        Button(duration.title) {
+                            appModel.keepAwake.start(duration: duration, keepDisplayAwake: false)
+                        }
+                    }
+                    Divider()
+                    Button("More Options…") { openSettings(section: .keepAwake) }
+                }
+                .controlSize(.small)
+                .fixedSize()
+                .disabled(isPaused)
+                .accessibilityLabel("Start a Keep Awake session")
+            }
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func keepAwakeStatus(_ session: KeepAwakeSession?) -> String {
+        guard let session else { return "Your Mac sleeps as usual" }
+        return session.endsAt.map { "Awake until \($0.formatted(date: .omitted, time: .shortened))" } ?? "Awake until you stop it"
     }
 
     private var footer: some View {
         HStack(spacing: 8) {
             Button {
-                openSettings(section: .overview)
+                openSettings(section: appModel.selectedSection)
             } label: {
-                Label("Open macMender", systemImage: "macwindow")
-                    .frame(maxWidth: .infinity)
+                Label("Settings…", systemImage: "gearshape")
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .accessibilityHint("Open the full app with its sidebar visible")
+            .accessibilityHint("Opens the macMender window")
+
+            Spacer()
 
             Button("Quit") {
                 NSApp.terminate(nil)
             }
-            .buttonStyle(.borderless)
-            .controlSize(.small)
             .accessibilityLabel("Quit macMender")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .buttonStyle(.borderless)
     }
 
     private var threeFingerTapBinding: Binding<Bool> {
@@ -218,59 +231,54 @@ struct MenuBarPopover: View {
     }
 }
 
-private struct PopoverGlassBackdrop: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    var body: some View {
-        if reduceTransparency {
-            Color(nsColor: .windowBackgroundColor)
-        } else {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    Color.white.opacity(0.08)
-                }
-        }
-    }
-}
-
-private struct PopoverControlToggle: View {
+/// A Control Center-style switch: a tile that is tinted while its feature is on.
+private struct QuickControlTile: View {
     var title: String
     var systemImage: String
     @Binding var isOn: Bool
-    var accessibilityHint: String
 
     var body: some View {
-        HStack(spacing: 12) {
-            Label(title, systemImage: systemImage)
-                .labelStyle(PopoverControlLabelStyle())
-
-            Spacer(minLength: 12)
-
-            Toggle(title, isOn: $isOn)
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .fixedSize()
-                .accessibilityLabel(title)
-                .accessibilityValue(isOn ? "On" : "Off")
-                .accessibilityHint(accessibilityHint)
+        Button {
+            isOn.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                QuickControlIcon(systemImage: systemImage, isOn: isOn)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                    Text(isOn ? "On" : "Off")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(isOn ? 1 : 0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(isOn ? "On" : "Off")
+        .accessibilityAddTraits(.isToggle)
+        // Replacing the button's children drops its default action, so it is given back.
+        .accessibilityAction { isOn.toggle() }
     }
 }
 
-private struct PopoverControlLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 10) {
-            configuration.icon
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 20)
-            configuration.title
-                .foregroundStyle(.primary)
-        }
+private struct QuickControlIcon: View {
+    var systemImage: String
+    var isOn: Bool
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(isOn ? Color.white : Color.primary)
+            .frame(width: 28, height: 28)
+            .background(isOn ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(.quaternary), in: Circle())
+            .accessibilityHidden(true)
     }
 }

@@ -10,14 +10,6 @@ import Testing
     #expect(SettingsSection.matching("does-not-exist").isEmpty)
 }
 
-@MainActor
-@Test func sidebarGlassRunsFromSolidToTheSystemFrost() {
-    #expect(SidebarGlassBackground.solidOpacity(for: 0) == 1)
-    #expect(SidebarGlassBackground.solidOpacity(for: 0.25) == 0.75)
-    #expect(SidebarGlassBackground.solidOpacity(for: 1) == 0)
-    #expect(SidebarGlassBackground.solidOpacity(for: 4) == 0)
-}
-
 @Test func everySectionBelongsToASidebarGroupAndIsSearchableByTitle() {
     for section in SettingsSection.allCases {
         #expect(SettingsSection.Group.allCases.contains(section.group))
@@ -25,12 +17,22 @@ import Testing
     }
     #expect(SettingsSection.matching("magnification") == [.dockSettings])
     #expect(SettingsSection.matching("peek") == [.dockPreviews])
-    #expect(SettingsSection.matching("glass") == [.general])
+    #expect(SettingsSection.matching("login") == [.general])
 }
 
-@Test func sidebarGlassDecodesWithADefaultAndStaysInRange() throws {
-    let legacy = try JSONDecoder().decode(AppBehavior.self, from: Data(#"{"hideDockIcon":true}"#.utf8))
-    #expect(legacy.sidebarGlass == AppBehavior.defaultSidebarGlass)
-    let wild = try JSONDecoder().decode(AppBehavior.self, from: Data(#"{"sidebarGlass":7}"#.utf8))
-    #expect(wild.sidebarGlass == 1)
+@Test func onboardingStepsRunInOrderAndStopAtEachEnd() {
+    #expect(OnboardingStep.welcome.previous == nil)
+    #expect(OnboardingStep.welcome.next == .features)
+    #expect(OnboardingStep.features.next == .permissions)
+    #expect(OnboardingStep.permissions.next == .finish)
+    #expect(OnboardingStep.finish.next == nil)
+    #expect(OnboardingStep.finish.previous == .permissions)
+}
+
+@Test func quickControlTurnsThreeFingerTapOnWhateverTriggerWasChosen() {
+    var profile = MacMenderProfile.default
+    profile.middleClick.trigger = .modifierClick
+    profile.middleClick.enabled = false
+    profile.setThreeFingerTapEnabled(true)
+    #expect(profile.isThreeFingerTapEnabled)
 }
