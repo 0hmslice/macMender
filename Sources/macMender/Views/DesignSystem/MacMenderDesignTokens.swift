@@ -95,17 +95,6 @@ extension MacMenderStatusTone {
         }
     }
 
-    init(capabilityTone: CapabilityBadge.Tone) {
-        switch capabilityTone {
-        case .active:
-            self = .active
-        case .warning:
-            self = .attention
-        case .neutral:
-            self = .neutral
-        }
-    }
-
     init(menuBarSpacingResultKind: MenuBarSpacingResultKind?) {
         switch menuBarSpacingResultKind {
         case .applied:

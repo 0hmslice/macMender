@@ -7,7 +7,8 @@ extension MacMenderProfile {
 
     mutating func setThreeFingerTapEnabled(_ isEnabled: Bool) {
         middleClick.enabled = isEnabled
-        if isEnabled, middleClick.trigger == .disabled {
+        // Turning it on from a quick control means this trigger, whichever was chosen before.
+        if isEnabled {
             middleClick.trigger = .experimentalThreeFinger
         }
     }

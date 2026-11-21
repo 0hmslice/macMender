@@ -49,7 +49,7 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
             start()
         } else {
             stop()
-            publishStatus(eventTapRunning: false, description: safeModeEnabled ? "Paused by Safe Mode" : "Waiting for Accessibility")
+            publishStatus(eventTapRunning: false, description: safeModeEnabled ? "Paused" : "Waiting for Accessibility")
         }
     }
 

@@ -12,7 +12,7 @@ struct MacMenderApp: App {
     var body: some Scene {
         WindowGroup("macMender", id: "preferences") {
             PreferencesWindow(appModel: appModel)
-                .frame(minWidth: 980, minHeight: 680)
+                .frame(minWidth: 860, minHeight: 600)
                 .onAppear {
                     appModel.markFirstWindowReady()
                     let showSettings = {
@@ -48,7 +48,7 @@ struct MacMenderApp: App {
 
                 Divider()
 
-                Button(appModel.store.config.safeModeEnabled ? "Disable Safe Mode" : "Enable Safe Mode") {
+                Button(appModel.store.config.safeModeEnabled ? "Resume macMender" : "Pause macMender") {
                     appModel.toggleSafeMode()
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])

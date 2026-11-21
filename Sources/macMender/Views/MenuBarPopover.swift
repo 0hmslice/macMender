@@ -24,7 +24,7 @@ struct MenuBarPopover: View {
                 controlDivider
 
                 PopoverControlToggle(
-                    title: "Reverse Mouse Scrolling",
+                    title: "Reverse Mouse Wheel",
                     systemImage: "computermouse",
                     isOn: externalMouseReverseBinding,
                     accessibilityHint: "Reverse vertical scrolling for an external mouse"
@@ -75,7 +75,7 @@ struct MenuBarPopover: View {
                 controlDivider
 
                 PopoverControlToggle(
-                    title: "Pause Helpers",
+                    title: "Pause macMender",
                     systemImage: "pause.circle",
                     isOn: Binding(
                         get: { appModel.store.config.safeModeEnabled },
@@ -90,7 +90,8 @@ struct MenuBarPopover: View {
 
             footer
         }
-        .frame(width: 328, height: 310, alignment: .topLeading)
+        .frame(width: 328, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
         .background {
             PopoverGlassBackdrop()
         }
@@ -131,8 +132,8 @@ struct MenuBarPopover: View {
                         .frame(width: 22, height: 22)
                 }
                 .buttonStyle(.plain)
-                .help("Safe Mode is pausing helpers")
-                .accessibilityLabel("Safe Mode is on")
+                .help("macMender is paused")
+                .accessibilityLabel("macMender is paused")
                 .accessibilityHint("Open Advanced settings in macMender")
             }
         }

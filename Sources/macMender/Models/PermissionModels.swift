@@ -54,14 +54,14 @@ enum PermissionStatusPolicy {
         if screenRecording != .granted || inputMonitoring != .granted {
             return FeatureStatusSummary(
                 title: "Ready with optional setup",
-                detail: "Core helpers can run. Optional permissions improve thumbnails or listen-event diagnostics.",
+                detail: "Screen Recording is off, so previews show app icons instead of windows.",
                 kind: .ready
             )
         }
 
         return FeatureStatusSummary(
             title: "Ready",
-            detail: "Required and optional permissions are granted.",
+            detail: "Everything macMender needs is allowed.",
             kind: .active
         )
     }
@@ -95,17 +95,17 @@ enum PermissionStatusPolicy {
         runtimeRunning: Bool
     ) -> FeatureStatusSummary {
         guard settings.enabled, settings.trigger == .experimentalThreeFinger else {
-            return FeatureStatusSummary(title: "Off", detail: "Off in the active profile.", kind: .off)
+            return FeatureStatusSummary(title: "Off", detail: "Turned off.", kind: .off)
         }
         guard accessibility == .granted else {
-            return FeatureStatusSummary(title: "Needs Accessibility", detail: "Accessibility is required before middle-click actions can run.", kind: .needsAttention)
+            return FeatureStatusSummary(title: "Needs Accessibility", detail: "Needs Accessibility access to middle-click.", kind: .needsAttention)
         }
         guard !safeModeEnabled else {
-            return FeatureStatusSummary(title: "Paused", detail: "Paused by Safe Mode.", kind: .paused)
+            return FeatureStatusSummary(title: "Paused", detail: "macMender is paused.", kind: .paused)
         }
         return runtimeRunning
-            ? FeatureStatusSummary(title: "Active", detail: "Watching three-finger taps.", kind: .active)
-            : FeatureStatusSummary(title: "Ready", detail: "Ready to start when the runtime is active.", kind: .ready)
+            ? FeatureStatusSummary(title: "Active", detail: "Tap the trackpad with three fingers to middle-click.", kind: .active)
+            : FeatureStatusSummary(title: "Ready", detail: "Starting up.", kind: .ready)
     }
 
     static func dockPreviewStatus(
@@ -115,17 +115,17 @@ enum PermissionStatusPolicy {
         runtimeRunning: Bool
     ) -> FeatureStatusSummary {
         guard settings.enabled else {
-            return FeatureStatusSummary(title: "Off", detail: "Off in the active profile.", kind: .off)
+            return FeatureStatusSummary(title: "Off", detail: "Turned off.", kind: .off)
         }
         guard accessibility == .granted else {
-            return FeatureStatusSummary(title: "Needs Accessibility", detail: "Accessibility is required to inspect Dock hover state.", kind: .needsAttention)
+            return FeatureStatusSummary(title: "Needs Accessibility", detail: "Needs Accessibility access to see the Dock.", kind: .needsAttention)
         }
         guard !safeModeEnabled else {
-            return FeatureStatusSummary(title: "Paused", detail: "Paused by Safe Mode.", kind: .paused)
+            return FeatureStatusSummary(title: "Paused", detail: "macMender is paused.", kind: .paused)
         }
         return runtimeRunning
-            ? FeatureStatusSummary(title: "Active", detail: "Watching Dock item hover.", kind: .active)
-            : FeatureStatusSummary(title: "Ready", detail: "Ready to watch Dock item hover.", kind: .ready)
+            ? FeatureStatusSummary(title: "Active", detail: "Hover a Dock icon to see its windows.", kind: .active)
+            : FeatureStatusSummary(title: "Ready", detail: "Starting up.", kind: .ready)
     }
 
     static func windowSwitcherStatus(
@@ -135,15 +135,15 @@ enum PermissionStatusPolicy {
         safeModeEnabled: Bool
     ) -> FeatureStatusSummary {
         guard featureEnabled, settings.enabled else {
-            return FeatureStatusSummary(title: "Off", detail: "Off in the active profile.", kind: .off)
+            return FeatureStatusSummary(title: "Off", detail: "Turned off.", kind: .off)
         }
         guard accessibility == .granted else {
-            return FeatureStatusSummary(title: "Needs Accessibility", detail: "Accessibility is required to switch windows.", kind: .needsAttention)
+            return FeatureStatusSummary(title: "Needs Accessibility", detail: "Needs Accessibility access to switch windows.", kind: .needsAttention)
         }
         guard !safeModeEnabled else {
-            return FeatureStatusSummary(title: "Paused", detail: "Paused by Safe Mode.", kind: .paused)
+            return FeatureStatusSummary(title: "Paused", detail: "macMender is paused.", kind: .paused)
         }
-        return FeatureStatusSummary(title: "Ready", detail: "Ready for Option+Tab.", kind: .active)
+        return FeatureStatusSummary(title: "Ready", detail: "Press \(settings.shortcut.replacingOccurrences(of: "Option+", with: "⌥ ").replacingOccurrences(of: "Control+", with: "⌃ ")) to switch windows.", kind: .active)
     }
 }
 
