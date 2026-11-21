@@ -8,14 +8,30 @@ enum SwitcherKeyboardAction: Equatable {
     case commit
     case cancel
     case ignore
+    /// Moves the selection by whole cards: `columns` sideways, `rows` up or down.
+    case move(columns: Int, rows: Int)
+    case closeSelected
+    case minimizeSelected
 }
 
 enum SwitcherKeyboardDecision: Equatable {
     case passThrough
     case consume(SwitcherKeyboardAction)
+    /// Act on the event and still deliver it. Used for the modifier's release: every app saw
+    /// the modifier go down, so each must see it come up or it stays "held".
+    case observe(SwitcherKeyboardAction)
 }
 
 struct SwitcherKeyboardRouter {
+    private static let sessionCommands: [Int64: SwitcherKeyboardAction] = [
+        123: .move(columns: -1, rows: 0),
+        124: .move(columns: 1, rows: 0),
+        125: .move(columns: 0, rows: 1),
+        126: .move(columns: 0, rows: -1),
+        13: .closeSelected,
+        46: .minimizeSelected
+    ]
+
     static func decision(
         type: CGEventType,
         keyCode: Int64,
@@ -38,7 +54,14 @@ struct SwitcherKeyboardRouter {
         }
 
         if (type == .keyUp || type == .flagsChanged), !shortcutHeld {
-            return switcherSessionActive ? .consume(.commit) : .passThrough
+            guard switcherSessionActive else { return .passThrough }
+            return type == .flagsChanged ? .observe(.commit) : .consume(.commit)
+        }
+
+        // While the switcher is open and the shortcut's modifier is held, a few more keys act on
+        // the selection instead of reaching the app in front.
+        if switcherSessionActive, shortcutHeld, let command = sessionCommands[keyCode] {
+            return .consume(type == .keyDown ? command : .ignore)
         }
 
         if type == .keyDown, keyCode == escapeKeyCode {

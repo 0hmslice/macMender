@@ -114,7 +114,7 @@ private struct DockPreviewContent: View {
             }
         }
         .frame(width: layout.contentSize.width, height: layout.contentSize.height, alignment: .topLeading)
-        .modifier(DockPreviewSurface(cornerRadius: Self.cornerRadius, reduceTransparency: reduceTransparency, strongBorder: strongBorder))
+        .modifier(GlassPanelSurface(cornerRadius: Self.cornerRadius, reduceTransparency: reduceTransparency, strongBorder: strongBorder))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(presentation.appName) windows")
     }
@@ -186,38 +186,6 @@ private struct DockPreviewHeaderButton: View {
         .onHover { isHovered = $0 }
         .help(label)
         .accessibilityLabel(label)
-    }
-}
-
-private struct DockPreviewSurface: ViewModifier {
-    var cornerRadius: CGFloat
-    var reduceTransparency: Bool
-    var strongBorder: Bool
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        if reduceTransparency {
-            content
-                .background(Color(nsColor: .windowBackgroundColor), in: shape)
-                .overlay { border(shape) }
-                .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
-        } else if #available(macOS 26.0, *) {
-            content
-                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
-                .overlay { if strongBorder { border(shape) } }
-        } else {
-            content
-                .background(.regularMaterial, in: shape)
-                .overlay { border(shape) }
-                .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
-        }
-    }
-
-    private func border(_ shape: RoundedRectangle) -> some View {
-        shape
-            .strokeBorder(Color(nsColor: .separatorColor).opacity(strongBorder ? 1 : 0.5), lineWidth: strongBorder ? 1.5 : 1)
-            .allowsHitTesting(false)
     }
 }
 
@@ -331,18 +299,18 @@ private struct DockPreviewCard: View {
 
     private var controls: some View {
         HStack(spacing: 5) {
-            DockPreviewControlButton(color: Color(red: 1.0, green: 0.37, blue: 0.34), symbol: "xmark", label: "Close") {
+            WindowControlButton(color: WindowControlButton.closeColor, symbol: "xmark", label: "Close") {
                 controller.close(window)
             }
-            DockPreviewControlButton(
-                color: Color(red: 1.0, green: 0.74, blue: 0.18),
+            WindowControlButton(
+                color: WindowControlButton.minimizeColor,
                 symbol: window.isMinimized ? "arrow.up" : "minus",
                 label: window.isMinimized ? "Restore" : "Minimize"
             ) {
                 controller.toggleMinimized(window)
             }
-            DockPreviewControlButton(
-                color: Color(red: 0.16, green: 0.78, blue: 0.25),
+            WindowControlButton(
+                color: WindowControlButton.fullScreenColor,
                 symbol: window.isFullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                 label: window.isFullScreen ? "Exit Full Screen" : "Enter Full Screen"
             ) {
@@ -354,13 +322,7 @@ private struct DockPreviewCard: View {
         .background(.regularMaterial, in: Capsule())
     }
 
-    private var statusBadge: (symbol: String, label: String)? {
-        if window.isMinimized { return ("minus", "Minimized") }
-        if window.isAppHidden { return ("eye.slash", "Hidden") }
-        if window.isFullScreen { return ("arrow.up.left.and.arrow.down.right", "Full screen") }
-        if window.isOnOtherSpace { return ("rectangle.on.rectangle", "On another Space") }
-        return nil
-    }
+    private var statusBadge: (symbol: String, label: String)? { window.statusBadge }
 
     private var accessibilityLabel: String {
         var parts = [window.title]
@@ -368,38 +330,5 @@ private struct DockPreviewCard: View {
             parts.append(badge.label)
         }
         return parts.joined(separator: ", ")
-    }
-}
-
-private struct DockPreviewControlButton: View {
-    var color: Color
-    var symbol: String
-    var label: String
-    var action: () -> Void
-
-    @State private var isHovered = false
-
-    var body: some View {
-        Button(action: action) {
-            Circle()
-                .fill(color)
-                .frame(width: 16, height: 16)
-                .overlay {
-                    Image(systemName: symbol)
-                        .font(.system(size: 8.5, weight: .heavy))
-                        .foregroundStyle(.black.opacity(isHovered ? 0.75 : 0.5))
-                }
-                .overlay {
-                    Circle().strokeBorder(.black.opacity(0.18), lineWidth: 0.5)
-                }
-                .scaleEffect(isHovered ? 1.12 : 1)
-                // A larger target than the visible dot.
-                .padding(2)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .help(label)
-        .accessibilityLabel(label)
     }
 }

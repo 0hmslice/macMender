@@ -1,373 +1,253 @@
 import AppKit
 import SwiftUI
 
+/// The keyboard window switcher: every window as a card on a glass panel, in the same style as
+/// Dock previews.
 struct WindowSwitcherOverlayView: View {
     @ObservedObject var service: WindowSwitcherService
     var settings: WindowSwitcherSettings
+    /// The widest the panel may be; a strip scrolls sideways beyond it.
+    var maximumWidth: CGFloat
 
-    private var columns: [GridItem] {
-        Array(repeating: GridItem(.fixed(service.displayThumbnailSize + 22), spacing: 12), count: max(service.gridColumnCount, 1))
-    }
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityShowBorders) private var showBorders
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    private static let cardSpacing: CGFloat = 6
+    private static let padding: CGFloat = 12
 
     var body: some View {
-        if #available(macOS 26.0, *) {
-            GlassEffectContainer {
-                content
+        VStack(spacing: 8) {
+            if settings.layout == .strip {
+                strip
+            } else {
+                grid
             }
-        } else {
-            content
+            footer
+        }
+        .padding(Self.padding)
+        .modifier(GlassPanelSurface(
+            cornerRadius: 18,
+            reduceTransparency: reduceTransparency,
+            strongBorder: colorSchemeContrast == .increased || showBorders
+        ))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Window switcher")
+    }
+
+    private var grid: some View {
+        let columns = max(service.gridColumnCount, 1)
+        let indexed = Array(service.windows.enumerated())
+        let rows = stride(from: 0, to: indexed.count, by: columns).map { Array(indexed[$0..<min($0 + columns, indexed.count)]) }
+
+        return VStack(spacing: Self.cardSpacing) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: Self.cardSpacing) {
+                    ForEach(row, id: \.element.id) { index, window in
+                        card(window, at: index)
+                    }
+                }
+            }
         }
     }
 
-    @ViewBuilder
-    private var content: some View {
-        if settings.layout == .strip {
-            stripContent
-        } else {
-            gridContent
+    private var strip: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: Self.cardSpacing) {
+                    ForEach(Array(service.windows.enumerated()), id: \.element.id) { index, window in
+                        card(window, at: index)
+                            .id(window.id)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .frame(maxWidth: maximumWidth - Self.padding * 2)
+            .onChange(of: service.selectedIndex) {
+                guard let selected = service.selectedWindow else { return }
+                proxy.scrollTo(selected.id, anchor: .center)
+            }
         }
     }
 
-    private var gridContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Window Switcher", systemImage: "rectangle.3.group")
-                    .font(.headline)
-                Spacer()
-                Text("\(service.windows.count) windows")
-                    .font(.caption)
+    private func card(_ window: WindowSummary, at index: Int) -> some View {
+        WindowSwitcherCard(
+            window: window,
+            image: service.thumbnail(for: window, size: .zero),
+            isSelected: index == service.selectedIndex,
+            thumbnailWidth: service.displayThumbnailSize,
+            select: { service.select(index: index, source: .mouseHover) },
+            activate: {
+                service.select(index: index, source: .mouseClick)
+                service.activateDisplayedWindow(window, displayedIndex: index, source: .mouseClick)
+            },
+            minimize: { service.minimize(window) },
+            close: { service.close(window) }
+        )
+    }
+
+    private func hint(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10.5, weight: .medium))
+            .foregroundStyle(.tertiary)
+            .lineLimit(1)
+            .fixedSize()
+    }
+
+    /// The selected window's name, and the keys that work while the switcher is open.
+    private var footer: some View {
+        HStack(spacing: 10) {
+            if let selected = service.selectedWindow {
+                Text(selected.appName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .layoutPriority(2)
+                Text(selected.title)
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
             }
-
-            LazyVGrid(columns: columns, spacing: 12) {
-                cards
+            Spacer(minLength: 12)
+            // The hints give way before the window's name does.
+            ViewThatFits(in: .horizontal) {
+                hint("←  →  move   ·   W  close   ·   M  minimize   ·   esc  cancel")
+                hint("W  close   ·   M  minimize")
+                EmptyView()
             }
-            .padding(2)
+            .accessibilityLabel("Arrow keys move, W closes, M minimizes, Escape cancels")
         }
-        .padding(18)
-        .macMenderGlassSurface(radius: MacMenderRadius.prominent)
-    }
-
-    private var stripContent: some View {
-        WindowSwitcherStrip(service: service)
-            .padding(14)
-            .macMenderGlassSurface(radius: MacMenderRadius.prominent)
-    }
-
-    private var cards: some View {
-        ForEach(Array(service.windows.enumerated()), id: \.element.id) { index, window in
-            WindowSwitcherCard(
-                window: window,
-                image: service.thumbnail(for: window, size: CGSize(width: service.displayThumbnailSize, height: service.displayThumbnailSize * 0.68)),
-                isSelected: index == service.selectedIndex,
-                thumbnailSize: service.displayThumbnailSize,
-                select: { service.select(index: index, source: .mouseHover) },
-                activate: {
-                    service.select(index: index, source: .mouseClick)
-                    service.activateDisplayedWindow(window, displayedIndex: index, source: .mouseClick)
-                },
-                minimize: { service.minimize(window) },
-                close: { service.close(window) }
-            )
-        }
+        .padding(.horizontal, 6)
+        .frame(minWidth: 420)
     }
 }
 
 private struct WindowSwitcherCard: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityShowBorders) private var showBorders
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-
     var window: WindowSummary
     var image: NSImage?
     var isSelected: Bool
-    var thumbnailSize: Double
+    var thumbnailWidth: Double
     var select: () -> Void
     var activate: () -> Void
     var minimize: () -> Void
     var close: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isHovered = false
+
+    private static let thumbnailRadius: CGFloat = 7
+    private var thumbnailSize: CGSize { CGSize(width: thumbnailWidth, height: thumbnailWidth * 0.68) }
+
     var body: some View {
         Button(action: activate) {
-            VStack(alignment: .leading, spacing: 9) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color(nsColor: .underPageBackgroundColor))
-
-                    if let image {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .clipShape(.rect(cornerRadius: 8))
-                            .padding(4)
-                    } else {
-                        VStack(spacing: 8) {
-                            Image(systemName: "macwindow")
-                                .font(.system(size: 34))
-                            Text("Thumbnail unavailable")
-                                .font(.caption)
-                        }
-                        .foregroundStyle(.secondary)
-                    }
-
-                }
-                .frame(width: thumbnailSize, height: thumbnailSize * 0.68)
-                .clipShape(.rect(cornerRadius: 8))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color(nsColor: .separatorColor).opacity(strongBorder ? 0.9 : 0.45), lineWidth: strongBorder ? 1.5 : 1)
-                }
-
-                HStack(alignment: .center, spacing: 8) {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: NSRunningApplication(processIdentifier: window.processIdentifier)?.bundleURL?.path ?? ""))
+            VStack(spacing: 5) {
+                thumbnail
+                HStack(spacing: 5) {
+                    Image(nsImage: applicationIcon)
                         .resizable()
-                        .frame(width: 22, height: 22)
+                        .frame(width: 14, height: 14)
                         .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(window.title)
-                            .font(.caption.weight(.semibold))
-                            .lineLimit(1)
-                        Text(window.appName)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
+                    Text(window.title)
+                        .font(.system(size: 11, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.primary.opacity(isSelected ? 1 : 0.82))
                 }
+                .frame(width: thumbnailSize.width - 4)
             }
-            .padding(10)
-            .frame(width: thumbnailSize + 22, alignment: .leading)
-            .background(cardBackground, in: RoundedRectangle(cornerRadius: MacMenderRadius.content, style: .continuous))
+            .padding(6)
+            .background(
+                Color.primary.opacity(isSelected ? 0.14 : 0),
+                in: RoundedRectangle(cornerRadius: Self.thumbnailRadius + 4, style: .continuous)
+            )
             .overlay {
-                RoundedRectangle(cornerRadius: MacMenderRadius.content, style: .continuous)
-                    .strokeBorder(cardBorder, lineWidth: cardBorderWidth)
+                RoundedRectangle(cornerRadius: Self.thumbnailRadius + 4, style: .continuous)
+                    .strokeBorder(Color.accentColor.opacity(isSelected ? 1 : 0), lineWidth: 2)
             }
-            .animation(MacMenderMotion.feedback(reduceMotion: reduceMotion), value: isSelected)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .topLeading) {
+            if isSelected || isHovered {
+                controls
+                    .padding(11)
+                    .transition(.opacity)
+            }
+        }
+        .animation(MacMenderMotion.feedback(reduceMotion: reduceMotion), value: isSelected)
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering { select() }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(accessibilityHint)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .onHover { hovering in
-            if hovering {
-                select()
-            }
-        }
-        .contextMenu {
-            Button("Activate", action: activate)
-            Button("Minimize", action: minimize)
-            Button("Close", role: .destructive, action: close)
-        }
+        .accessibilityHint("Switches to this window.")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { activate() }
+        .accessibilityAction(named: "Close") { close() }
+        .accessibilityAction(named: "Minimize") { minimize() }
     }
 
-    private var strongBorder: Bool {
-        colorSchemeContrast == .increased || showBorders
-    }
-
-    private var cardBackground: Color {
-        if isSelected {
-            return Color.accentColor.opacity(strongBorder ? 0.20 : 0.12)
-        }
-        return Color(nsColor: .controlBackgroundColor)
-    }
-
-    private var cardBorder: Color {
-        isSelected
-            ? Color.accentColor
-            : Color(nsColor: .separatorColor).opacity(strongBorder ? 1 : 0.6)
-    }
-
-    private var cardBorderWidth: CGFloat {
-        if isSelected {
-            return strongBorder ? 3 : 2
-        }
-        return strongBorder ? 1.5 : 1
-    }
-
-    private var accessibilityLabel: String {
-        var parts = [window.title, window.appName]
-        if window.isMinimized {
-            parts.append("Minimized")
-        }
-        if isSelected {
-            parts.append("Selected")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    private var accessibilityHint: String {
-        if isSelected {
-            return "Activates the selected window. Use the context menu to minimize or close it."
-        }
-        return "Selects and activates this window. Use the context menu to minimize or close it."
-    }
-}
-
-private struct WindowSwitcherStrip: View {
-    @ObservedObject var service: WindowSwitcherService
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(spacing: 11) {
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: 10) {
-                        ForEach(Array(service.windows.enumerated()), id: \.element.id) { index, window in
-                            WindowSwitcherStripCard(
-                                window: window,
-                                image: service.thumbnail(
-                                    for: window,
-                                    size: CGSize(
-                                        width: service.displayThumbnailSize,
-                                        height: service.displayThumbnailSize * 0.68
-                                    )
-                                ),
-                                isSelected: index == service.selectedIndex,
-                                thumbnailSize: service.displayThumbnailSize,
-                                select: { service.select(index: index, source: .mouseHover) },
-                                activate: {
-                                    service.select(index: index, source: .mouseClick)
-                                    service.activateDisplayedWindow(window, displayedIndex: index, source: .mouseClick)
-                                },
-                                minimize: { service.minimize(window) },
-                                close: { service.close(window) }
-                            )
-                            .id(window.id)
-                        }
-                    }
-                    .padding(4)
-                }
-                .scrollIndicators(.hidden)
-                .onChange(of: service.selectedIndex) {
-                    guard service.windows.indices.contains(service.selectedIndex) else { return }
-                    let selectedID = service.windows[service.selectedIndex].id
-                    if reduceMotion {
-                        proxy.scrollTo(selectedID, anchor: .center)
-                    } else {
-                        withAnimation(.easeOut(duration: 0.14)) {
-                            proxy.scrollTo(selectedID, anchor: .center)
-                        }
-                    }
-                }
-            }
-
-            if let selectedWindow = service.selectedWindow {
-                VStack(spacing: 2) {
-                    Text(selectedWindow.title)
-                        .font(.callout.weight(.semibold))
-                        .lineLimit(1)
-                    Text(selectedWindow.appName)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Selected window, \(selectedWindow.title), \(selectedWindow.appName)")
-            }
-        }
-    }
-}
-
-private struct WindowSwitcherStripCard: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityShowBorders) private var showBorders
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-
-    var window: WindowSummary
-    var image: NSImage?
-    var isSelected: Bool
-    var thumbnailSize: Double
-    var select: () -> Void
-    var activate: () -> Void
-    var minimize: () -> Void
-    var close: () -> Void
-
-    var body: some View {
-        Button(action: activate) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(nsColor: .underPageBackgroundColor))
-
-                if let image {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .clipShape(.rect(cornerRadius: 8))
-                        .padding(5)
-                } else {
-                    VStack(spacing: 7) {
+    private var thumbnail: some View {
+        let shape = RoundedRectangle(cornerRadius: Self.thumbnailRadius, style: .continuous)
+        return Group {
+            if let image {
+                // The outline follows the window's own shape, whatever its proportions.
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+                    .clipShape(shape)
+                    .overlay { shape.strokeBorder(Color.primary.opacity(0.14), lineWidth: 1) }
+                    .overlay(alignment: .bottomTrailing) { badge }
+            } else {
+                shape
+                    .fill(Color.primary.opacity(0.06))
+                    .overlay {
                         Image(nsImage: applicationIcon)
                             .resizable()
-                            .frame(width: 38, height: 38)
-                        Text("Preview unavailable")
-                            .font(.caption2)
+                            .frame(width: 44, height: 44)
                     }
-                    .foregroundStyle(.secondary)
-                }
-            }
-            .frame(width: thumbnailSize, height: thumbnailSize * 0.68)
-            .clipShape(.rect(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(borderColor, lineWidth: borderWidth)
-            }
-            .padding(4)
-            .background(
-                isSelected ? Color.accentColor.opacity(strongBorder ? 0.20 : 0.13) : .clear,
-                in: RoundedRectangle(cornerRadius: 13, style: .continuous)
-            )
-            .animation(MacMenderMotion.feedback(reduceMotion: reduceMotion), value: isSelected)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Activate this window. Use the context menu to minimize or close it.")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .onHover { hovering in
-            if hovering {
-                select()
+                    .overlay(alignment: .bottomTrailing) { badge }
             }
         }
-        .contextMenu {
-            Button("Activate", action: activate)
-            Button("Minimize", action: minimize)
-            Button("Close", role: .destructive, action: close)
+        .frame(width: thumbnailSize.width, height: thumbnailSize.height)
+    }
+
+    @ViewBuilder
+    private var badge: some View {
+        if let badge = window.statusBadge {
+            Image(systemName: badge.symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.primary)
+                .frame(width: 20, height: 20)
+                .background(.regularMaterial, in: Circle())
+                .padding(5)
+                .help(badge.label)
         }
+    }
+
+    private var controls: some View {
+        HStack(spacing: 5) {
+            WindowControlButton(color: WindowControlButton.closeColor, symbol: "xmark", label: "Close", action: close)
+            WindowControlButton(color: WindowControlButton.minimizeColor, symbol: "minus", label: "Minimize", action: minimize)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .background(.regularMaterial, in: Capsule())
     }
 
     private var applicationIcon: NSImage {
-        guard let path = NSRunningApplication(
-            processIdentifier: window.processIdentifier
-        )?.bundleURL?.path else {
-            return NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil) ?? NSImage()
-        }
-        return NSWorkspace.shared.icon(forFile: path)
-    }
-
-    private var strongBorder: Bool {
-        colorSchemeContrast == .increased || showBorders
-    }
-
-    private var borderColor: Color {
-        isSelected ? .accentColor : Color(nsColor: .separatorColor).opacity(strongBorder ? 1 : 0.65)
-    }
-
-    private var borderWidth: CGFloat {
-        if isSelected {
-            return strongBorder ? 4 : 3
-        }
-        return strongBorder ? 1.5 : 1
+        NSRunningApplication(processIdentifier: window.processIdentifier)?.icon
+            ?? NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
+            ?? NSImage()
     }
 
     private var accessibilityLabel: String {
         var parts = [window.title, window.appName]
-        if window.isMinimized {
-            parts.append("Minimized")
-        }
-        if isSelected {
-            parts.append("Selected")
-        }
+        if let badge = window.statusBadge { parts.append(badge.label) }
+        if isSelected { parts.append("Selected") }
         return parts.joined(separator: ", ")
     }
 }

@@ -147,7 +147,11 @@ final class AppModel: ObservableObject {
         #if DEBUG
         dockPreview.runDebugSnapshotIfRequested(
             openSettings: { [weak self] section in self?.requestMainWindow(section: section) },
-            showPopover: { [weak self] in self?.debugShowPopover?() }
+            showPopover: { [weak self] in self?.debugShowPopover?() },
+            showSwitcher: { [weak self] in
+                guard let self else { return }
+                self.windowSwitcher.show(settings: self.activeProfile.windowSwitcher)
+            }
         )
         #endif
     }
@@ -487,6 +491,15 @@ final class AppModel: ObservableObject {
         }
         systemEvents.onCancelSwitcher = { [weak self] in
             self?.windowSwitcher.cancel()
+        }
+        systemEvents.onSwitcherCommand = { [weak self] command in
+            guard let switcher = self?.windowSwitcher else { return }
+            switch command {
+            case .move(let columns, let rows): switcher.moveSelection(columns: columns, rows: rows)
+            case .closeSelected: switcher.closeSelected()
+            case .minimizeSelected: switcher.minimizeSelected()
+            case .showOrCycle, .commit, .cancel, .ignore: break
+            }
         }
         dockHover.onHoverChanged = { [weak self] target in
             self?.dockPreview.hoverChanged(target)

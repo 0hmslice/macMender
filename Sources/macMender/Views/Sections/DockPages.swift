@@ -200,7 +200,7 @@ struct WindowSwitcherSettingsView: View {
                     SettingsStatusBadge(title: status.title, tone: MacMenderStatusTone(featureStatusKind: status.kind))
                 }
             } footer: {
-                SettingsFooter("Hold the shortcut's modifier key and press the other key to move through windows. Add Shift to go backwards. Release to switch, or press Escape to cancel.")
+                SettingsFooter("Hold the shortcut's modifier key and press the other key to move through windows; add Shift to go backwards. While it is open, arrow keys also move, W closes the selected window, and M minimizes it. Release to switch, or press Escape to cancel.")
             }
 
             Group {

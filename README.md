@@ -24,15 +24,15 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/v0.20.0/dock-preview-dark.png">
-    <img src=".github/assets/v0.20.0/dock-preview-light.png" alt="A Dock preview showing four TextEdit windows, with close, minimize, and full screen buttons on the one under the pointer and Hide and Quit in the header">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/v0.21.0/dock-preview-dark.png">
+    <img src=".github/assets/v0.21.0/dock-preview-light.png" alt="A Dock preview showing four TextEdit windows, with close, minimize, and full screen buttons on the one under the pointer and Hide and Quit in the header">
   </picture>
 </p>
 
 <p align="center">Free, open source, and local. No accounts, no analytics, no subscriptions.</p>
 
 > [!NOTE]
-> **New in v0.20.0, the biggest update yet.** A redesigned settings window, new onboarding, and Control Center–style quick controls, in Apple's Liquid Glass on macOS 26 and later, and no CPU use while it waits. [Download it](https://github.com/0hmslice/macMender/releases/tag/v0.20.0) or read [what changed](https://github.com/0hmslice/macMender/releases/tag/v0.20.0).
+> **New in v0.21.0.** The window switcher has the same look as Dock previews, with arrow keys and one-key close and minimize. [Download it](https://github.com/0hmslice/macMender/releases/tag/v0.21.0) or read [what changed](https://github.com/0hmslice/macMender/releases/tag/v0.21.0).
 
 ## What it does
 
@@ -60,15 +60,21 @@ Rest the pointer on a Dock icon and macMender shows that app's windows, live.
 | **Yours to tune** | Preview size, timing, titles, buttons, and a list of apps that should never show previews. |
 
 <p align="center">
-  <img src=".github/assets/v0.20.0/dock-previews.jpg" width="820" alt="The Dock Previews settings page: a switch, status, preview size, and timing sliders">
+  <img src=".github/assets/v0.21.0/dock-previews.jpg" width="820" alt="The Dock Previews settings page: a switch, status, preview size, and timing sliders">
 </p>
 
 ## Window switcher and scrolling
 
+<p align="center">
+  <img src=".github/assets/v0.21.0/switcher.png" width="820" alt="The window switcher: four windows as cards on a glass panel, the selected one outlined, with close and minimize buttons">
+</p>
+
+Hold **⌥** and press Tab to see every window as a card. Keep pressing Tab or use the arrow keys to move, press **W** to close the selected window or **M** to minimize it, and release ⌥ to switch.
+
 <table>
   <tr>
-    <td width="50%" valign="top"><img src=".github/assets/v0.20.0/window-switcher.jpg" alt="Window Switcher settings with shortcut, layout, and thumbnail size"><br><strong>Switch windows, not just apps</strong><br>Hold <strong>⌥</strong> and press Tab to move through windows with thumbnails, including ones on other Spaces. Add Shift to go backwards.</td>
-    <td width="50%" valign="top"><img src=".github/assets/v0.20.0/mouse-trackpad.jpg" alt="Mouse and Trackpad settings with smoothing sliders and a response preview"><br><strong>Scrolling, your way</strong><br>Give a wheel mouse the glide of a trackpad, reverse direction per device, and set exceptions for individual apps.</td>
+    <td width="50%" valign="top"><img src=".github/assets/v0.21.0/window-switcher.jpg" alt="Window Switcher settings with shortcut, layout, and thumbnail size"><br><strong>Switch windows, not just apps</strong><br>Hold <strong>⌥</strong> and press Tab to move through windows with thumbnails, including ones on other Spaces. Add Shift to go backwards.</td>
+    <td width="50%" valign="top"><img src=".github/assets/v0.21.0/mouse-trackpad.jpg" alt="Mouse and Trackpad settings with smoothing sliders and a response preview"><br><strong>Scrolling, your way</strong><br>Give a wheel mouse the glide of a trackpad, reverse direction per device, and set exceptions for individual apps.</td>
   </tr>
 </table>
 
@@ -77,15 +83,15 @@ Rest the pointer on a Dock icon and macMender shows that app's windows, live.
 One window, one layout, and a page for each feature. The Overview shows what is running and lets you switch features on and off without hunting for them. On macOS 26 and later it uses Apple's Liquid Glass, with a frosted sidebar that shows what is behind the window.
 
 <p align="center">
-  <img src=".github/assets/v0.20.0/overview.jpg" width="820" alt="The Overview page: each feature with its status and a switch">
+  <img src=".github/assets/v0.21.0/overview.jpg" width="820" alt="The Overview page: each feature with its status and a switch">
 </p>
 
 ## Quick controls and setup
 
 <table>
   <tr>
-    <td width="42%" valign="top"><img src=".github/assets/v0.20.0/quick-controls.png" alt="The menu bar dropdown: tiles for Dock Previews, Window Switcher, Three-Finger Tap and Reverse Wheel, with Keep Awake and Pause"><br><strong>Everything one click away</strong><br>Click the menu bar icon to turn features on and off, start Keep Awake, or pause macMender.</td>
-    <td width="58%" valign="top"><img src=".github/assets/v0.20.0/onboarding.jpg" alt="The setup screen for choosing which features to turn on"><br><strong>Set up in a minute</strong><br>Pick the features you want, allow access, and you are done.</td>
+    <td width="42%" valign="top"><img src=".github/assets/v0.21.0/quick-controls.png" alt="The menu bar dropdown: tiles for Dock Previews, Window Switcher, Three-Finger Tap and Reverse Wheel, with Keep Awake and Pause"><br><strong>Everything one click away</strong><br>Click the menu bar icon to turn features on and off, start Keep Awake, or pause macMender.</td>
+    <td width="58%" valign="top"><img src=".github/assets/v0.21.0/onboarding.jpg" alt="The setup screen for choosing which features to turn on"><br><strong>Set up in a minute</strong><br>Pick the features you want, allow access, and you are done.</td>
   </tr>
 </table>
 
@@ -126,6 +132,7 @@ Settings stay in `~/Library/Application Support/macMender/`. Use **Advanced → 
 | Action | Default control |
 | :-- | :-- |
 | Next / previous window | **⌥ Tab** / **⌥ ⇧ Tab**; release Option to select, Escape to cancel |
+| In the switcher | Arrow keys move, **W** closes the selected window, **M** minimizes it |
 | Quick controls | Click the menu bar icon; **⌘ ⇧ M** while macMender is active |
 | Dock preview | Hover a Dock icon; click a window to bring it forward |
 | Close from a preview | Red button, or middle-click the preview; Hide and Quit are in the preview's header |
