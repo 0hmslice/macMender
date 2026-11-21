@@ -64,7 +64,7 @@ Rest the pointer on a Dock icon and macMender shows that app's windows, live.
 
 One window, one layout, and a page for each feature. The Overview shows what is running and lets you switch features on and off without hunting for them.
 
-On macOS 26 and later the whole app uses Apple's Liquid Glass: sidebar, switches, sliders, and the menu bar dropdown.
+On macOS 26 and later the app uses Apple's Liquid Glass for its switches, sliders, toolbar, and menu bar dropdown, with a frosted sidebar that shows what is behind the window.
 
 <p align="center">
   <img src=".github/assets/v1.0.0/overview.jpg" width="760" alt="The Overview page: each feature with its status and a switch">
