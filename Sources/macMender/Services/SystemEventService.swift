@@ -17,6 +17,8 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
     var onCycleSwitcher: ((Bool) -> Void)?
     var onCommitSwitcher: (() -> Void)?
     var onCancelSwitcher: (() -> Void)?
+    /// Arrow keys and the close and minimize keys, pressed while the switcher is open.
+    var onSwitcherCommand: ((SwitcherKeyboardAction) -> Void)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -277,10 +279,23 @@ final class SystemEventService: ObservableObject, @unchecked Sendable {
                 self?.onCommitSwitcher?()
             }
             return nil
+        case .observe(.commit):
+            switcherSessionActive = false
+            DispatchQueue.main.async { [weak self] in
+                self?.onCommitSwitcher?()
+            }
+            return Unmanaged.passUnretained(event)
+        case .observe:
+            return Unmanaged.passUnretained(event)
         case .consume(.cancel):
             switcherSessionActive = false
             DispatchQueue.main.async { [weak self] in
                 self?.onCancelSwitcher?()
+            }
+            return nil
+        case .consume(let command):
+            DispatchQueue.main.async { [weak self] in
+                self?.onSwitcherCommand?(command)
             }
             return nil
         }

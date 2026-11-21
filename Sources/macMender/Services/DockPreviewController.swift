@@ -985,7 +985,11 @@ extension DockPreviewController {
     /// Development aid: with `MACMENDER_PREVIEW_SNAPSHOT=<directory>` set, shows a preview shortly
     /// after launch and writes a screenshot of it plus a discovery report to that directory.
     /// `MACMENDER_PREVIEW_APP=<bundle id>` picks the application.
-    func runDebugSnapshotIfRequested(openSettings: ((SettingsSection) -> Void)? = nil, showPopover: (() -> Void)? = nil) {
+    func runDebugSnapshotIfRequested(
+        openSettings: ((SettingsSection) -> Void)? = nil,
+        showPopover: (() -> Void)? = nil,
+        showSwitcher: (() -> Void)? = nil
+    ) {
         let environment = ProcessInfo.processInfo.environment
         guard let path = environment["MACMENDER_PREVIEW_SNAPSHOT"], !path.isEmpty else { return }
         let directory = URL(fileURLWithPath: path, isDirectory: true)
@@ -1061,6 +1065,19 @@ extension DockPreviewController {
                         CGImageDestinationAddImage(destination, image, nil)
                         lines.append("\(name)=\(CGImageDestinationFinalize(destination))")
                     }
+                }
+            }
+            if environment["MACMENDER_SNAPSHOT_SWITCHER"] != nil, let showSwitcher {
+                // Set MACMENDER_SWITCHER_APP too, so only sample windows are pictured.
+                showSwitcher()
+                try? await Task.sleep(for: .milliseconds(1600))
+                if let window = NSApp.windows.first(where: { $0.isVisible && $0 !== self.panel && $0.level == .popUpMenu }),
+                   let image = await Self.debugScreenshot(of: window),
+                   let destination = CGImageDestinationCreateWithURL(directory.appendingPathComponent("switcher.png") as CFURL, "public.png" as CFString, 1, nil) {
+                    CGImageDestinationAddImage(destination, image, nil)
+                    lines.append("switcher=\(CGImageDestinationFinalize(destination)) size=\(window.frame.size)")
+                } else {
+                    lines.append("switcher=unavailable")
                 }
             }
             if environment["MACMENDER_SNAPSHOT_POPOVER"] != nil, let showPopover {

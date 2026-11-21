@@ -98,6 +98,31 @@ final class WindowSwitcherService: ObservableObject {
         selectedIndex = (selectedIndex + (backwards ? -1 : 1) + windows.count) % windows.count
     }
 
+    /// Moves the selection with the arrow keys. Sideways wraps like Tab; up and down move a row
+    /// in the grid and stop at its edges.
+    func moveSelection(columns: Int, rows: Int) {
+        guard isShowing, !windows.isEmpty else { return }
+        if columns != 0 {
+            cycle(backwards: columns < 0)
+        }
+        if rows != 0, activeSettings.layout == .grid {
+            let target = selectedIndex + rows * max(gridColumnCount, 1)
+            if windows.indices.contains(target) {
+                selectedIndex = target
+            }
+        }
+    }
+
+    func closeSelected() {
+        guard isShowing, let selectedWindow else { return }
+        close(selectedWindow)
+    }
+
+    func minimizeSelected() {
+        guard isShowing, let selectedWindow else { return }
+        minimize(selectedWindow)
+    }
+
     func cancel() {
         isShowing = false
         otherSpacesTask?.cancel()
@@ -140,9 +165,15 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     private func discoverWindows(settings: WindowSwitcherSettings) -> [WindowSummary] {
-        let discovered = catalog.visibleWindows()
+        var discovered = catalog.visibleWindows()
             .filter { settings.includeMinimizedWindows || !$0.isMinimized }
             .filter { settings.includeHiddenApps || !$0.isAppHidden }
+        #if DEBUG
+        // Development aid: limit the switcher to one application when taking screenshots.
+        if let only = ProcessInfo.processInfo.environment["MACMENDER_SWITCHER_APP"] {
+            discovered = discovered.filter { NSRunningApplication(processIdentifier: $0.processIdentifier)?.bundleIdentifier == only }
+        }
+        #endif
         lastDiscoveryReport = catalog.lastDiscoveryReport
         return discovered
     }
@@ -245,7 +276,9 @@ final class WindowSwitcherService: ObservableObject {
     }
 
     private func ensurePanel(settings: WindowSwitcherSettings) {
-        let screen = NSApp.keyWindow?.screen ?? NSApp.mainWindow?.screen ?? NSScreen.main
+        // The screen the pointer is on, which is where the person is looking.
+        let pointer = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(pointer) } ?? NSScreen.main
         let visibleSize = screen?.visibleFrame.size ?? CGSize(width: 1200, height: 800)
         let metrics = WindowSwitcherPresentationMetrics.calculate(
             layout: settings.layout,
@@ -255,11 +288,10 @@ final class WindowSwitcherService: ObservableObject {
         )
         displayThumbnailSize = metrics.thumbnailSize
         gridColumnCount = metrics.gridColumnCount
-        let size = metrics.panelSize
 
         if panel == nil {
             let panel = NSPanel(
-                contentRect: NSRect(origin: .zero, size: size),
+                contentRect: NSRect(origin: .zero, size: CGSize(width: 480, height: 240)),
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
@@ -271,17 +303,27 @@ final class WindowSwitcherService: ObservableObject {
             panel.isOpaque = false
             panel.ignoresMouseEvents = false
             panel.acceptsMouseMovedEvents = true
-            panel.hasShadow = true
+            panel.hasShadow = false
             self.panel = panel
         }
-        panel?.contentView = FirstMouseHostingView(rootView: WindowSwitcherOverlayView(service: self, settings: settings))
+        // The panel takes its size from its content, capped to the screen.
+        let maximumSize = CGSize(width: visibleSize.width * 0.9, height: visibleSize.height * 0.9)
+        let content = WindowSwitcherOverlayView(service: self, settings: settings, maximumWidth: maximumSize.width - Self.shadowMargin * 2)
+            .padding(Self.shadowMargin)
+        let hostingView = FirstMouseHostingView(rootView: content)
+        let fitting = hostingView.fittingSize
+        let size = CGSize(width: min(fitting.width, maximumSize.width), height: min(fitting.height, maximumSize.height))
+        panel?.contentView = hostingView
         panel?.setContentSize(size)
 
         if let screen {
             let visible = screen.visibleFrame
-            panel?.setFrameOrigin(CGPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2))
+            panel?.setFrameOrigin(CGPoint(x: (visible.midX - size.width / 2).rounded(), y: (visible.midY - size.height / 2).rounded()))
         }
     }
+
+    /// Room around the glass panel for its shadow.
+    private static let shadowMargin: CGFloat = 28
 }
 
 private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
