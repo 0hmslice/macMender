@@ -16,6 +16,7 @@
 <p align="center">
   <a href="https://github.com/0hmslice/macMender/releases/latest"><strong>Download</strong></a> ·
   <a href="#get-started">Get started</a> ·
+  <a href="#what-it-does">Features</a> ·
   <a href="#at-your-fingertips">Shortcuts</a> ·
   <a href="#build-it">Build it</a> ·
   <a href="https://github.com/0hmslice/macMender/issues">Report an issue</a>
@@ -30,7 +31,19 @@
 
 <p align="center">Free, open source, and local. No accounts, no analytics, no subscriptions.</p>
 
-> **New in v0.20.0 — the biggest update yet.** Rebuilt Dock previews, a redesigned settings window, new onboarding, and Control Center–style quick controls, in Apple's Liquid Glass on macOS 26 and later. [Download the preview release](https://github.com/0hmslice/macMender/releases/tag/v0.20.0).
+> [!NOTE]
+> **New in v0.20.0, the biggest update yet.** Rebuilt Dock previews, a redesigned settings window, new onboarding, and Control Center–style quick controls, in Apple's Liquid Glass on macOS 26 and later. [Download it](https://github.com/0hmslice/macMender/releases/tag/v0.20.0) or read [what changed](https://github.com/0hmslice/macMender/releases/tag/v0.20.0).
+
+## What it does
+
+| | |
+| :-- | :-- |
+| **[Dock previews](#dock-previews)** | Hover a Dock icon to see every window that app has open, then switch, close, peek, or arrange. |
+| **[Window switcher](#window-switcher-and-scrolling)** | **⌥ Tab** between individual windows, not just apps. |
+| **[Better scrolling](#window-switcher-and-scrolling)** | Smooth a wheel mouse, and scroll a mouse and a trackpad in different directions. |
+| **Middle click** | Three-finger tap on the trackpad to open links in new tabs and close tabs. |
+| **Keep Awake** | Stop your Mac sleeping for 15 minutes to 2 hours, or until you say so. |
+| **[Quick controls](#quick-controls-and-setup)** | Turn any of it on or off from the menu bar. |
 
 ## Dock previews
 
@@ -44,45 +57,35 @@ Rest the pointer on a Dock icon and macMender shows that app's windows, live.
 | **Arrange** | Right-click a preview for Left Half, Right Half, Fill Screen, Center, or Move to Next Display. |
 | **Drag and drop** | Drag a file onto a Dock icon, then rest it on a preview to bring that window forward and drop into it. |
 | **Keyboard** | With the pointer over a preview: arrow keys select, Return opens, **⌘ W** closes, Escape dismisses. |
-| **Yours to tune** | Preview size, hover delay, titles, buttons, and a list of apps that should never show previews. |
+| **Yours to tune** | Preview size, timing, titles, buttons, and a list of apps that should never show previews. |
 
 <p align="center">
-  <img src=".github/assets/v0.20.0/dock-previews.jpg" width="760" alt="The Dock Previews settings page: a switch, status, preview size, and timing sliders">
+  <img src=".github/assets/v0.20.0/dock-previews.jpg" width="820" alt="The Dock Previews settings page: a switch, status, preview size, and timing sliders">
 </p>
 
-## Everything else
-
-| | What you get |
-| :-- | :-- |
-| **Window switching** | **⌥ Tab** through windows with thumbnails, including windows on other Spaces. Add Shift to go backwards. |
-| **Scrolling** | Tune mouse smoothing and direction. Give individual apps their own rules, or leave their scrolling native. |
-| **Middle click** | Use a three-finger trackpad tap, modifier-click, or an extra mouse button. |
-| **Keep Awake** | Start a 15-minute to 2-hour session, or keep going until stopped. Optionally keep the display awake. |
-| **Profiles & quick controls** | Save different setups, search settings, and pause everything from the menu bar. |
-
-## Settings that make sense
-
-One window, one layout, and a page for each feature. The Overview shows what is running and lets you switch features on and off without hunting for them.
-
-On macOS 26 and later the app uses Apple's Liquid Glass for its switches, sliders, toolbar, and menu bar dropdown, with a frosted sidebar that shows what is behind the window.
-
-<p align="center">
-  <img src=".github/assets/v0.20.0/overview.jpg" width="760" alt="The Overview page: each feature with its status and a switch">
-</p>
+## Window switcher and scrolling
 
 <table>
   <tr>
-    <td width="50%"><img src=".github/assets/v0.20.0/mouse-trackpad.jpg" alt="Mouse and Trackpad settings with smoothing sliders and a response preview"><br><strong>Scrolling, your way</strong></td>
-    <td width="50%"><img src=".github/assets/v0.20.0/window-switcher.jpg" alt="Window Switcher settings with shortcut, layout, and thumbnail size"><br><strong>Switch windows, not just apps</strong></td>
+    <td width="50%" valign="top"><img src=".github/assets/v0.20.0/window-switcher.jpg" alt="Window Switcher settings with shortcut, layout, and thumbnail size"><br><strong>Switch windows, not just apps</strong><br>Hold <strong>⌥</strong> and press Tab to move through windows with thumbnails, including ones on other Spaces. Add Shift to go backwards.</td>
+    <td width="50%" valign="top"><img src=".github/assets/v0.20.0/mouse-trackpad.jpg" alt="Mouse and Trackpad settings with smoothing sliders and a response preview"><br><strong>Scrolling, your way</strong><br>Give a wheel mouse the glide of a trackpad, reverse direction per device, and set exceptions for individual apps.</td>
   </tr>
 </table>
+
+## Settings that make sense
+
+One window, one layout, and a page for each feature. The Overview shows what is running and lets you switch features on and off without hunting for them. On macOS 26 and later it uses Apple's Liquid Glass, with a frosted sidebar that shows what is behind the window.
+
+<p align="center">
+  <img src=".github/assets/v0.20.0/overview.jpg" width="820" alt="The Overview page: each feature with its status and a switch">
+</p>
 
 ## Quick controls and setup
 
 <table>
   <tr>
-    <td width="42%"><img src=".github/assets/v0.20.0/quick-controls.png" alt="The menu bar dropdown: tiles for Dock Previews, Window Switcher, Three-Finger Tap and Reverse Wheel, with Keep Awake and Pause"><br><strong>Everything one click away</strong><br>Click the menu bar icon to turn features on and off, start Keep Awake, or pause macMender.</td>
-    <td width="58%"><img src=".github/assets/v0.20.0/onboarding.jpg" alt="The setup screen for choosing which features to turn on"><br><strong>Set up in a minute</strong><br>Pick the features you want, allow access, and you are done.</td>
+    <td width="42%" valign="top"><img src=".github/assets/v0.20.0/quick-controls.png" alt="The menu bar dropdown: tiles for Dock Previews, Window Switcher, Three-Finger Tap and Reverse Wheel, with Keep Awake and Pause"><br><strong>Everything one click away</strong><br>Click the menu bar icon to turn features on and off, start Keep Awake, or pause macMender.</td>
+    <td width="58%" valign="top"><img src=".github/assets/v0.20.0/onboarding.jpg" alt="The setup screen for choosing which features to turn on"><br><strong>Set up in a minute</strong><br>Pick the features you want, allow access, and you are done.</td>
   </tr>
 </table>
 
@@ -101,7 +104,7 @@ The app is about 5 MB and uses roughly 60 MB of memory.
 
 ## Get started
 
-**Release requirements:** Apple silicon · macOS 26 or newer.
+**Requirements:** Apple silicon · macOS 26 or newer.
 
 The preview is signed with an Apple Development certificate and **is not notarized**. macOS may require explicit approval when opening it.
 
@@ -166,7 +169,7 @@ The package declares macOS 14 as its compilation minimum; that is not a claim of
 - **Input or shortcuts:** check Accessibility permission, then quit and reopen macMender. Pause similar utilities while troubleshooting conflicting rules.
 - **Missing thumbnails:** grant Screen Recording, or use the switcher without thumbnails.
 - **Unexpected scrolling in one app:** add it under Mouse & Trackpad → App Exceptions and choose to scroll the way macOS does.
-- **Need to undo a setup:** pause macMender immediately; restore exported settings from Advanced. Menu bar spacing has its own Reset to Default.
+- **Need to undo a setup:** pause macMender immediately; restore exported settings from Advanced. Menu bar spacing has its own Use macOS Default button.
 - **Reporting a bug:** include your macOS version, macMender version, and steps to reproduce. Review diagnostic exports before sharing them.
 
 </details>

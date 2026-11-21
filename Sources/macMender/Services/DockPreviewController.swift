@@ -1129,10 +1129,13 @@ extension DockPreviewController {
         configuration.width = Int(rect.width * screen.backingScaleFactor)
         configuration.height = Int(rect.height * screen.backingScaleFactor)
         configuration.showsCursor = false
-        return try? await SCScreenshotManager.captureImage(
-            contentFilter: SCContentFilter(display: display, including: [application], exceptingWindows: []),
-            configuration: configuration
-        )
+        // Blur of what is behind a window only exists in the real composite. Capturing that
+        // shows whatever is on top of this app's windows too, so it is opt-in and the result
+        // must be looked at before it is used anywhere.
+        let filter = ProcessInfo.processInfo.environment["MACMENDER_SNAPSHOT_COMPOSITED"] != nil
+            ? SCContentFilter(display: display, excludingWindows: [])
+            : SCContentFilter(display: display, including: [application], exceptingWindows: [])
+        return try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
     }
 }
 #endif
