@@ -32,7 +32,7 @@
 <p align="center">Free, open source, and local. No accounts, no analytics, no subscriptions.</p>
 
 > [!NOTE]
-> **New in v0.20.0, the biggest update yet.** Rebuilt Dock previews, a redesigned settings window, new onboarding, and Control Center–style quick controls, in Apple's Liquid Glass on macOS 26 and later. [Download it](https://github.com/0hmslice/macMender/releases/tag/v0.20.0) or read [what changed](https://github.com/0hmslice/macMender/releases/tag/v0.20.0).
+> **New in v0.20.0, the biggest update yet.** A redesigned settings window, new onboarding, and Control Center–style quick controls, in Apple's Liquid Glass on macOS 26 and later, and no CPU use while it waits. [Download it](https://github.com/0hmslice/macMender/releases/tag/v0.20.0) or read [what changed](https://github.com/0hmslice/macMender/releases/tag/v0.20.0).
 
 ## What it does
 
