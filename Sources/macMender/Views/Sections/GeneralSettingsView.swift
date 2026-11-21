@@ -36,7 +36,7 @@ struct GeneralSettingsView: View {
 
                 SettingsSlider(
                     title: "Sidebar glass",
-                    detail: "How much of what is behind this window shows through its sidebar.",
+                    detail: "How much the sidebar is tinted by what is behind this window. It stays frosted so its text is always readable.",
                     value: Binding(
                         get: { appModel.store.config.appBehavior.sidebarGlass },
                         set: { appModel.setSidebarGlass($0) }

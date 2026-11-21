@@ -75,10 +75,10 @@ One window, one layout, and a page for each feature. The Overview shows what is 
   </tr>
 </table>
 
-**Sidebar glass.** In General, one slider takes the settings sidebar from solid to clear glass that shows your desktop through it.
+**Sidebar glass.** In General, one slider takes the settings sidebar from solid to frosted glass tinted by whatever is behind the window.
 
 <p align="center">
-  <img src=".github/assets/v0.12.0/general.jpg" width="760" alt="General settings with the sidebar glass slider set to fully clear">
+  <img src=".github/assets/v0.12.0/general.jpg" width="760" alt="General settings with the sidebar glass slider">
 </p>
 
 ## Get started

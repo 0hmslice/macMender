@@ -264,50 +264,35 @@ extension AppModel {
     }
 }
 
-/// The settings sidebar's backdrop, from solid to clear glass.
+/// The settings sidebar's backdrop, from solid to frosted glass.
 ///
-/// Three layers do the work. A solid colour fades out over the first part of the range, which
-/// uncovers a frosted blur of whatever is behind the window. Over the rest of the range the
-/// frost itself thins, so at the top the desktop shows through almost clearly.
+/// macOS already draws the sidebar as frosted glass: a blur of whatever is behind the window,
+/// tuned to keep the sidebar's text readable. This adds one solid layer over that frost and
+/// fades it out as `amount` rises, so 0 is a solid sidebar and 1 is the system's glass.
+/// The frost itself is never thinned. A clearer sidebar was tried and was unreadable over
+/// ordinary windows.
 struct SidebarGlassBackground: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     var amount: Double
 
-    /// Where the solid layer has fully gone and the frost starts to thin.
-    static let frostedPoint = 0.6
-    /// How much frost remains at full glass.
-    static let minimumFrost = 0.3
-
     static func solidOpacity(for amount: Double) -> Double {
-        max(0, 1 - amount / frostedPoint)
-    }
-
-    static func frostOpacity(for amount: Double) -> Double {
-        guard amount > frostedPoint else { return 1 }
-        let progress = (amount - frostedPoint) / (1 - frostedPoint)
-        return 1 - progress * (1 - minimumFrost)
+        1 - min(max(amount, 0), 1)
     }
 
     var body: some View {
-        let glass = reduceTransparency ? 0 : min(max(amount, 0), 1)
-        SidebarBackdropInstaller(
-            frostOpacity: Self.frostOpacity(for: glass),
-            solidOpacity: Self.solidOpacity(for: glass)
-        )
-        .allowsHitTesting(false)
+        SidebarBackdropInstaller(solidOpacity: reduceTransparency ? 1 : Self.solidOpacity(for: amount))
+            .allowsHitTesting(false)
     }
 }
 
-/// Places the backdrop at the very bottom of the view that hosts the sidebar.
+/// Places the solid layer at the very bottom of the view that hosts the sidebar.
 ///
 /// It cannot simply be a SwiftUI background: the sidebar's content is drawn above the window's
 /// close, minimize, and zoom buttons, so anything opaque there would cover them. The split view
-/// hosts the sidebar inside its own frosted view; the backdrop goes in as that host's first
-/// subview, under the buttons, and the host's own frost is masked away so it does not cap how
-/// clear the glass can get. If a future macOS arranges the sidebar differently, no host is found
-/// and the sidebar keeps the system's standard look.
+/// hosts the sidebar inside its own frosted view, and the layer goes in as that host's first
+/// subview, under the buttons. If a future macOS arranges the sidebar differently, no host is
+/// found and the sidebar keeps the system's standard look.
 private struct SidebarBackdropInstaller: NSViewRepresentable {
-    var frostOpacity: Double
     var solidOpacity: Double
 
     func makeNSView(context: Context) -> InstallerView {
@@ -315,15 +300,13 @@ private struct SidebarBackdropInstaller: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: InstallerView, context: Context) {
-        nsView.frostOpacity = frostOpacity
         nsView.solidOpacity = solidOpacity
         nsView.apply()
     }
 
     final class InstallerView: NSView {
-        var frostOpacity = 1.0
         var solidOpacity = 0.0
-        private weak var backdrop: SidebarBackdropView?
+        private weak var solid: NSBox?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -333,23 +316,19 @@ private struct SidebarBackdropInstaller: NSViewRepresentable {
         }
 
         private func install() {
-            guard backdrop == nil, let host = hostingEffectView() else { return }
-            // Lets the desktop show through wherever the window draws nothing opaque.
-            window?.isOpaque = false
-            window?.backgroundColor = .clear
-            // An empty mask removes the host's frost and leaves what it contains untouched.
-            host.maskImage = NSImage(size: NSSize(width: 1, height: 1), flipped: false) { _ in true }
-
-            let view = SidebarBackdropView(frame: host.bounds)
-            view.autoresizingMask = [.width, .height]
-            host.addSubview(view, positioned: .below, relativeTo: host.subviews.first)
-            backdrop = view
+            guard solid == nil, let host = hostingEffectView() else { return }
+            let box = NonInteractiveBox(frame: host.bounds)
+            box.boxType = .custom
+            box.borderWidth = 0
+            box.fillColor = .windowBackgroundColor
+            box.autoresizingMask = [.width, .height]
+            host.addSubview(box, positioned: .below, relativeTo: host.subviews.first)
+            solid = box
             apply()
         }
 
         func apply() {
-            backdrop?.frost.alphaValue = frostOpacity
-            backdrop?.solid.alphaValue = solidOpacity
+            solid?.alphaValue = solidOpacity
         }
 
         private func hostingEffectView() -> NSVisualEffectView? {
@@ -365,29 +344,6 @@ private struct SidebarBackdropInstaller: NSViewRepresentable {
     }
 }
 
-private final class SidebarBackdropView: NSView {
-    let frost = NSVisualEffectView()
-    let solid = NSBox()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        frost.material = .hudWindow
-        frost.blendingMode = .behindWindow
-        frost.state = .active
-        solid.boxType = .custom
-        solid.borderWidth = 0
-        solid.fillColor = .windowBackgroundColor
-        for view in [frost, solid] as [NSView] {
-            view.frame = bounds
-            view.autoresizingMask = [.width, .height]
-            addSubview(view)
-        }
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
-    }
-
+private final class NonInteractiveBox: NSBox {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

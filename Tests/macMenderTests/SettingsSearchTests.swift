@@ -11,14 +11,11 @@ import Testing
 }
 
 @MainActor
-@Test func sidebarGlassRunsFromSolidToThinFrost() {
+@Test func sidebarGlassRunsFromSolidToTheSystemFrost() {
     #expect(SidebarGlassBackground.solidOpacity(for: 0) == 1)
-    #expect(SidebarGlassBackground.frostOpacity(for: 0) == 1)
-    // Mid-range: the solid layer is gone and the frost is still whole.
-    #expect(SidebarGlassBackground.solidOpacity(for: SidebarGlassBackground.frostedPoint) == 0)
-    #expect(SidebarGlassBackground.frostOpacity(for: SidebarGlassBackground.frostedPoint) == 1)
+    #expect(SidebarGlassBackground.solidOpacity(for: 0.25) == 0.75)
     #expect(SidebarGlassBackground.solidOpacity(for: 1) == 0)
-    #expect(abs(SidebarGlassBackground.frostOpacity(for: 1) - SidebarGlassBackground.minimumFrost) < 0.0001)
+    #expect(SidebarGlassBackground.solidOpacity(for: 4) == 0)
 }
 
 @Test func everySectionBelongsToASidebarGroupAndIsSearchableByTitle() {
