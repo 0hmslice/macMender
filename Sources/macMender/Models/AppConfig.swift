@@ -178,28 +178,17 @@ struct AppBehavior: Codable, Equatable {
     var hideDockIcon: Bool
     var menuBarSpacing: MenuBarSpacingPreference
     var menuBarSpacingCustomValue: Int
-    /// How see-through the settings sidebar is: 0 is solid, 1 is fully glass.
-    var sidebarGlass: Double
-
-    static let defaultSidebarGlass = 1.0
 
     enum CodingKeys: String, CodingKey {
         case hideDockIcon
         case menuBarSpacing
         case menuBarSpacingCustomValue
-        case sidebarGlass
     }
 
-    init(
-        hideDockIcon: Bool,
-        menuBarSpacing: MenuBarSpacingPreference,
-        menuBarSpacingCustomValue: Int,
-        sidebarGlass: Double = AppBehavior.defaultSidebarGlass
-    ) {
+    init(hideDockIcon: Bool, menuBarSpacing: MenuBarSpacingPreference, menuBarSpacingCustomValue: Int) {
         self.hideDockIcon = hideDockIcon
         self.menuBarSpacing = menuBarSpacing
         self.menuBarSpacingCustomValue = MenuBarSpacingPreference.clampedValue(menuBarSpacingCustomValue)
-        self.sidebarGlass = min(max(sidebarGlass, 0), 1)
     }
 
     init(from decoder: Decoder) throws {
@@ -216,7 +205,6 @@ struct AppBehavior: Codable, Equatable {
                 menuBarSpacing.defaultsValue ??
                 MenuBarSpacingPreference.systemDefaultNumericValue
         )
-        sidebarGlass = min(max(try container.decodeIfPresent(Double.self, forKey: .sidebarGlass) ?? Self.defaultSidebarGlass, 0), 1)
     }
 
     static let `default` = AppBehavior(

@@ -23,6 +23,9 @@ struct MacMenderApp: App {
                     }
                     statusItemController.install(appModel: appModel, openPreferences: showSettings)
                     appDelegate.showSettings = showSettings
+                    #if DEBUG
+                    appModel.debugShowPopover = { statusItemController.showPopover() }
+                    #endif
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(250))
                         appModel.startRuntimeIfNeeded()

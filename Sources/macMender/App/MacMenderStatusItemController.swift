@@ -117,14 +117,16 @@ final class MacMenderStatusItemController: NSObject {
         let popover = popover ?? NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = NSSize(width: 328, height: 310)
-        popover.contentViewController = NSHostingController(
+        let controller = NSHostingController(
             rootView: MenuBarPopover(
                 appModel: appModel,
                 openSettingsAction: { [weak self] in self?.openPreferences?() },
                 closeAction: { [weak self] in self?.popover?.performClose(nil) }
             )
         )
+        // The popover takes its height from its content, so larger text is never clipped.
+        controller.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = controller
         self.popover = popover
     }
 

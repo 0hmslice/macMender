@@ -73,6 +73,14 @@ if [[ "$BUILD_CONFIGURATION" == "release" && "$STRIP_RELEASE_BINARY" == "1" ]]; 
   /usr/bin/strip -x "$APP_BINARY"
 fi
 
+# SwiftPM records the deployment target as the SDK the app was built with. macOS reads that
+# as "built for an old system" and draws the app with its previous look: no Liquid Glass
+# sidebar or controls. Record the SDK that was really used, before signing.
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version 2>/dev/null || true)"
+if [[ -n "$SDK_VERSION" ]] && command -v vtool >/dev/null 2>&1; then
+  vtool -set-build-version macos "$MIN_SYSTEM_VERSION" "$SDK_VERSION" -replace -output "$APP_BINARY" "$APP_BINARY"
+fi
+
 if [[ -f "$ROOT_DIR/Sources/macMender/Resources/PrivacyInfo.xcprivacy" ]]; then
   cp "$ROOT_DIR/Sources/macMender/Resources/PrivacyInfo.xcprivacy" "$APP_RESOURCES/PrivacyInfo.xcprivacy"
 fi

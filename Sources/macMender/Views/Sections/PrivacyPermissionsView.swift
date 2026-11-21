@@ -6,7 +6,7 @@ struct PrivacyPermissionsView: View {
     var body: some View {
         SettingsPage(section: .privacy) {
             Section {
-                permissionRow(
+                PermissionSettingsRow(
                     title: "Accessibility",
                     detail: "Required. Lets macMender see Dock icons, switch and arrange windows, and respond to shortcuts and scrolling.",
                     systemImage: "accessibility",
@@ -15,7 +15,7 @@ struct PrivacyPermissionsView: View {
                     request: appModel.permissions.requestAccessibility,
                     openSettings: appModel.permissions.openAccessibilitySettings
                 )
-                permissionRow(
+                PermissionSettingsRow(
                     title: "Screen Recording",
                     detail: "Optional. Shows each window's contents in previews, peek, and the switcher. Without it you see app icons.",
                     systemImage: "rectangle.on.rectangle",
@@ -60,39 +60,4 @@ struct PrivacyPermissionsView: View {
         }
     }
 
-    private func permissionRow(
-        title: String,
-        detail: String,
-        systemImage: String,
-        tint: Color,
-        state: PermissionState,
-        request: @escaping () -> Void,
-        openSettings: @escaping () -> Void
-    ) -> some View {
-        SettingsRow(title: title, detail: detail, systemImage: systemImage, tint: tint) {
-            if state == .granted {
-                SettingsStatusBadge(title: "Allowed", tone: .active)
-                Button("Open Settings", action: openSettings)
-                    .controlSize(.small)
-                    .accessibilityLabel("Open \(title) settings")
-            } else {
-                SettingsStatusBadge(title: state == .missing ? "Not allowed" : "Unavailable", tone: permissionTone(state))
-                Button("Allow…", action: request)
-                Button("Open Settings", action: openSettings)
-                    .controlSize(.small)
-                .accessibilityLabel("Allow \(title)")
-            }
-        }
-    }
-
-    private func permissionTone(_ state: PermissionState) -> MacMenderStatusTone {
-        switch state {
-        case .granted:
-            .active
-        case .missing:
-            .attention
-        case .unavailable:
-            .unavailable
-        }
-    }
 }

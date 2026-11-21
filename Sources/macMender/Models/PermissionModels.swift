@@ -40,8 +40,7 @@ enum PermissionStatusPolicy {
 
     static func permissionsSummary(
         accessibility: PermissionState,
-        screenRecording: PermissionState,
-        inputMonitoring: PermissionState
+        screenRecording: PermissionState
     ) -> FeatureStatusSummary {
         if accessibility != .granted {
             return FeatureStatusSummary(
@@ -51,7 +50,7 @@ enum PermissionStatusPolicy {
             )
         }
 
-        if screenRecording != .granted || inputMonitoring != .granted {
+        if screenRecording != .granted {
             return FeatureStatusSummary(
                 title: "Ready with optional setup",
                 detail: "Screen Recording is off, so previews show app icons instead of windows.",
@@ -64,28 +63,6 @@ enum PermissionStatusPolicy {
             detail: "Everything macMender needs is allowed.",
             kind: .active
         )
-    }
-
-    static func screenRecordingSummary(_ state: PermissionState) -> FeatureStatusSummary {
-        switch state {
-        case .granted:
-            FeatureStatusSummary(title: "Thumbnails available", detail: "Window thumbnails can be captured locally.", kind: .active)
-        case .missing:
-            FeatureStatusSummary(title: "Icon fallback", detail: "Dock previews and the switcher can fall back to app icons.", kind: .optional)
-        case .unavailable:
-            FeatureStatusSummary(title: "Unavailable", detail: "Window thumbnail capture is unavailable on this Mac.", kind: .optional)
-        }
-    }
-
-    static func inputMonitoringSummary(_ state: PermissionState) -> FeatureStatusSummary {
-        switch state {
-        case .granted:
-            FeatureStatusSummary(title: "Granted", detail: "macOS listen-event access is granted.", kind: .active)
-        case .missing:
-            FeatureStatusSummary(title: "Optional", detail: "Three-Finger Tap runtime status is tracked separately.", kind: .optional)
-        case .unavailable:
-            FeatureStatusSummary(title: "Unavailable", detail: "macOS listen-event access is unavailable.", kind: .optional)
-        }
     }
 
     static func threeFingerTapStatus(

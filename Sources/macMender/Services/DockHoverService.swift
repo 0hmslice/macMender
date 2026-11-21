@@ -33,6 +33,8 @@ final class DockHoverService: ObservableObject {
     private(set) var currentTarget: DockHoverTarget?
 
     private var mouseMonitors = [Any]()
+    /// Pointer-movement monitors, installed only while the pointer is at the Dock.
+    private var moveMonitors = [Any]()
     private var workspaceObserver: NSObjectProtocol?
     private var dock: DockConnection?
     private var lastConnectionAttempt = Date.distantPast
@@ -54,14 +56,15 @@ final class DockHoverService: ObservableObject {
         edge = Self.edgeFromDockPreferences()
         connectToDock()
 
-        // Drags are watched too, so a file dragged onto a Dock icon can reach that app's windows.
-        let moveMask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged]
+        // Drags are always watched, so a file dragged onto a Dock icon can reach that app's
+        // windows. Plain pointer movement is far more frequent and is only followed while the
+        // pointer is at the Dock; see `followPointer()`.
         let downMask: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
         mouseMonitors = [
-            NSEvent.addGlobalMonitorForEvents(matching: moveMask) { [weak self] _ in
+            NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { [weak self] _ in
                 MainActor.assumeIsolated { self?.pointerMoved() }
             },
-            NSEvent.addLocalMonitorForEvents(matching: moveMask) { [weak self] event in
+            NSEvent.addLocalMonitorForEvents(matching: .leftMouseDragged) { [weak self] event in
                 MainActor.assumeIsolated { self?.pointerMoved() }
                 return event
             },
@@ -73,6 +76,10 @@ final class DockHoverService: ObservableObject {
                 return event
             }
         ].compactMap { $0 }
+        if dock?.observesSelection != true {
+            // Without the Dock's own notifications, movement is the only signal there is.
+            followPointer()
+        }
 
         workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
@@ -94,6 +101,7 @@ final class DockHoverService: ObservableObject {
         isRunning = false
         mouseMonitors.forEach(NSEvent.removeMonitor)
         mouseMonitors = []
+        stopFollowingPointer()
         if let workspaceObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
         }
@@ -120,6 +128,27 @@ final class DockHoverService: ObservableObject {
 
     // MARK: Triggers
 
+    /// Starts watching pointer movement. Watching it all the time would wake the app for every
+    /// movement anywhere on screen, so it begins when the Dock reports the pointer on an icon and
+    /// ends when the pointer leaves the Dock's edge of the screen.
+    private func followPointer() {
+        guard moveMonitors.isEmpty else { return }
+        moveMonitors = [
+            NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pointerMoved() }
+            },
+            NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { [weak self] event in
+                MainActor.assumeIsolated { self?.pointerMoved() }
+                return event
+            }
+        ].compactMap { $0 }
+    }
+
+    private func stopFollowingPointer() {
+        moveMonitors.forEach(NSEvent.removeMonitor)
+        moveMonitors = []
+    }
+
     private func pointerMoved() {
         guard isRunning else { return }
         guard isNearDockEdge(NSEvent.mouseLocation) else {
@@ -127,6 +156,9 @@ final class DockHoverService: ObservableObject {
             settleEvaluation = nil
             if currentTarget != nil {
                 setTarget(nil)
+            }
+            if dock?.observesSelection == true {
+                stopFollowingPointer()
             }
             return
         }
@@ -148,6 +180,7 @@ final class DockHoverService: ObservableObject {
 
     fileprivate func dockSelectionChanged() {
         guard isRunning else { return }
+        followPointer()
         evaluate()
     }
 
@@ -276,6 +309,8 @@ final class DockHoverService: ObservableObject {
         var processIdentifier: pid_t
         var list: AXUIElement
         var observer: AXObserver?
+        /// Whether the Dock tells us when the icon under the pointer changes.
+        var observesSelection: Bool
     }
 
     private func connectToDock() {
@@ -296,6 +331,7 @@ final class DockHoverService: ObservableObject {
         }
 
         var observer: AXObserver?
+        var observesSelection = false
         let callback: AXObserverCallback = { _, _, _, context in
             guard let context else { return }
             let service = Unmanaged<DockHoverService>.fromOpaque(context).takeUnretainedValue()
@@ -305,11 +341,15 @@ final class DockHoverService: ObservableObject {
             let context = Unmanaged.passUnretained(self).toOpaque()
             if AXObserverAddNotification(observer, list, kAXSelectedChildrenChangedNotification as CFString, context) == .success {
                 CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
+                observesSelection = true
             } else {
                 logger.debug("Dock selection observer unavailable; using pointer movement only")
             }
         }
-        dock = DockConnection(processIdentifier: pid, list: list, observer: observer)
+        dock = DockConnection(processIdentifier: pid, list: list, observer: observer, observesSelection: observesSelection)
+        if !observesSelection, isRunning {
+            followPointer()
+        }
         logger.debug("Connected to Dock pid=\(pid, privacy: .public)")
     }
 
@@ -320,6 +360,10 @@ final class DockHoverService: ObservableObject {
         dock = nil
         cachedItem = nil
         lastConnectionAttempt = .distantPast
+        if isRunning {
+            // Until the Dock is reachable again, movement is the only signal there is.
+            followPointer()
+        }
     }
 
     // MARK: Dock item details
